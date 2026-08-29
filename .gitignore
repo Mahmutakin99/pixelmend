@@ -1,0 +1,33 @@
+# --- Model ağırlıkları: asla commitlenmez ---
+*.onnx
+*.safetensors
+*.ckpt
+*.bin
+*.pt
+*.pth
+engine/models_cache/
+**/models/downloaded/
+
+# --- Python (engine/) ---
+__pycache__/
+*.pyc
+.venv/
+.python-version
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# --- Node / Electron (apps/desktop/) ---
+node_modules/
+apps/desktop/dist/
+apps/desktop/dist-electron/
+apps/desktop/release/
+.vite/
+
+# --- Genel ---
+.DS_Store
+*.log
+.env
+.env.local
