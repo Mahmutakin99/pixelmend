@@ -24,6 +24,7 @@ Son güncelleme: 2026-08-29
 - Model dosyası doğrulaması eksik dosya, byte boyutu uyuşmazlığı ve SHA-256 uyuşmazlığını ayrı domain hatalarıyla bildiriyor; hash büyük ağırlıkları belleğe almadan parçalı okunuyor.
 - `engine/tests/test_model_store.py` TDD ile yazıldı. Manifest ve dosya API'leri önce beklenen RED sonuçlarını verdi; refactor ve runtime tip sınırı kontrolü sonrası tam `uv run --offline pytest -v` sonucu: **21 passed**.
 - Gerçek LaMa manifesti, indirme, atomik etkinleştirme ve eşzamanlı edinim kilidi henüz eklenmedi; model ağırlığı indirilmedi ve yeni bağımlılık kurulmadı.
+- Kullanıcı tamamlanan ve doğrulanan işlerin commit edilmesine izin verdi. İlk proje commit'i: `4c5a1c3 feat: initialize PixelMend engine foundation`.
 
 ### 2026-08-29 — Faz 0 tamamlandı, Faz 1'in ilk TDD dilimi başladı
 

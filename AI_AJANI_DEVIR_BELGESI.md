@@ -19,11 +19,11 @@ Kritik durum: Kullanıcı 2026-08-29 tarihinde kodlama onayı verdi ve Faz 1 ba�
 
 - PixelMend Faz 1 hafif/headless motor aşamasındadır.
 - Python omurgası, `paths.py`, çevrimdışı model manifesti/dosya bütünlüğü çekirdeği ve toplam 21 test vardır; FastAPI, image I/O, adapter, kuyruk ve UI henüz uygulanmamıştır.
-- Git deposu başlatılmıştır fakat henüz commit yoktur.
+- Git deposunun ilk commit'i `4c5a1c3 feat: initialize PixelMend engine foundation` olarak oluşturulmuştur.
 - Belgeler ilk olarak M1/8 GB MacBook üzerinde hazırlanmış, geliştirme M4/16 GB Mac mini'ye taşınmıştır.
 - Faz 0 kurulumu tamamlanmış ve gerçek araç sürümleri `DURUM.md` içine yazılmıştır.
 - Repo üst lisansı Apache-2.0'dır; HEIF/HEIC v1 kapsamı dışındadır.
-- Commit ve silme için kullanıcı onayı gereklidir.
+- Tamamlanan ve doğrulanan anlamlı iş dilimleri commit edilebilir. Silme, push, tag ve release için ayrıca kullanıcı yetkisi gerekir.
 
 Güncel durum değişebileceği için kesin kaynak her zaman `DURUM.md`dir.
 
@@ -427,7 +427,7 @@ UI henüz kodlanmadı; fakat deneyimin temel davranışı kararlaştırıldı. G
 - İndirilen gerçek CI artefaktı üzerinde temiz profil smoke.
 - THIRD_PARTY_NOTICES, lisanslar, SBOM/provenance imkânı.
 
-Fazlar atlanmaz. Her faz tamamlandığında `DURUM.md`, test kanıtı ve gerekiyorsa ADR güncellenir. Commit yalnız kullanıcı onayıyla atılır.
+Fazlar atlanmaz. Her faz tamamlandığında `DURUM.md`, test kanıtı ve gerekiyorsa ADR güncellenir. Kullanıcı 2026-08-29 tarihinde tamamlanan ve doğrulanan iş dilimlerinin commit edilmesine izin verdi; bu izin push, tag veya release'i kapsamaz.
 
 ## 18. Açık kararlar
 
