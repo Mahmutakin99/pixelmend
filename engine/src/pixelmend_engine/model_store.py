@@ -110,6 +110,23 @@ class ModelManifest:
             )
 
 
+# Pin the repository revision as well as the file digest so moving branches
+# cannot silently replace the model or its license record.
+LAMA_ONNX_MANIFEST = ModelManifest(
+    model_id="lama",
+    repo_id="Carve/LaMa-ONNX",
+    revision="a3ee2fca54baebec351b8fa7786154ffa7555aa6",
+    filename="lama_fp32.onnx",
+    size_bytes=208_044_816,
+    sha256="1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6",
+    license_id="Apache-2.0",
+    license_url=(
+        "https://huggingface.co/Carve/LaMa-ONNX/blob/"
+        "a3ee2fca54baebec351b8fa7786154ffa7555aa6/README.md"
+    ),
+)
+
+
 def verify_model_file(path: Path, manifest: ModelManifest) -> Path:
     """Return a model path only after its size and SHA-256 match the manifest."""
     if not path.is_file():

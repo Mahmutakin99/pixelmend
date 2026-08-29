@@ -2,14 +2,14 @@
 
 GitHub'da açık kaynak paylaşılacağı ve uygulama binary dağıtacağı için yalnız repo üst lisansı yeterli değildir. Kullanılan kod, dönüştürülmüş graph, ağırlık, yardımcı model ve binary codec dosyaları ayrı ayrı izlenir.
 
-**Son kaynak doğrulaması:** 2026-08-28. Model ekosistemi hareketlidir; her ilgili faz başında repo/revision/dosya yeniden doğrulanır.
+**Son kaynak doğrulaması:** 2026-08-29. Model ekosistemi hareketlidir; her ilgili faz başında repo/revision/dosya yeniden doğrulanır.
 
 ## Model tablosu
 
 | Model/bileşen | İş | Lisans durumu | Kanonik kaynak / ürün durumu | Tier |
 |---|---|---|---|---|
 | OpenCV inpaint (Telea / Navier-Stokes) | Küçük alan inpainting | OpenCV Apache-2.0 | OpenCV yerleşik; dependency sürümü lock edilir | Hafif |
-| LaMa ONNX | Büyük alan inpainting | Model kartı Apache-2.0 | [`Carve/LaMa-ONNX/lama_fp32.onnx`](https://huggingface.co/Carve/LaMa-ONNX); opset 17, fixed 512×512, SHA-256 `1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6` | Orta |
+| LaMa ONNX | Büyük alan inpainting | Model kartı Apache-2.0 | [`Carve/LaMa-ONNX/lama_fp32.onnx`](https://huggingface.co/Carve/LaMa-ONNX/blob/a3ee2fca54baebec351b8fa7786154ffa7555aa6/lama_fp32.onnx); revision `a3ee2fca54baebec351b8fa7786154ffa7555aa6`, `208044816` byte, opset 17, fixed 512×512, SHA-256 `1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6` | Orta |
 | Klasik resize (Lanczos vb.) | Upscale baseline | Kullanılan Pillow/OpenCV lisansına bağlı | Model ağırlığı yok; Faz 3 baseline'ı | Hafif |
 | Real-ESRGAN | Model tabanlı upscale | Resmî kod repo BSD-3-Clause; seçilecek ONNX graph/ağırlık ayrıca manifestlenmeli | [`xinntao/Real-ESRGAN`](https://github.com/xinntao/Real-ESRGAN); kanonik ONNX artefakt/revision Faz 3 kapısı | Yüksek adayı |
 | SwinIR | Alternatif upscale | Resmî repo Apache-2.0; seçilecek ağırlık/export ayrıca doğrulanmalı | [`JingyunLiang/SwinIR`](https://github.com/JingyunLiang/SwinIR); v1 taahhüdü değil | Gelecek aday |

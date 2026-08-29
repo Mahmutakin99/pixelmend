@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+import pixelmend_engine.model_store as model_store
 from pixelmend_engine.model_store import (
     InvalidModelManifestError,
     ModelFileMissingError,
@@ -15,6 +16,22 @@ from pixelmend_engine.model_store import (
 VALID_SHA256 = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 VALID_REVISION = "1" * 40
 MISMATCHED_SHA256 = "a52d159f262b2c6ddb724a61840befc36eb30c88877a4030b65cbe86298449c9"
+
+
+def test_lama_manifest_matches_pinned_hugging_face_artifact() -> None:
+    assert model_store.LAMA_ONNX_MANIFEST == ModelManifest(
+        model_id="lama",
+        repo_id="Carve/LaMa-ONNX",
+        revision="a3ee2fca54baebec351b8fa7786154ffa7555aa6",
+        filename="lama_fp32.onnx",
+        size_bytes=208_044_816,
+        sha256="1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6",
+        license_id="Apache-2.0",
+        license_url=(
+            "https://huggingface.co/Carve/LaMa-ONNX/blob/"
+            "a3ee2fca54baebec351b8fa7786154ffa7555aa6/README.md"
+        ),
+    )
 
 
 def _manifest_values() -> dict[str, object]:

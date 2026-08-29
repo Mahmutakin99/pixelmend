@@ -6,7 +6,7 @@ Son güncelleme: 2026-08-29
 
 **Faz 1 — Hafif/headless motor** başladı. Faz 0 M4 kurulumu tamamlandı; kullanıcı 2026-08-29 tarihinde açık kodlama onayı verdi. Repo üst lisansı Apache-2.0 olarak seçildi, HEIF/HEIC v1 kapsamından çıkarıldı.
 
-İlk iki TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py` ve çevrimdışı manifest/dosya bütünlüğü çekirdeği eklendi. Henüz model indirilmedi; FastAPI, görsel I/O, adapter, kuyruk veya UI koduna başlanmadı.
+İlk üç TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py`, çevrimdışı manifest/dosya bütünlüğü çekirdeği ve kanonik LaMa manifesti eklendi. Henüz model indirilmedi; FastAPI, görsel I/O, adapter, kuyruk veya UI koduna başlanmadı.
 
 ## Ortam
 
@@ -17,6 +17,13 @@ Son güncelleme: 2026-08-29
 - Faz 0 araç doğrulaması tamamlandı. Sistem `python3` komutu macOS Python 3.9.6'yı gösterdiği için proje komutları `uv` üzerinden Python 3.12 kullanır.
 
 ## Yapılanlar (tarihli, en yeni üstte)
+
+### 2026-08-29 — Kanonik LaMa manifesti immutable revision ile kilitlendi
+
+- Hugging Face birincil kayıtlarından `Carve/LaMa-ONNX/lama_fp32.onnx` için revision `a3ee2fca54baebec351b8fa7786154ffa7555aa6`, `208044816` byte boyutu, Apache-2.0 model kartı ve mevcut SHA-256 doğrulandı.
+- `engine/src/pixelmend_engine/model_store.py` içine bu değerleri taşıyan değişmez `LAMA_ONNX_MANIFEST` eklendi; hareketli `main` kullanılmıyor.
+- `engine/tests/test_model_store.py` içindeki yeni test önce sabit bulunmadığı için beklenen RED sonucunu verdi; minimal uygulama sonrası ilgili dosyada **20 passed**, son tam `uv run --offline pytest -v` koşusunda **22 passed** sonucu alındı.
+- `docs/faz-1-hafif-motor.md` ile `docs/modeller-ve-lisanslar.md` doğrulanmış revision ve byte boyutuyla güncellendi. Model ağırlığı indirilmedi ve yeni bağımlılık kurulmadı.
 
 ### 2026-08-29 — Push çalışma anlaşması kaydedildi
 
@@ -69,8 +76,8 @@ Son güncelleme: 2026-08-29
 
 ## Sırada ne var
 
-1. Kanonik LaMa manifestinin immutable revision ve byte boyutunu birincil kaynaktan doğrula; ağırlığı indirmeden manifest sabitini test-first ekle.
-2. Aynı dosya sisteminde geçici adayın doğrulama sonrası atomik etkinleştirilmesini ve eşzamanlı edinim kilidini test-first uygula.
+1. Aynı dosya sisteminde geçici adayın doğrulama sonrası atomik etkinleştirilmesini ve eşzamanlı edinim kilidini test-first uygula.
+2. Kısmi/bozuk dosyanın inference session'ına açılmadığını ve eşzamanlı aynı-model ediniminin tek yazara düştüğünü testlerle doğrula.
 3. Her anlamlı adımda bu dosyayı doğrulama kanıtıyla güncelle; diğer açık kararları tabloda belirtilen son noktadan önce sonuçlandır.
 
 ## Açık kararlar / takıldığımız yerler
