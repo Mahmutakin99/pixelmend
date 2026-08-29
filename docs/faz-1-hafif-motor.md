@@ -10,16 +10,16 @@ Amaç: UI olmadan, CLI/curl ile güvenilir ve ölçülebilir nesne silme akış�
 
 ## Görevler
 
-- [ ] `engine/pyproject.toml`: Python 3.12 + `uv`; başlangıç bağımlılıkları `fastapi`, `uvicorn`, `python-multipart`, `onnxruntime`, `opencv-python-headless`, `numpy`, `pillow`, `psutil`, `platformdirs`, `huggingface_hub`, `pytest`, `httpx`.
+- [ ] `engine/pyproject.toml`: Python 3.12 + `uv`; başlangıç bağımlılıkları `fastapi`, `uvicorn`, `python-multipart`, `onnxruntime`, `opencv-python-headless`, `numpy`, `pillow`, `psutil`, `platformdirs`, `huggingface_hub`, `filelock`, `pytest`, `httpx`.
   - HEIF/HEIC v1 kapsamı dışındadır; decoder bağımlılığı eklenmez.
 - [x] `paths.py`: model deposunu tek yerden çözer.
   - Varsayılan: `platformdirs.user_cache_path("PixelMend", appauthor=False) / "models"`.
   - `PIXELMEND_MODELS_DIR` yalnız test, taşınabilir kurulum veya kullanıcının açıkça seçtiği özel konum için override'dır.
   - Electron ve renderer model dosyalarına doğrudan dokunmaz; model listeleme/boyut/silme sidecar API'sinden yapılır.
-- [ ] `model_store.py`: Faz 4'teki tam model yöneticisinden önce gereken asgari güvenli edinim çekirdeği.
+- [x] `model_store.py`: Faz 4'teki tam model yöneticisinden önce gereken asgari güvenli edinim çekirdeği.
   - [x] Genel manifest; model/repo kimliği, immutable revision, güvenli filename, beklenen byte boyutu, SHA-256 ve lisans kaydını doğrular. Çevrimdışı dosya doğrulayıcı eksik dosya, boyut ve hash hatalarını ayırır.
   - [x] Kanonik LaMa manifestini doğrulanmış immutable revision `a3ee2fca54baebec351b8fa7786154ffa7555aa6` ve `208044816` byte boyutuyla kilitle.
-  - [ ] İndirmeyi aynı dosya sistemindeki geçici dosyaya yap; boyut+hash doğrulanınca atomik etkinleştir. Kısmi/bozuk dosyayı inference session'ına açma ve eşzamanlı aynı-model edinimini kilitle.
+  - [x] İndirmeyi aynı dosya sistemindeki geçici dosyaya yap; boyut+hash doğrulanınca atomik etkinleştir. Kısmi/bozuk dosyayı inference session'ına açma ve eşzamanlı aynı-model edinimini kilitle.
   - Faz 3 Real-ESRGAN aynı çekirdeği kullanır. Progress/retry/resume, revision listesi, kullanıcıya dönük silme ve taşıma UX'i Faz 4'te bu katman genişletilerek eklenir.
 - [ ] `imageio.py`: tüm adapter'ların kullandığı merkezi görsel I/O katmanı.
   - Desteklenen v1 girişleri: JPEG, PNG, WebP, TIFF.

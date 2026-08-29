@@ -1,9 +1,15 @@
 """Define model manifests and verify sidecar-owned model files."""
 
 import hashlib
+import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from tempfile import TemporaryDirectory
+
+import huggingface_hub
+from filelock import FileLock
 
 _GIT_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -15,6 +21,14 @@ class ModelStoreError(Exception):
 
 class InvalidModelManifestError(ModelStoreError):
     """Raised when a manifest cannot identify one immutable model file."""
+
+
+class ModelDownloadError(ModelStoreError):
+    """Raised when a model transport fails before integrity verification."""
+
+    def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
+        super().__init__(f"model download failed: {model_id}")
 
 
 class ModelFileMissingError(ModelStoreError):
@@ -89,11 +103,16 @@ class ModelManifest:
                 "revision must be a lowercase 40-character Git commit"
             )
 
-        if (
-            PurePosixPath(self.filename).name != self.filename
-            or PureWindowsPath(self.filename).name != self.filename
-        ):
-            raise InvalidModelManifestError("filename must not contain path components")
+        for field_name in ("model_id", "filename"):
+            value = getattr(self, field_name)
+            if (
+                value in {".", ".."}
+                or PurePosixPath(value).name != value
+                or PureWindowsPath(value).name != value
+            ):
+                raise InvalidModelManifestError(
+                    f"{field_name} must not contain path components"
+                )
 
         if (
             isinstance(self.size_bytes, bool)
@@ -108,6 +127,9 @@ class ModelManifest:
             raise InvalidModelManifestError(
                 "sha256 must be a lowercase 64-character hexadecimal digest"
             )
+
+
+ModelDownloader = Callable[[ModelManifest, Path], None]
 
 
 # Pin the repository revision as well as the file digest so moving branches
@@ -125,6 +147,26 @@ LAMA_ONNX_MANIFEST = ModelManifest(
         "a3ee2fca54baebec351b8fa7786154ffa7555aa6/README.md"
     ),
 )
+
+
+def model_file_path(models_dir: Path, manifest: ModelManifest) -> Path:
+    """Return the sidecar-owned path for one immutable model revision."""
+    return models_dir / manifest.model_id / manifest.revision / manifest.filename
+
+
+def download_hugging_face_model(
+    manifest: ModelManifest,
+    destination: Path,
+) -> None:
+    """Download one pinned public model into its isolated staging directory."""
+    huggingface_hub.hf_hub_download(
+        repo_id=manifest.repo_id,
+        filename=manifest.filename,
+        repo_type="model",
+        revision=manifest.revision,
+        local_dir=destination.parent,
+        token=False,
+    )
 
 
 def verify_model_file(path: Path, manifest: ModelManifest) -> Path:
@@ -147,3 +189,40 @@ def verify_model_file(path: Path, manifest: ModelManifest) -> Path:
         raise ModelHashMismatchError(path, manifest.sha256, actual_sha256)
 
     return path
+
+
+def acquire_model(
+    models_dir: Path,
+    manifest: ModelManifest,
+    *,
+    downloader: ModelDownloader = download_hugging_face_model,
+) -> Path:
+    """Return a cached model or atomically activate one verified download."""
+    target = model_file_path(models_dir, manifest)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = target.with_name(f".{target.name}.lock")
+
+    with FileLock(lock_path):
+        try:
+            return verify_model_file(target, manifest)
+        except (
+            ModelFileMissingError,
+            ModelSizeMismatchError,
+            ModelHashMismatchError,
+        ):
+            pass
+
+        # Staging beside the target keeps os.replace on one filesystem.
+        with TemporaryDirectory(
+            dir=target.parent,
+            prefix=f".{target.name}.partial-",
+        ) as staging_dir:
+            candidate = Path(staging_dir) / manifest.filename
+            try:
+                downloader(manifest, candidate)
+            except Exception as error:
+                raise ModelDownloadError(manifest.model_id) from error
+            verify_model_file(candidate, manifest)
+            os.replace(candidate, target)
+
+        return target

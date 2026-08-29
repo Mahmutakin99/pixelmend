@@ -5,6 +5,8 @@ description = "Local image processing sidecar for PixelMend"
 requires-python = ">=3.12,<3.13"
 license = "Apache-2.0"
 dependencies = [
+    "filelock>=3.32,<4",
+    "huggingface-hub>=1.28,<2",
     "platformdirs>=4,<5",
 ]
 

@@ -6,7 +6,7 @@ Son güncelleme: 2026-08-29
 
 **Faz 1 — Hafif/headless motor** başladı. Faz 0 M4 kurulumu tamamlandı; kullanıcı 2026-08-29 tarihinde açık kodlama onayı verdi. Repo üst lisansı Apache-2.0 olarak seçildi, HEIF/HEIC v1 kapsamından çıkarıldı.
 
-İlk üç TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py`, çevrimdışı manifest/dosya bütünlüğü çekirdeği ve kanonik LaMa manifesti eklendi. Henüz model indirilmedi; FastAPI, görsel I/O, adapter, kuyruk veya UI koduna başlanmadı.
+İlk dört TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py`, manifest/dosya bütünlüğü, kanonik LaMa manifesti ve atomik model edinim çekirdeği eklendi. Henüz model indirilmedi; FastAPI, görsel I/O, adapter, kuyruk veya UI koduna başlanmadı.
 
 ## Ortam
 
@@ -17,6 +17,14 @@ Son güncelleme: 2026-08-29
 - Faz 0 araç doğrulaması tamamlandı. Sistem `python3` komutu macOS Python 3.9.6'yı gösterdiği için proje komutları `uv` üzerinden Python 3.12 kullanır.
 
 ## Yapılanlar (tarihli, en yeni üstte)
+
+### 2026-08-29 — Atomik model edinimi ve süreçler arası kilit eklendi
+
+- `engine/src/pixelmend_engine/model_store.py` artık modeli `model_id/revision/filename` altında çözüyor; Hugging Face'e yalnız immutable manifest koordinatlarıyla ve tokensız bağlanıyor.
+- İndirme hedefle aynı dosya sistemindeki izole staging klasörüne yapılıyor. Boyut ve SHA-256 doğrulamasından sonra `os.replace` ile etkinleşiyor; eksik/bozuk aday, taşıma hatası veya aktivasyon hatası staging'i temizliyor ve doğrulanmamış yol döndürmüyor.
+- Hedefe özel `FileLock`, eşzamanlı süreç/iş parçacıklarının aynı modeli paralel indirmesini engelliyor. Geçerli cache yeniden kullanılıyor; bozuk cache yalnız doğrulanmış adayla değiştiriliyor.
+- `engine/pyproject.toml` ve `engine/uv.lock` içine `huggingface-hub` 1.29.0 ile `filelock` 3.32.4 eklendi. Testlerde sahte downloader kullanıldı; gerçek LaMa ağırlığı indirilmedi.
+- `engine/tests/test_model_store.py` TDD ile genişletildi. Path traversal, sabit Hub koordinatları, cache, staging, boyut/hash, taşıma/aktivasyon hatası ve eşzamanlı edinim senaryolarının ilgili koşusu **36 passed**; son tam `uv run --offline pytest -v` sonucu **38 passed** ve `uv lock --check` başarılıdır.
 
 ### 2026-08-29 — Kanonik LaMa manifesti immutable revision ile kilitlendi
 
@@ -76,8 +84,8 @@ Son güncelleme: 2026-08-29
 
 ## Sırada ne var
 
-1. Aynı dosya sisteminde geçici adayın doğrulama sonrası atomik etkinleştirilmesini ve eşzamanlı edinim kilidini test-first uygula.
-2. Kısmi/bozuk dosyanın inference session'ına açılmadığını ve eşzamanlı aynı-model ediniminin tek yazara düştüğünü testlerle doğrula.
+1. `imageio.py` için EXIF orientation, renk yönetimli sRGB, alfa ve desteklenen JPEG/PNG/WebP/TIFF sözleşmesini test-first kur.
+2. Decode güvenlik limitleri ile CMYK, 16-bit/HDR ve çok-frame warning/hata sınırlarını kilitle.
 3. Her anlamlı adımda bu dosyayı doğrulama kanıtıyla güncelle; diğer açık kararları tabloda belirtilen son noktadan önce sonuçlandır.
 
 ## Açık kararlar / takıldığımız yerler
