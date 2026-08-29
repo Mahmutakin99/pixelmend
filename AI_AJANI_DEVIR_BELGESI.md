@@ -23,7 +23,7 @@ Kritik durum: Kullanıcı 2026-08-29 tarihinde kodlama onayı verdi ve Faz 1 ba�
 - Belgeler ilk olarak M1/8 GB MacBook üzerinde hazırlanmış, geliştirme M4/16 GB Mac mini'ye taşınmıştır.
 - Faz 0 kurulumu tamamlanmış ve gerçek araç sürümleri `DURUM.md` içine yazılmıştır.
 - Repo üst lisansı Apache-2.0'dır; HEIF/HEIC v1 kapsamı dışındadır.
-- Tamamlanan ve doğrulanan anlamlı iş dilimleri commit edilebilir. Silme, push, tag ve release için ayrıca kullanıcı yetkisi gerekir.
+- Tamamlanan ve doğrulanan anlamlı iş dilimleri commit edilebilir. Push, kullanıcı gün sonunda istediğinde veya zorlu bir görev doğrulanıp commit edildikten sonra yapılabilir. Silme, tag ve release için ayrıca kullanıcı yetkisi gerekir. Uzak depo henüz tanımlı değildir.
 
 Güncel durum değişebileceği için kesin kaynak her zaman `DURUM.md`dir.
 
@@ -427,7 +427,7 @@ UI henüz kodlanmadı; fakat deneyimin temel davranışı kararlaştırıldı. G
 - İndirilen gerçek CI artefaktı üzerinde temiz profil smoke.
 - THIRD_PARTY_NOTICES, lisanslar, SBOM/provenance imkânı.
 
-Fazlar atlanmaz. Her faz tamamlandığında `DURUM.md`, test kanıtı ve gerekiyorsa ADR güncellenir. Kullanıcı 2026-08-29 tarihinde tamamlanan ve doğrulanan iş dilimlerinin commit edilmesine izin verdi; bu izin push, tag veya release'i kapsamaz.
+Fazlar atlanmaz. Her faz tamamlandığında `DURUM.md`, test kanıtı ve gerekiyorsa ADR güncellenir. Kullanıcı 2026-08-29 tarihinde tamamlanan ve doğrulanan iş dilimlerinin commit edilmesine; gün sonunda açıkça istediğinde veya zorlu bir görev doğrulanıp commit edildikten sonra push atılmasına izin verdi. Tag ve release bu izne dahil değildir.
 
 ## 18. Açık kararlar
 
@@ -468,7 +468,7 @@ Fazlar atlanmaz. Her faz tamamlandığında `DURUM.md`, test kanıtı ve gerekiy
 - Fazları atlamamalı.
 - Kullanıcı açık kodlama izni vermeden Faz 0/1 uygulamasına başlamamalı.
 - `.DS_Store`, model cache, git geçmişi veya kullanıcı dosyalarını izinsiz silmemeli.
-- Kullanıcı izni olmadan commit/tag/release yapmamalı.
+- Tamamlanmamış veya doğrulanmamış işi commit/push etmemeli; tag/release için ayrıca açık kullanıcı izni almalı.
 
 ## 21. Kaynak belge haritası
 

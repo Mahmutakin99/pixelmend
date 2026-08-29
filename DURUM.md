@@ -18,6 +18,12 @@ Son güncelleme: 2026-08-29
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-08-29 — Push çalışma anlaşması kaydedildi
+
+- Kontrol öncesinde yerel `main` dalının son commit'i `45dea06 docs: record commit workflow authorization` idi; `git remote -v` çıktısı boş olduğundan henüz push atılmamıştır ve tanımlı uzak depo yoktur.
+- Kullanıcı, gün sonunda açıkça istediğinde veya zorlu bir görev doğrulanıp commit edildikten sonra push atılmasına izin verdi. Sıradan ara adımlar otomatik push edilmeyecek; tag ve release ayrıca açık izin gerektirmeye devam edecek.
+- Çalışma anlaşması `CLAUDE.md` ve `AI_AJANI_DEVIR_BELGESI.md` içine işlendi. Bu yalnız dokümantasyon değişikliğidir; kod/test davranışı değişmedi.
+
 ### 2026-08-29 — Model manifesti ve çevrimdışı bütünlük çekirdeği eklendi
 
 - `engine/src/pixelmend_engine/model_store.py` içine değişmez `ModelManifest` ve manifest doğrulaması eklendi. Hareketli revision, path bileşenli filename, boş kimlik/lisans alanı, pozitif olmayan boyut ve canonical olmayan SHA-256 reddediliyor.

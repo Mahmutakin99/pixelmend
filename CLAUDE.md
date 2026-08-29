@@ -22,6 +22,8 @@ Neden böyle seçildiğini `docs/karar-gunlugu.md`'de bul, tekrar sorgulama — 
 
 Bu proje birden fazla oturuma yayılıyor. **Her anlamlı iş biter bitmez** (kod + test + commit ile birlikte) `DURUM.md`'yi güncelle: ne yapıldı, hangi dosyalar, nasıl doğrulandı, sırada ne var. Kullanıcı bunu hatırlatmayabilir — hatırlatma beklemeden yap.
 
+Doğrulanmış anlamlı iş dilimleri commit edilebilir. Push, kullanıcı gün sonunda istediğinde veya zorlu bir görev doğrulanıp commit edildikten sonra yapılabilir; sıradan ara adımlar otomatik push edilmez. Tag ve release için ayrıca açık kullanıcı izni gerekir. Uzak depo tanımlı değilse push deneme; durumu kullanıcıya bildir.
+
 ## Kod kuralları
 
 - Her adapter/model modülü ortak arayüze uyar: `run(image, mask=None, **params) -> ndarray`. Yeni bir algoritma eklerken bu imzayı koru.
