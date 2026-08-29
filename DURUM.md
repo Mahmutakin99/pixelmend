@@ -6,7 +6,7 @@ Son güncelleme: 2026-08-29
 
 **Faz 1 — Hafif/headless motor** başladı. Faz 0 M4 kurulumu tamamlandı; kullanıcı 2026-08-29 tarihinde açık kodlama onayı verdi. Repo üst lisansı Apache-2.0 olarak seçildi, HEIF/HEIC v1 kapsamından çıkarıldı.
 
-İlk dört TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py`, manifest/dosya bütünlüğü, kanonik LaMa manifesti ve atomik model edinim çekirdeği eklendi. Henüz model indirilmedi; FastAPI, görsel I/O, adapter, kuyruk veya UI koduna başlanmadı.
+İlk beş TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py`, manifest/dosya bütünlüğü, kanonik LaMa manifesti, atomik model edinim çekirdeği ve merkezi görsel I/O eklendi. Henüz model indirilmedi; FastAPI, asset deposu/import API'si, adapter, kuyruk veya UI koduna başlanmadı.
 
 ## Ortam
 
@@ -17,6 +17,14 @@ Son güncelleme: 2026-08-29
 - Faz 0 araç doğrulaması tamamlandı. Sistem `python3` komutu macOS Python 3.9.6'yı gösterdiği için proje komutları `uv` üzerinden Python 3.12 kullanır.
 
 ## Yapılanlar (tarihli, en yeni üstte)
+
+### 2026-08-29 — Merkezi, renk yönetimli görsel I/O eklendi
+
+- `engine/src/pixelmend_engine/imageio.py`, JPEG/PNG/WebP/TIFF girdilerini orientation uygulanmış, C-contiguous sRGB `RGB uint8` varlığa dönüştürüyor; RGBA/LA/palet alfa kanalını ayrı tutuyor ve normalize preview PNG'de geri birleştiriyor.
+- Geçerli gömülü ICC profilleri LittleCMS ile gerçek piksel dönüşümünden geçiriliyor. Bozuk ICC, CMYK, 16-bit ve çok kareli kaynaklar makinece okunabilir warning üretiyor; ton eşleme politikası olmayan `I/F` HDR modları açıkça reddediliyor.
+- Seek edilebilir akış sınırı ile 256 MiB kaynak, 50 milyon piksel, 256 kare ve 4 MiB metadata limitleri eklendi. Pillow decompression-bomb uyarıları domain hatasına yükseltiliyor; GIF/BMP/HEIF ile bozuk veya truncated girdiler allowlist sınırında reddediliyor.
+- `encode_preview_png`, yalnız normalize sRGB ICC ve alfa taşıyor; kaynak EXIF/GPS/thumbnail verisini preview'e yeniden eklemiyor. Ham kaynak EXIF'i, Faz 2 metadata politikası kararlaştırılana kadar yalnız dahili provenance olarak tutuluyor.
+- `engine/pyproject.toml` ve `engine/uv.lock` içine NumPy 2.5.2 ile Pillow 12.3.0 eklendi. Programatik fixture kullanan `engine/tests/test_imageio.py` TDD ile orientation, ICC, alfa, derinlik, çok-kare, format ve güvenlik sınırlarını kapsıyor; ilgili koşu **27 passed**, son tam `uv run --offline pytest -q` koşusu **65 passed** sonucunu verdi ve `uv lock --check` başarılıdır.
 
 ### 2026-08-29 — Atomik model edinimi ve süreçler arası kilit eklendi
 
@@ -84,8 +92,8 @@ Son güncelleme: 2026-08-29
 
 ## Sırada ne var
 
-1. `imageio.py` için EXIF orientation, renk yönetimli sRGB, alfa ve desteklenen JPEG/PNG/WebP/TIFF sözleşmesini test-first kur.
-2. Decode güvenlik limitleri ile CMYK, 16-bit/HDR ve çok-frame warning/hata sınırlarını kilitle.
+1. Session-scoped asset deposunu ve `POST /assets` + normalize preview yaşam döngüsünü `imageio.py` üzerinde test-first kur.
+2. Opaque `asset_id`, boyut/warning yanıtı, aktif job referansı ve güvenli dispose/TTL sınırlarını kilitle.
 3. Her anlamlı adımda bu dosyayı doğrulama kanıtıyla güncelle; diğer açık kararları tabloda belirtilen son noktadan önce sonuçlandır.
 
 ## Açık kararlar / takıldığımız yerler

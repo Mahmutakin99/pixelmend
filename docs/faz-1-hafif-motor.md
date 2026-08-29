@@ -21,7 +21,7 @@ Amaç: UI olmadan, CLI/curl ile güvenilir ve ölçülebilir nesne silme akış�
   - [x] Kanonik LaMa manifestini doğrulanmış immutable revision `a3ee2fca54baebec351b8fa7786154ffa7555aa6` ve `208044816` byte boyutuyla kilitle.
   - [x] İndirmeyi aynı dosya sistemindeki geçici dosyaya yap; boyut+hash doğrulanınca atomik etkinleştir. Kısmi/bozuk dosyayı inference session'ına açma ve eşzamanlı aynı-model edinimini kilitle.
   - Faz 3 Real-ESRGAN aynı çekirdeği kullanır. Progress/retry/resume, revision listesi, kullanıcıya dönük silme ve taşıma UX'i Faz 4'te bu katman genişletilerek eklenir.
-- [ ] `imageio.py`: tüm adapter'ların kullandığı merkezi görsel I/O katmanı.
+- [x] `imageio.py`: tüm adapter'ların kullandığı merkezi görsel I/O katmanı.
   - Desteklenen v1 girişleri: JPEG, PNG, WebP, TIFF.
   - Decode güvenlik limitleri korunur; aşırı piksel/frame/metadata kaynak tüketimi hata olarak ele alınır.
   - EXIF orientation decode sırasında uygulanır ve orientation etiketi normalize edilir.
