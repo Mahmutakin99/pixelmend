@@ -18,6 +18,12 @@ Son güncelleme: 2026-08-29
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-09-14 — Hafif OpenCV inpainting adaptörleri eklendi
+
+- `engine/src/pixelmend_engine/models/opencv_inpaint.py`, ortak `run(image, mask=None, **params)` imzasıyla Telea ve Navier–Stokes algoritmalarını sunuyor. Girdi RGB `uint8`, maske aynı boyda tek kanallı `uint8` ve yalnız `0/255`; adapter resize veya maske tersleme yapmıyor.
+- `opencv-python-headless` ve `onnxruntime`, Faz 1 bağımlılık sözleşmesine göre lock'a eklendi. Bu adımda model ağırlığı indirilmedi veya cache'e alınmadı.
+- TDD kanıtı: adapter testleri başlangıçta eksik modülle RED verdi; ardından iki algoritmanın yalnız maskeli pikseli değiştirmesi ve yanlış maskeyi reddetmesi GREEN oldu. Tam koşu: `cd engine && uv lock --check && uv run python -m pytest -q` → **73 passed, 1 third-party TestClient deprecation warning**.
+
 ### 2026-09-14 — Ölçülebilir capabilities ve token korumalı sağlık uçları eklendi
 
 - `engine/src/pixelmend_engine/capabilities.py`, host toplam/kullanılabilir RAM, CPU sayısı ve ORT'nin kuruluysa bildirdiği execution provider listesini topluyor. Accelerator kimliği, budget ve headroom ölçülemiyorsa tahmin edilmiyor; `unknown`/`null` olarak kalıyor.
