@@ -18,6 +18,12 @@ Son güncelleme: 2026-08-29
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-09-14 — Ölçülebilir capabilities ve token korumalı sağlık uçları eklendi
+
+- `engine/src/pixelmend_engine/capabilities.py`, host toplam/kullanılabilir RAM, CPU sayısı ve ORT'nin kuruluysa bildirdiği execution provider listesini topluyor. Accelerator kimliği, budget ve headroom ölçülemiyorsa tahmin edilmiyor; `unknown`/`null` olarak kalıyor.
+- `GET /health` ve `GET /capabilities` sidecar'ın diğer üretim uçları gibi oturum token'ı istiyor. Yeni testler token yokken 401'i, doğrulanmış isteklerde sağlık yanıtını ve ölçülen capability şemasını kapsıyor.
+- TDD kanıtı: yeni capability testi önce eksik modülle RED verdi; implementation sonrası GREEN. Tam koşu: `cd engine && uv lock --check && uv run python -m pytest -q` → **70 passed, 1 third-party TestClient deprecation warning**.
+
 ### 2026-09-14 — Token korumalı session asset import sınırı eklendi
 
 - `engine/src/pixelmend_engine/assets.py`, normalize edilmiş `ImageAsset` değerini ve yalnız sRGB PNG önizlemesini işlem-içi, opaque UUID altında saklıyor. Asset kaynak dosya adı veya yolu hiçbir API tipine alınmıyor; aktif job referansı varken silme `AssetInUseError` ile reddediliyor.

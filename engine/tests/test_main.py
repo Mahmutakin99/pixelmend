@@ -49,3 +49,20 @@ def test_assets_api_requires_a_session_token_and_keeps_paths_private() -> None:
         f"/assets/{body['asset_id']}", headers={"X-PixelMend-Token": TOKEN}
     )
     assert deleted.status_code == 204
+
+
+def test_health_and_capabilities_are_token_protected() -> None:
+    """A browser that can probe health without a token can target the sidecar."""
+    from pixelmend_engine.main import create_app
+
+    client = TestClient(create_app(session_token=TOKEN))
+
+    assert client.get("/health").status_code == 401
+    health = client.get("/health", headers={"X-PixelMend-Token": TOKEN})
+    capabilities = client.get(
+        "/capabilities", headers={"X-PixelMend-Token": TOKEN}
+    )
+
+    assert health.json() == {"status": "ok"}
+    assert capabilities.status_code == 200
+    assert "host_ram_total_bytes" in capabilities.json()

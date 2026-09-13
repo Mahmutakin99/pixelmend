@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.5,<3",
     "pillow>=12.3,<13",
     "platformdirs>=4,<5",
+    "psutil>=7,<8",
     "python-multipart>=0.0.20,<1",
     "uvicorn>=0.34,<1",
 ]

@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile,
 
 from .assets import AssetError, AssetInUseError, AssetNotFoundError, AssetStore
 from .auth import require_session_token
+from .capabilities import collect_capabilities
 from .imageio import ImageIOError
 
 
@@ -14,6 +15,16 @@ def create_app(*, session_token: str) -> FastAPI:
     app = FastAPI(title="PixelMend Engine", docs_url=None, redoc_url=None)
     assets = AssetStore()
     token_dependency = require_session_token(session_token)
+
+    @app.get("/health")
+    def health(_: None = Depends(token_dependency)) -> dict[str, str]:
+        """Confirm the authenticated sidecar is ready to accept requests."""
+        return {"status": "ok"}
+
+    @app.get("/capabilities")
+    def capabilities(_: None = Depends(token_dependency)) -> dict[str, object]:
+        """Expose observed device facts without deriving unsupported budgets."""
+        return collect_capabilities().as_dict()
 
     @app.post("/assets", status_code=status.HTTP_201_CREATED)
     async def import_asset(
