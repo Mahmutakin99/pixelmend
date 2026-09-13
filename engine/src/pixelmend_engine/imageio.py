@@ -261,3 +261,24 @@ def encode_preview_png(asset: ImageAsset) -> bytes:
         icc_profile=asset.metadata.srgb_icc_profile,
     )
     return encoded.getvalue()
+
+
+def encode_export(asset: ImageAsset, image_format: str) -> bytes:
+    """Export normalized pixels, discarding source metadata and flattening JPEG."""
+    if image_format not in SUPPORTED_FORMATS:
+        raise UnsupportedImageFormatError('unsupported export format')
+    image = Image.fromarray(asset.rgb)
+    if asset.alpha is not None:
+        image.putalpha(Image.fromarray(asset.alpha))
+        if image_format == 'JPEG':
+            background = Image.new('RGB', image.size, 'white')
+            background.paste(image, mask=image.getchannel('A'))
+            image = background
+    options = {'icc_profile': asset.metadata.srgb_icc_profile}
+    if image_format == 'WEBP':
+        options.update(lossless=True, exact=True)
+    if image_format == 'JPEG':
+        options.update(quality=95, subsampling=0)
+    encoded = BytesIO()
+    image.save(encoded, format=image_format, **options)
+    return encoded.getvalue()

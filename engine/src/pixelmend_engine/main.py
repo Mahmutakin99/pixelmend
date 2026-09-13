@@ -1,20 +1,48 @@
 """Expose the loopback-only PixelMend sidecar HTTP boundary."""
 
 from io import BytesIO
+import re
+from contextlib import asynccontextmanager
+from starlette.concurrency import run_in_threadpool
 
 from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile, status
 
-from .assets import AssetError, AssetInUseError, AssetNotFoundError, AssetStore
+from .assets import AssetCapacityError, AssetInUseError, AssetNotFoundError, AssetStore
 from .auth import require_session_token
 from .capabilities import collect_capabilities
 from .imageio import ImageIOError
+from .imageio import MAX_SOURCE_BYTES
+from .jobs import JobQueue
+from .job_api import job_router
 
 
 def create_app(*, session_token: str) -> FastAPI:
     """Create a production sidecar app with its private session asset store."""
-    app = FastAPI(title="PixelMend Engine", docs_url=None, redoc_url=None)
     assets = AssetStore()
+    queue = JobQueue(assets)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            async with queue:
+                yield
+        finally:
+            assets.close()
+
+    app = FastAPI(title="PixelMend Engine", docs_url=None, redoc_url=None,
+                  openapi_url=None, lifespan=lifespan)
     token_dependency = require_session_token(session_token)
+    app.include_router(job_router(queue, assets, token_dependency))
+
+    @app.middleware('http')
+    async def validate_request_boundary(request, call_next):
+        """Reject browser origins and DNS rebinding before parsing any payload."""
+        host = request.headers.get('host', '')
+        if 'origin' in request.headers or not re.fullmatch(
+            r'(127\.0\.0\.1|localhost)(:[0-9]{1,5})?', host
+        ):
+            return Response(status_code=403)
+        return await call_next(request)
 
     @app.get("/health")
     def health(_: None = Depends(token_dependency)) -> dict[str, str]:
@@ -33,9 +61,16 @@ def create_app(*, session_token: str) -> FastAPI:
     ) -> dict[str, object]:
         """Normalize an uploaded image once without retaining its client filename."""
         try:
-            imported = assets.import_image(BytesIO(await image.read()))
+            raw = await image.read(MAX_SOURCE_BYTES + 1)
+            if len(raw) > MAX_SOURCE_BYTES:
+                raise HTTPException(413, 'image too large')
+            imported = await run_in_threadpool(assets.import_image, BytesIO(raw))
         except ImageIOError as error:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+        except AssetCapacityError:
+            raise HTTPException(507, 'asset capacity exceeded')
+        finally:
+            await image.close()
         return {
             "asset_id": imported.asset_id,
             "width": imported.width,

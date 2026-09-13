@@ -49,3 +49,31 @@ def test_delete_rejects_an_asset_while_a_job_reference_is_active() -> None:
     store.release_from_job(imported.asset_id)
     store.delete(imported.asset_id)
     assert not store.contains(imported.asset_id)
+
+
+def test_asset_budget_rejects_import_without_losing_existing_source():
+    from pixelmend_engine.assets import AssetStore, AssetCapacityError
+
+    store = AssetStore(max_assets=1)
+    first = store.import_image(_png_bytes())
+    with pytest.raises(AssetCapacityError):
+        store.import_image(_png_bytes())
+    assert store.contains(first.asset_id)
+    store.delete(first.asset_id)
+    assert store.import_image(_png_bytes()).width == 2
+
+
+def test_expiry_retains_pinned_source_and_close_releases_all():
+    from pixelmend_engine.assets import AssetStore
+
+    store = AssetStore(ttl_seconds=0)
+    first = store.import_image(_png_bytes())
+    store.acquire_for_job(first.asset_id)
+    store.expire()
+    assert store.contains(first.asset_id)
+    store.release_from_job(first.asset_id)
+    store.expire()
+    assert not store.contains(first.asset_id)
+    store.import_image(_png_bytes())
+    store.close()
+    assert store.used_bytes == 0

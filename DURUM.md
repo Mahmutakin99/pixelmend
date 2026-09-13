@@ -1,12 +1,12 @@
 # DURUM — PixelMend
 
-Son güncelleme: 2026-08-29
+Son güncelleme: 2026-09-14
 
 ## Şu an neredeyiz
 
 **Faz 1 — Hafif/headless motor** başladı. Faz 0 M4 kurulumu tamamlandı; kullanıcı 2026-08-29 tarihinde açık kodlama onayı verdi. Repo üst lisansı Apache-2.0 olarak seçildi, HEIF/HEIC v1 kapsamından çıkarıldı.
 
-İlk beş TDD diliminde Python proje omurgası, sidecar'ın model dizinini çözen `paths.py`, manifest/dosya bütünlüğü, kanonik LaMa manifesti, atomik model edinim çekirdeği ve merkezi görsel I/O eklendi. Henüz model indirilmedi; FastAPI, asset deposu/import API'si, adapter, kuyruk veya UI koduna başlanmadı.
+Python motorunda normalize image I/O, model bütünlüğü, token korumalı asset/health/capabilities API, sıralı job kuyruğu, SSE replay, iptal, sonuç export ve sonuçtan asset oluşturma mevcut. OpenCV, LaMa CPU ve Lanczos adaptörleri eklendi. LaMa sabit manifestle indirildi ve gerçek inference testi geçti. Masaüstü UI, tam model yönetimi ve yayın paketleri henüz tamamlanmadı; release candidate yok.
 
 ## Ortam
 
@@ -17,6 +17,15 @@ Son güncelleme: 2026-08-29
 - Faz 0 araç doğrulaması tamamlandı. Sistem `python3` komutu macOS Python 3.9.6'yı gösterdiği için proje komutları `uv` üzerinden Python 3.12 kullanır.
 
 ## Yapılanlar (tarihli, en yeni üstte)
+
+### 2026-09-14 — İş kuyruğu, export ve gerçek sidecar temel akışı
+
+- OpenAPI kapatıldı; Origin/Host sınırı ve bozuk token reddi test edildi. Dört export formatında kaynak EXIF temizliği, ICC, alfa ve JPEG beyaz zemin doğrulandı.
+- Tek native worker, sıralı işler, SSE sıra numaralı replay, idempotent iptal ve geç sonuç bastırma eklendi. Native çağrı dönene kadar asset referansı tutuluyor. Sonuçtan yeni asset akışı özgün kaynağı koruyor.
+- Asset sayısı/bellek bütçesi, eşzamanlı erişim kilidi ve idle expiry çekirdeği eklendi. Periyodik TTL sürücüsü ve disk tabanlı session depolama henüz bağlanmadı.
+- Loopback CLI gerçek alt süreçle başlatılıp token korumalı health ve SIGTERM kapanışı test edildi. Uvicorn kapanıştan sonra SIGTERM'i yeniden yükselttiğinden -15 beklenen çıkış biçimidir.
+- LaMa modeli manifest boyut/hash doğrulamasıyla OS cache'e indirildi; CPU session şekilleri gerçek dosyadan incelendi. Gerçek inference smoke testi maskesiz piksellerin birebir korunduğunu doğruladı (2 LaMa testi, 3.32 saniyelik pytest koşusu; benchmark değildir).
+- Tam koşu: `PIXELMEND_REAL_MODELS=1 engine/.venv/bin/python -m pytest engine/tests -q` → **88 passed, 1 TestClient deprecation warning**, 4.14 saniye. Tam RC doğrulaması ve performans raporları bekliyor.
 
 ### 2026-09-14 — Hafif OpenCV inpainting adaptörleri eklendi
 
