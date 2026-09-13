@@ -18,6 +18,13 @@ Son güncelleme: 2026-08-29
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-09-14 — Token korumalı session asset import sınırı eklendi
+
+- `engine/src/pixelmend_engine/assets.py`, normalize edilmiş `ImageAsset` değerini ve yalnız sRGB PNG önizlemesini işlem-içi, opaque UUID altında saklıyor. Asset kaynak dosya adı veya yolu hiçbir API tipine alınmıyor; aktif job referansı varken silme `AssetInUseError` ile reddediliyor.
+- `engine/src/pixelmend_engine/auth.py` sabit-zamanlı karşılaştırmalı, en az 256-bit token doğrulaması ekliyor. `engine/src/pixelmend_engine/main.py` bu doğrulamayı `POST /assets`, `GET /assets/{id}/preview` ve `DELETE /assets/{id}` uçlarına uyguluyor; açık CORS veya dokümantasyon ucu yayınlamıyor.
+- `engine/tests/test_assets.py` ve `engine/tests/test_main.py` önce eksik modül nedeniyle RED verdi; ardından opaque import/alpha preview, aktif referans koruması, 401 token reddi, dosya adı gizliliği ve PNG preview davranışı GREEN oldu.
+- Python ortamı, Pillow `_imaging` içe aktarımını `SIGKILL (137)` ile sonlandıran uv CPython 3.12.14 yerine proje kaydındaki CPython 3.12.13 ile yeniden kuruldu. Tam doğrulama: `cd engine && uv lock --check && uv run python -m pytest -q` → **68 passed, 1 third-party TestClient deprecation warning**.
+
 ### 2026-08-29 — Merkezi, renk yönetimli görsel I/O eklendi
 
 - `engine/src/pixelmend_engine/imageio.py`, JPEG/PNG/WebP/TIFF girdilerini orientation uygulanmış, C-contiguous sRGB `RGB uint8` varlığa dönüştürüyor; RGBA/LA/palet alfa kanalını ayrı tutuyor ve normalize preview PNG'de geri birleştiriyor.
