@@ -25,10 +25,10 @@ def lama_adapter():
     return LamaInpaint(get_models_dir())
 
 
-def process(image, mask, algorithm, scale):
+def process(image, mask, algorithm, scale, target_size=None):
     """Execute native inference in the queue's dedicated worker."""
     if algorithm == 'lanczos':
-        size = (image.width * scale, image.height * scale)
+        size = target_size or (image.width * scale, image.height * scale)
         rgb = np.asarray(Image.fromarray(image.rgb).resize(size, Image.Resampling.LANCZOS)).copy()
         alpha = None if image.alpha is None else np.asarray(
             Image.fromarray(image.alpha).resize(size, Image.Resampling.LANCZOS)).copy()
@@ -45,6 +45,7 @@ class Job:
     algorithms: list[str]
     mask: np.ndarray | None
     scale: int
+    target_size: tuple[int, int] | None = None
     status: str = 'queued'
     results: dict[str, ImageAsset] = field(default_factory=dict)
     events: list[dict] = field(default_factory=list)
@@ -91,7 +92,7 @@ class JobQueue:
         self.executor.shutdown(wait=True)
         self.jobs.clear()
 
-    def submit(self, asset_id, algorithms, mask=None, scale=1):
+    def submit(self, asset_id, algorithms, mask=None, scale=1, target_width=None, target_height=None):
         """Validate and pin the source before exposing a queued job."""
         if not self.accepting or len(self.jobs) >= self.max_jobs:
             raise ValueError('job capacity unavailable')
@@ -100,10 +101,19 @@ class JobQueue:
         if any(a not in {'opencv_telea', 'opencv_ns', 'lama', 'lanczos'} for a in algorithms):
             raise ValueError('algorithm unavailable')
         image = self.assets.get_image(asset_id)
+        target_size = None
         if 'lanczos' in algorithms:
-            if algorithms != ['lanczos'] or scale not in (2, 4):
-                raise ValueError('upscale requires a separate job at scale 2 or 4')
-            if image.width * image.height * scale * scale > 50_000_000:
+            if algorithms != ['lanczos']:
+                raise ValueError('upscale requires a separate job')
+            has_target = target_width is not None or target_height is not None
+            if has_target:
+                if not (isinstance(target_width, int) and isinstance(target_height, int) and target_width > 0 and target_height > 0):
+                    raise ValueError('target width and height must be positive integers')
+                target_size = (target_width, target_height)
+            elif scale not in (2, 4):
+                raise ValueError('upscale requires scale 2 or 4, or a target size')
+            output_pixels = target_width * target_height if target_size else image.width * image.height * scale * scale
+            if output_pixels > 50_000_000:
                 raise ValueError('output pixel limit exceeded')
         else:
             if scale != 1:
@@ -113,7 +123,7 @@ class JobQueue:
             if not np.all((mask == 0) | (mask == 255)) or not np.any(mask):
                 raise ValueError('mask must contain a binary selection')
         self.assets.acquire_for_job(asset_id)
-        job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale)
+        job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale, target_size)
         self.jobs[job.job_id] = job
         job.emit('queued', **job.snapshot())
         self.pending.put_nowait(job)
@@ -155,8 +165,8 @@ class JobQueue:
                     image = self.assets.get_image(job.asset_id)
                     for algorithm in job.algorithms:
                         started = monotonic()
-                        result = await asyncio.get_running_loop().run_in_executor(
-                            self.executor, self.processor, image, job.mask, algorithm, job.scale)
+                        args = (image, job.mask, algorithm, job.scale, job.target_size) if self.processor is process else (image, job.mask, algorithm, job.scale)
+                        result = await asyncio.get_running_loop().run_in_executor(self.executor, self.processor, *args)
                         if job.status == 'cancelling':
                             break
                         size = result.rgb.nbytes + (result.alpha.nbytes if result.alpha is not None else 0)

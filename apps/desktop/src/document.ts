@@ -25,9 +25,11 @@ export function addStroke(document: EditorDocument, target: 'paint' | 'selection
 export function applyResult(document: EditorDocument, photo: BlobRef, operation: 'remove' | 'upscale'): EditorDocument {
   if (!validBlob(photo)) throw new Error('project_invalid');
   const before = document.history.present;
-  const ratio = operation === 'upscale' ? photo.width / before.photo.width : 1;
-  if (operation === 'upscale' && (!Number.isFinite(ratio) || ratio !== 2 || photo.height !== before.photo.height * 2)) throw new Error('project_invalid');
-  const scale = (strokes: Stroke[]) => strokes.map(s => ({ ...structuredClone(s), size: s.size * ratio, points: s.points.map(p => ({ x: p.x * ratio, y: p.y * ratio })) }));
+  const ratioX = operation === 'upscale' ? photo.width / before.photo.width : 1;
+  const ratioY = operation === 'upscale' ? photo.height / before.photo.height : 1;
+  if (operation === 'upscale' && (!Number.isFinite(ratioX) || !Number.isFinite(ratioY) || ratioX <= 0 || ratioY <= 0)) throw new Error('project_invalid');
+  const brushRatio = Math.sqrt(ratioX * ratioY);
+  const scale = (strokes: Stroke[]) => strokes.map(s => ({ ...structuredClone(s), size: s.size * brushRatio, points: s.points.map(p => ({ x: p.x * ratioX, y: p.y * ratioY })) }));
   return commit(document, { photo, paint: scale(before.paint), selection: operation === 'remove' ? [] : scale(before.selection), label: operation });
 }
 export function undo(document: EditorDocument): EditorDocument {

@@ -33,7 +33,8 @@ def job_router(queue, assets, auth):
 
     @router.post('/jobs', status_code=201)
     async def submit(asset_id: str = Form(...), algorithms: str = Form(...),
-                     mask: UploadFile | None = File(None), scale: int = Form(1)):
+                     mask: UploadFile | None = File(None), scale: int = Form(1),
+                     target_width: int | None = Form(None), target_height: int | None = Form(None)):
         """Bound compressed mask input and decode against the canonical source size."""
         try:
             selected = json.loads(algorithms)
@@ -59,7 +60,7 @@ def job_router(queue, assets, auth):
                     return np.where(coverage >= 128, 255, 0).astype(np.uint8)
 
             canonical = await run_in_threadpool(decode) if mask else None
-            job = queue.submit(asset_id, selected, canonical, scale)
+            job = queue.submit(asset_id, selected, canonical, scale, target_width, target_height)
         except AssetNotFoundError:
             raise HTTPException(404, 'asset not found')
         except (ValueError, UnidentifiedImageError, OSError):

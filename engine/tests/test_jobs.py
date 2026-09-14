@@ -88,6 +88,25 @@ def test_lanczos_job_has_scaled_dimensions_and_rejects_mixed_tasks():
     asyncio.run(scenario())
 
 
+def test_lanczos_accepts_explicit_safe_output_dimensions():
+    from pixelmend_engine.jobs import JobQueue
+
+    async def scenario():
+        store = AssetStore()
+        asset_id = source(store)
+        async with JobQueue(store) as queue:
+            job = queue.submit(asset_id, ['lanczos'], target_width=15, target_height=12)
+            await queue.join()
+            assert job.status == 'completed'
+            image = next(iter(job.results.values()))
+            assert (image.width, image.height) == (15, 12)
+            with pytest.raises(ValueError):
+                queue.submit(asset_id, ['lanczos'], target_width=10000, target_height=6000)
+            with pytest.raises(ValueError):
+                queue.submit(asset_id, ['lanczos'], target_width=15)
+    asyncio.run(scenario())
+
+
 def test_missing_model_failure_is_explained_in_polling_snapshot():
     from pixelmend_engine.jobs import JobQueue
     from pixelmend_engine.model_store import ModelFileMissingError

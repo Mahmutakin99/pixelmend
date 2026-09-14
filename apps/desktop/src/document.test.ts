@@ -20,6 +20,11 @@ describe('immutable project history',()=>{
   expect(scaled.history.present.selection[0].size).toBe(16);
   expect(doc.history.present.paint[0].size).toBe(8);
  });
+ it('scales independently for a custom output size',()=>{
+  const doc=addStroke(createDocument(photo),'paint',stroke);
+  const resized=applyResult(doc,{...photo,width:150,height:120},'upscale');
+  expect(resized.history.present.paint[0]).toEqual({...stroke,size:12,points:[{x:15,y:30}]});
+ });
  it('drops only the redo branch on a new edit and reopens complete history',()=>{
   const a=addStroke(createDocument(photo),'paint',stroke);
   const b=addStroke(a,'paint',{...stroke,id:'second'});
