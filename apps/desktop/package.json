@@ -1,6 +1,6 @@
 {
   "name": "pixelmend",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "private": true,
   "main": "electron/main.cjs",
   "packageManager": "pnpm@12.4.1",
@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -27,7 +29,9 @@
     "vitest": "^3.0.0"
   },
   "build": {
-    "directories": {"output": "out"},
+    "directories": {
+      "output": "out"
+    },
     "appId": "local.pixelmend.desktop",
     "productName": "PixelMend",
     "files": [

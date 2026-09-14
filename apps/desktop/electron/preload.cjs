@@ -1,10 +1,14 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('pixelmend', {
   openImage: () => ipcRenderer.invoke('pixelmend:open-image'),
-  startJob: (payload) => ipcRenderer.invoke('pixelmend:start-job', payload),
-  job: (id) => ipcRenderer.invoke('pixelmend:job', id),
-  result: (jobId, resultId, format) => ipcRenderer.invoke('pixelmend:result', jobId, resultId, format),
-  save: (jobId, resultId, format) => ipcRenderer.invoke('pixelmend:save', jobId, resultId, format),
-  cancel: (id) => ipcRenderer.invoke('pixelmend:cancel', id),
-  onJob: (callback) => { const fn = (_event, value) => callback(value); ipcRenderer.on('pixelmend:job-event', fn); return () => ipcRenderer.removeListener('pixelmend:job-event', fn); }
+  startJob: payload => ipcRenderer.invoke('pixelmend:start-job', payload), job: id => ipcRenderer.invoke('pixelmend:job', id),
+  result: (jobId, resultId) => ipcRenderer.invoke('pixelmend:result', jobId, resultId), cancel: id => ipcRenderer.invoke('pixelmend:cancel', id),
+  continueResult: (jobId, resultId) => ipcRenderer.invoke('pixelmend:continue-result', jobId, resultId),
+  saveRendered: (base64, format) => ipcRenderer.invoke('pixelmend:save-rendered', base64, format),
+  saveImage: payload => ipcRenderer.invoke('pixelmend:save-image', payload),
+  settings: () => ipcRenderer.invoke('pixelmend:settings'), setSettings: value => ipcRenderer.invoke('pixelmend:set-settings', value),
+  saveProject: (value, saveAs) => ipcRenderer.invoke('pixelmend:save-project', value, saveAs), openProject: () => ipcRenderer.invoke('pixelmend:open-project'),
+  saveRecovery: value => ipcRenderer.invoke('pixelmend:save-recovery', value), recovery: () => ipcRenderer.invoke('pixelmend:recovery'), clearRecovery: () => ipcRenderer.invoke('pixelmend:clear-recovery'),
+  recent: () => ipcRenderer.invoke('pixelmend:recent'), importDropped: file => ipcRenderer.invoke('pixelmend:import-dropped', webUtils.getPathForFile(file)),
+  onAction: callback => { const fn = (_e, action) => callback(action); ipcRenderer.on('pixelmend:action', fn); return () => ipcRenderer.removeListener('pixelmend:action', fn); }
 });
