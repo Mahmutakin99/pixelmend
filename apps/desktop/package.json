@@ -1,0 +1,25 @@
+{
+  "name": "pixelmend",
+  "version": "1.0.0-rc.1",
+  "private": true,
+  "main": "electron/main.cjs",
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "start": "electron .",
+    "package": "corepack pnpm build && electron-builder --mac dmg zip --arm64"
+  },
+  "dependencies": {"react": "^19.0.0", "react-dom": "^19.0.0"},
+  "devDependencies": {
+    "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0",
+    "typescript": "^5.9.0", "vite": "^7.0.0", "vitest": "^3.0.0",
+    "electron": "^40.0.0", "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "local.pixelmend.desktop", "productName": "PixelMend",
+    "files": ["dist/**", "electron/**"],
+    "extraResources": [{"from": "../../engine/dist/pixelmend-engine", "to": "engine"}],
+    "mac": {"target": ["dmg", "zip"], "identity": null, "category": "public.app-category.photography"}
+  }
+}
