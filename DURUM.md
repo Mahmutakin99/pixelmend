@@ -182,3 +182,10 @@ Bu kayıt yalnız aşağıdaki akışların doğrulamasıdır; bütün 1.0 yayı
 - Güncel imzasız test uygulaması: `apps/desktop/out/mac-arm64/PixelMend.app`. Önceki `release/1.0.0-rc.1` DMG/ZIP güncellenmedi. Varsayılan Electron ikonu ve aynı sürüm numarası sürüyor; bu paket genel yayın değildir.
 - Paket komutu artık motoru da yeniden derliyor; Vite çıktısı ile Electron paket dizini ayrıldı, eski sidecar'ın yanlışlıkla paketlenmesi önlendi.
 - Sınırlar: Lanczos özgün kaynağı büyütür; sonuçtan devam eden düzenleme henüz yok. Kaydet düğmesi PNG içindir. Büyük görsel performansı, tam model yönetimi, SD/SDXL ve tüm manuel kabul senaryoları bu düzeltmeyle doğrulanmış sayılmaz.
+## 2026-09-14 — Silgi ve işlem düğmeleri düzeltmesi
+
+- Boya ve seçim silgileri artık tam alfa ile kaldırıyor; eski düşük opaklıklı silgi stroke'ları da yeniden çizimde aynı davranışı kullanıyor. Seçim verisi tam opak, yarı saydam görünüm yalnız CSS kaplamasında.
+- Renderer'ın `operation` alanı Electron'da LaMa/1× veya Lanczos/2× parametrelerine çevriliyor. Önceki köprü `algorithms` beklediğinden her iki düğme de hatalı istek gönderiyordu.
+- Başlatma, kuyruk, işleme, iptal bekleme, önizleme ve hata durumları görünür. Başlatma isteği beklenirken çift iş gönderimi engelleniyor; geri alma dahil belge değişiklikleri işlem sırasında kilitleniyor. İşleme kaynağı geçmişteki güncel fotoğraf kimliğinden alınıyor.
+- E2E sırasında çıkan `Tainted canvases may not be exported` kaydetme hatası, yalnız kayıtlı asset kimliğine izin veren yerel PNG aktarımıyla giderildi.
+- Doğrulama: TypeScript/Vite build, 7 Vitest testi ve gerçek `out/mac-arm64/PixelMend.app` üzerinde `e2e/editor.cjs` başarıyla tamamlandı (exit 0 ve PASS çıktısı). İki silgide pointerup sonrası sıfır alfa, seçimde geri alma, işlem kutusu, düğme kilidi, gerçek LaMa önizleme/vazgeç/uygula, PNG kaydı ve 96×64 → 192×128 büyütme doğrulandı. Kanıtlar `apps/desktop/test-results/current-fixes/` altında.

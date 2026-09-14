@@ -52,11 +52,22 @@ const assert = require('node:assert/strict');
     await page.mouse.move(point.x,point.y); await page.mouse.down();
     assert.equal(await alpha(),0,'erase visible before mouse up');
     await page.mouse.up();
+    assert.equal(await alpha(),0,'paint eraser stays erased after pointerup');
     await page.getByRole('button', {name:'Geri al',exact:true}).click();
     assert(await alpha() > 0);
     await page.getByRole('button', {name: 'Nesne Boyası', exact: true}).click();
     await page.mouse.move(point.x, point.y); await page.mouse.down(); await page.mouse.up();
+    const maskAlpha=()=>canvas.evaluate(c=>c.getContext('2d').getImageData(48,32,1,1).data[3]);
+    assert.equal(await maskAlpha(),255,'selection is opaque data under translucent display');
+    await page.getByRole('button',{name:'Seçimi Sil',exact:true}).click();
+    await page.mouse.move(point.x,point.y);await page.mouse.down();
+    assert.equal(await maskAlpha(),0,'selection eraser is fully opaque');
+    await page.mouse.up();assert.equal(await maskAlpha(),0,'selection stays erased after pointerup');
+    await page.getByRole('button',{name:'Geri al',exact:true}).click();
+    assert.equal(await maskAlpha(),255,'undo restores erased selection');
     await page.getByRole('button', {name: 'Nesneyi Sil', exact: true}).click();
+    await expect(page.getByRole('region',{name:'İşlem durumu'})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Nesneyi Sil',exact:true})).toBeDisabled();
     await expect(page.getByRole('button', {name: 'Uygula', exact: true})).toBeVisible({timeout: 120000});
     await page.getByRole('button', {name: 'Vazgeç', exact: true}).click();
     await expect(page.getByRole('status')).toContainText('Seçim korunuyor');
@@ -76,8 +87,9 @@ const assert = require('node:assert/strict');
     assert.deepEqual(errors, []);
     console.log('PASS: real Electron paint/paint eraser, undo/redo, remove preview/discard/apply, export and 2x upscale');
   } catch (error) {
+    console.error('Renderer errors:',errors);
     if (page) {
-      console.error('UI status:', await page.getByRole('status').textContent());
+      console.error('UI status:', await page.getByRole('status').textContent({timeout:2000}).catch(()=>'(renderer unavailable)'));
       await page.screenshot({path: path.join(artifacts, 'failure.png')});
     }
     throw error;
