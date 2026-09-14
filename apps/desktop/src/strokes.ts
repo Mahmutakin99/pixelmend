@@ -3,6 +3,8 @@ export type Stroke = { mode: 'paint' | 'erase'; radius: number; points: [number,
 export class StrokeHistory {
   private readonly entries: Stroke[] = [];
   private cursor = 0;
+  get canUndo() { return this.cursor > 0; }
+  get canRedo() { return this.cursor < this.entries.length; }
   get strokes() { return this.entries.slice(0, this.cursor); }
   visible(active?: Stroke) { return active ? [...this.strokes, active] : this.strokes; }
   add(stroke: Stroke) { this.entries.splice(this.cursor); this.entries.push(stroke); this.cursor++; }

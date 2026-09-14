@@ -8,18 +8,45 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "start": "electron .",
-    "package": "corepack pnpm build && electron-builder --mac dmg zip --arm64"
+    "test:e2e": "node e2e/editor.cjs",
+    "build:engine": "cd ../../engine && .venv/bin/python -m PyInstaller --clean --noconfirm pixelmend-engine.spec",
+    "package": "corepack pnpm build:engine && corepack pnpm build && electron-builder --mac dmg zip --arm64"
   },
-  "dependencies": {"react": "^19.0.0", "react-dom": "^19.0.0"},
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
   "devDependencies": {
-    "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.0", "vite": "^7.0.0", "vitest": "^3.0.0",
-    "electron": "^40.0.0", "electron-builder": "^26.0.0"
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.0.0"
   },
   "build": {
-    "appId": "local.pixelmend.desktop", "productName": "PixelMend",
-    "files": ["dist/**", "electron/**"],
-    "extraResources": [{"from": "../../engine/dist/pixelmend-engine", "to": "engine"}],
-    "mac": {"target": ["dmg", "zip"], "identity": null, "category": "public.app-category.photography"}
+    "directories": {"output": "out"},
+    "appId": "local.pixelmend.desktop",
+    "productName": "PixelMend",
+    "files": [
+      "dist/**",
+      "electron/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../../engine/dist/pixelmend-engine",
+        "to": "engine"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null,
+      "category": "public.app-category.photography"
+    }
   }
 }

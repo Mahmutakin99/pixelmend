@@ -169,3 +169,16 @@ Detaylı gerekçeler için bkz. `docs/karar-gunlugu.md`. Özet:
 10. v1 macOS hedefi yalnız Apple Silicon'dur.
 11. Repo üst lisansı Apache-2.0'dır; üçüncü parti bileşen lisanslarının yerine geçmez.
 12. HEIF/HEIC v1 kapsamı dışındadır; v1 girişleri JPEG, PNG, WebP ve TIFF'tir.
+## 2026-09-14 — Sil / Yinele / LaMa / Lanczos hata düzeltmesi
+
+Bu kayıt yalnız aşağıdaki akışların doğrulamasıdır; bütün 1.0 yayın planının tamamlandığı anlamına gelmez.
+
+- Gerçek Electron penceresinde eski hata yeniden üretildi: `invalid job or mask`. Canvas RGBA PNG gönderirken API gri tonlu maske bekliyordu. API artık RGBA/LA alfa kanalını ikili seçim maskesine dönüştürüyor; maske rengi işlemi etkilemiyor.
+- İş durumu artık kuyruk mesajının arkasında kalmıyor; sonuç boyutu ve güvenli motor hata mesajları gösteriliyor. Kaydetme sonuç kimliğini koruyor. Kaynak/maske ve sonuç ayrı görüntüleniyor; sonuç üzerinde yanlışlıkla özgün kaynağı işlemek önleniyor.
+- Yinele yalnız geri alınmış çizim varsa etkin. Canlı tek nokta boya/silgi, geri al/yinele gerçek canvas pikselleriyle kontrol edildi.
+- `PIXELMEND_REAL_MODELS=1 engine/.venv/bin/python -m pytest engine/tests -q`: 91 geçti (bir Starlette bağımlılık deprecation uyarısı). Vitest: 3 geçti. TypeScript/Vite build başarılı.
+- PyInstaller motoru yeniden üretildi; `electron-builder --mac dir --arm64` ile paket oluşturuldu. Gerçek paket üzerinde `e2e/editor.cjs`: açma, canlı boya/silgi, undo/redo, OpenCV, kurulu LaMa, Lanczos 96×64 → 192×128, gerçek PNG kaydı, LaMa iptali ve önceki sonuç korunması geçti. Yalnız native dosya seçicilerin seçimi otomatikleştiriliyor; motor/inference taklit edilmiyor.
+- Kanıt ekran görüntüleri: `apps/desktop/test-results/packaged/{opencv-result,lama-result,lanczos-result}.png` (yerel, git dışında). Lanczos ekranında sonuç ölçüsü ve Kaydet etkinliği incelendi.
+- Güncel imzasız test uygulaması: `apps/desktop/out/mac-arm64/PixelMend.app`. Önceki `release/1.0.0-rc.1` DMG/ZIP güncellenmedi. Varsayılan Electron ikonu ve aynı sürüm numarası sürüyor; bu paket genel yayın değildir.
+- Paket komutu artık motoru da yeniden derliyor; Vite çıktısı ile Electron paket dizini ayrıldı, eski sidecar'ın yanlışlıkla paketlenmesi önlendi.
+- Sınırlar: Lanczos özgün kaynağı büyütür; sonuçtan devam eden düzenleme henüz yok. Kaydet düğmesi PNG içindir. Büyük görsel performansı, tam model yönetimi, SD/SDXL ve tüm manuel kabul senaryoları bu düzeltmeyle doğrulanmış sayılmaz.

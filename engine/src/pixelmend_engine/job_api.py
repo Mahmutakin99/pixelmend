@@ -46,18 +46,24 @@ def job_router(queue, assets, auth):
 
             def decode():
                 with Image.open(BytesIO(raw), formats=['PNG']) as decoded:
-                    if decoded.size != (image.width, image.height) or decoded.mode not in {'1', 'L'}:
-                        raise ValueError('mask must be grayscale and match the source')
-                    # The renderer may use a user-selected overlay color; its
-                    # presence, not luminance, is the canonical binary mask.
-                    return np.where(np.asarray(decoded.convert('L')) > 0, 255, 0).astype(np.uint8)
+                    if decoded.size != (image.width, image.height):
+                        raise ValueError('mask dimensions must match the source')
+                    # Browser canvases export RGBA. Alpha denotes coverage even
+                    # for black strokes or erased pixels with residual RGB data.
+                    if decoded.mode in {'RGBA', 'LA'}:
+                        coverage = np.asarray(decoded.getchannel('A'))
+                    elif decoded.mode in {'1', 'L'}:
+                        coverage = np.asarray(decoded.convert('L'))
+                    else:
+                        raise ValueError('mask must be grayscale or have alpha')
+                    return np.where(coverage >= 128, 255, 0).astype(np.uint8)
 
             canonical = await run_in_threadpool(decode) if mask else None
             job = queue.submit(asset_id, selected, canonical, scale)
         except AssetNotFoundError:
             raise HTTPException(404, 'asset not found')
         except (ValueError, UnidentifiedImageError, OSError):
-            raise HTTPException(422, 'invalid job or mask')
+            raise HTTPException(422, 'Geçersiz veya boş maske. Görselde bir alan boyayıp tekrar deneyin.')
         finally:
             if mask:
                 await mask.close()

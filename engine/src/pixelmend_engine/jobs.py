@@ -13,6 +13,7 @@ from functools import lru_cache
 from .assets import AssetStore
 from .imageio import ImageAsset
 from .models.opencv_inpaint import OpenCVInpaint
+from .model_store import ModelFileMissingError, ModelStoreError
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
 
@@ -48,6 +49,7 @@ class Job:
     results: dict[str, ImageAsset] = field(default_factory=dict)
     events: list[dict] = field(default_factory=list)
     result_bytes: int = 0
+    error: dict | None = None
 
     def emit(self, event, **data):
         """Assign monotonic event ids for deterministic SSE replay."""
@@ -55,7 +57,10 @@ class Job:
 
     def snapshot(self):
         return {'job_id': self.job_id, 'status': self.status,
-                'result_ids': list(self.results), 'algorithms': self.algorithms}
+                'result_ids': list(self.results), 'algorithms': self.algorithms,
+                'error': self.error,
+                'result_details': [{'result_id': key, 'width': image.width, 'height': image.height}
+                                   for key, image in self.results.items()]}
 
 
 class JobQueue:
@@ -163,10 +168,18 @@ class JobQueue:
                         job.emit('result', result_id=result_id, algorithm=algorithm,
                                  seconds=monotonic() - started, width=result.width, height=result.height)
                 job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
-            except Exception:
+            except Exception as error:
                 job.status = 'cancelled' if job.status == 'cancelling' else 'failed'
                 if job.status == 'failed':
-                    job.emit('error', code='inference_failed')
+                    if isinstance(error, ModelFileMissingError):
+                        job.error = {'code': 'model_missing', 'message': 'LaMa modeli kurulu değil. Model kurulana kadar Sil veya Lanczos kullanabilirsiniz.'}
+                    elif isinstance(error, ModelStoreError):
+                        job.error = {'code': 'model_invalid', 'message': 'LaMa modelinin bütünlük doğrulaması başarısız. Model yeniden kurulmalı.'}
+                    elif isinstance(error, MemoryError):
+                        job.error = {'code': 'memory_limit', 'message': 'İşlem için yeterli bellek yok. Daha küçük bir görsel deneyin.'}
+                    else:
+                        job.error = {'code': 'inference_failed', 'message': 'Görüntü işleme başarısız oldu. Seçili algoritmayı ve görseli kontrol edip tekrar deneyin.'}
+                    job.emit('error', **job.error)
             finally:
                 job.mask = None
                 self.assets.release_from_job(job.asset_id)

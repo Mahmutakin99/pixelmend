@@ -86,3 +86,25 @@ def test_lanczos_job_has_scaled_dimensions_and_rejects_mixed_tasks():
             image = next(iter(job.results.values()))
             assert (image.width, image.height) == (18, 18)
     asyncio.run(scenario())
+
+
+def test_missing_model_failure_is_explained_in_polling_snapshot():
+    from pixelmend_engine.jobs import JobQueue
+    from pixelmend_engine.model_store import ModelFileMissingError
+    from pathlib import Path
+
+    def missing(*args):
+        raise ModelFileMissingError(Path('/private/not-for-renderer/model.onnx'))
+
+    async def scenario():
+        store = AssetStore()
+        asset_id = source(store)
+        async with JobQueue(store, processor=missing) as queue:
+            job = queue.submit(asset_id, ['lama'], np.full((9, 9), 255, np.uint8))
+            await queue.join()
+            state = job.snapshot()
+            assert state['status'] == 'failed'
+            assert state['error']['code'] == 'model_missing'
+            assert 'LaMa' in state['error']['message']
+            assert '/private' not in str(state)
+    asyncio.run(scenario())

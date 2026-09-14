@@ -31,3 +31,5 @@ apps/desktop/release/
 *.log
 .env
 .env.local
+apps/desktop/test-results/
+apps/desktop/out/
