@@ -4,6 +4,7 @@ export class StrokeHistory {
   private readonly entries: Stroke[] = [];
   private cursor = 0;
   get strokes() { return this.entries.slice(0, this.cursor); }
+  visible(active?: Stroke) { return active ? [...this.strokes, active] : this.strokes; }
   add(stroke: Stroke) { this.entries.splice(this.cursor); this.entries.push(stroke); this.cursor++; }
   undo() { if (this.cursor) this.cursor--; }
   redo() { if (this.cursor < this.entries.length) this.cursor++; }

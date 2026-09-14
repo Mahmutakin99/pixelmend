@@ -31,6 +31,13 @@ Python motorunda normalize image I/O, model bütünlüğü, token korumalı asse
 - Vite production çıktısı Electron `file:` URL bağlamında mutlak `/assets/...` yazarak JS bundle'ını filesystem kökünde arıyordu. Bu paketli uygulamada beyaz pencereye neden oldu.
 - `apps/desktop/vite.config.ts` ile `base: './'` seçildi; üretim index'i artık `./assets/...` yolunu kullanıyor. Yeni DMG/ZIP oluşturuldu ve `SHA256SUMS` yenilendi.
 
+### 2026-09-14 — Canlı maske geri bildirimi ve görünür işlem hataları
+
+- Fırça pointer-down/move sırasında aktif stroke'u anında overlay'e çiziyor; mask rengi seçilebilir. Silgi, aynı overlay'i pointer hareketiyle anında kaldırıyor.
+- Renkli overlay server tarafında varlık eşikleme ile canonical 0/255 maskeye dönüyor; renk seçimi inference maskesinin anlamını değiştirmiyor.
+- Açma, iş başlatma, durum sorgusu, iptal, sonuç okuma ve kaydetme artık başarısız HTTP yanıtlarını IPC üzerinden renderer'a hata olarak taşıyor. UI iş kuyruğu, iptal ve kaydetme başarısını veya hatasını canlı durum metniyle gösteriyor.
+- Doğrulama: Vitest **3 passed**, TypeScript/Vite production build geçti; job API ve kuyruk regresyonları **4 passed**.
+
 ### 2026-09-14 — İş kuyruğu, export ve gerçek sidecar temel akışı
 
 - OpenAPI kapatıldı; Origin/Host sınırı ve bozuk token reddi test edildi. Dört export formatında kaynak EXIF temizliği, ICC, alfa ve JPEG beyaz zemin doğrulandı.

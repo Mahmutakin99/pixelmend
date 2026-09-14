@@ -48,7 +48,9 @@ def job_router(queue, assets, auth):
                 with Image.open(BytesIO(raw), formats=['PNG']) as decoded:
                     if decoded.size != (image.width, image.height) or decoded.mode not in {'1', 'L'}:
                         raise ValueError('mask must be grayscale and match the source')
-                    return np.asarray(decoded.convert('L')).copy()
+                    # The renderer may use a user-selected overlay color; its
+                    # presence, not luminance, is the canonical binary mask.
+                    return np.where(np.asarray(decoded.convert('L')) > 0, 255, 0).astype(np.uint8)
 
             canonical = await run_in_threadpool(decode) if mask else None
             job = queue.submit(asset_id, selected, canonical, scale)
