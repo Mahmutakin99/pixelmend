@@ -44,6 +44,20 @@ const assert = require('node:assert/strict');
     assert(await alpha() > 0, 'paint visible before mouse up');
     await page.mouse.up();
     await expect(page.getByRole('button', {name:'Yinele',exact:true})).toBeDisabled();
+    // A long, angular translucent stroke must not change when it becomes history.
+    // This caught the prior mismatch: live segments used round caps, replay used a mitered path.
+    const zigzag = [
+      [rect.x + rect.width * .18, rect.y + rect.height * .22],
+      [rect.x + rect.width * .31, rect.y + rect.height * .57],
+      [rect.x + rect.width * .44, rect.y + rect.height * .19],
+      [rect.x + rect.width * .57, rect.y + rect.height * .55],
+    ];
+    await page.mouse.move(...zigzag[0]); await page.mouse.down();
+    for (const point of zigzag.slice(1)) await page.mouse.move(...point);
+    const liveStroke = await paintCanvas.evaluate(c => c.toDataURL());
+    await page.mouse.up();
+    await expect.poll(() => paintCanvas.evaluate(c => c.toDataURL())).toBe(liveStroke);
+    await page.getByRole('button', {name:'Geri al',exact:true}).click();
     await page.getByRole('button', {name:'Geri al',exact:true}).click();
     assert.equal(await alpha(),0);
     await page.getByRole('button', {name:'Yinele',exact:true}).click();
