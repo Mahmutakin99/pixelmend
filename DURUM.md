@@ -189,3 +189,10 @@ Bu kayıt yalnız aşağıdaki akışların doğrulamasıdır; bütün 1.0 yayı
 - Başlatma, kuyruk, işleme, iptal bekleme, önizleme ve hata durumları görünür. Başlatma isteği beklenirken çift iş gönderimi engelleniyor; geri alma dahil belge değişiklikleri işlem sırasında kilitleniyor. İşleme kaynağı geçmişteki güncel fotoğraf kimliğinden alınıyor.
 - E2E sırasında çıkan `Tainted canvases may not be exported` kaydetme hatası, yalnız kayıtlı asset kimliğine izin veren yerel PNG aktarımıyla giderildi.
 - Doğrulama: TypeScript/Vite build, 7 Vitest testi ve gerçek `out/mac-arm64/PixelMend.app` üzerinde `e2e/editor.cjs` başarıyla tamamlandı (exit 0 ve PASS çıktısı). İki silgide pointerup sonrası sıfır alfa, seçimde geri alma, işlem kutusu, düğme kilidi, gerçek LaMa önizleme/vazgeç/uygula, PNG kaydı ve 96×64 → 192×128 büyütme doğrulandı. Kanıtlar `apps/desktop/test-results/current-fixes/` altında.
+## Kurulum konumu ve eski çıktı temizliği — 2026-09-14
+
+Güncel uygulama `/Applications/PixelMend.app` konumuna taşındı ve buradan çalıştığı süreç listesinde doğrulandı. Spotlight sorgusu yalnız bu konumu döndürdü. Kullanıcı uygulamayı Spotlight'tan açıyor; sonraki güncellemeler de aynı kurulum konumuna uygulanmalı.
+
+Yeni paketleme çıktıları `apps/desktop/out.noindex/` altında üretilecek; geliştirme paketlerinin Spotlight'a ayrı uygulama olarak girmemesi amaçlanıyor. Test paketleri doğrulandıktan sonra Applications kopyası güncellenmeli; açık ve kaydedilmemiş çalışma varsa zorla kapatılmamalı.
+
+Kullanıcının isteğiyle eski `release/1.0.0-rc.1/` kurulum paketi ve manifestleri, `apps/desktop/test-results/`, `engine/build/`, `:memory:.ses` ve `apps/desktop/out/builder-debug.yml` Çöp Sepeti'ne taşındı. Eski sürüm dosyaları ayrıca Git geçmişinden geri alınabilir. Önceki kayıtlarda geçen yerel test ekran görüntüsü yolları artık mevcut değildir; test kodları korunmuştur.

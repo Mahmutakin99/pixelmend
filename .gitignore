@@ -33,3 +33,5 @@ apps/desktop/release/
 .env.local
 apps/desktop/test-results/
 apps/desktop/out/
+apps/desktop/out.noindex/
+:memory:.ses

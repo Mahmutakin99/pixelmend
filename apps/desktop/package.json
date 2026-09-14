@@ -30,7 +30,7 @@
   },
   "build": {
     "directories": {
-      "output": "out"
+      "output": "out.noindex"
     },
     "appId": "local.pixelmend.desktop",
     "productName": "PixelMend",
