@@ -8,6 +8,13 @@ Son güncelleme: 2026-09-14
 
 Python motorunda normalize image I/O, model bütünlüğü, token korumalı asset/health/capabilities API, sıralı job kuyruğu, SSE replay, iptal, sonuç export ve sonuçtan asset oluşturma mevcut. OpenCV, LaMa CPU ve Lanczos adaptörleri eklendi. LaMa sabit manifestle indirildi ve gerçek inference testi geçti. Masaüstü UI, tam model yönetimi ve yayın paketleri henüz tamamlanmadı; release candidate yok.
 
+## Sıradaki işler — 2026-09-14 kararı
+
+1. **AI kalite artırma:** İlk ürün adayı RealESRGAN_x4plus; model yöneticisi, immutable manifest/hash/lisans, Apple Silicon benchmarkı ve AI kalite UI'ı eklenecek. Ayrıntılı araştırma: `docs/ai-upscale-arastirmasi-2026-09-14.md`.
+2. **Windows/Linux:** Platforma özgü engine ikilileri, paketleme ve gerçek makine inference doğrulaması olmadan paylaşılabilir paket ilan edilmeyecek.
+3. **Üretken doldurma:** SD 1.5 / SDXL ayrı ağır runtime olarak, lisans onayı ve bellek/iptal korumalarıyla ele alınacak.
+4. **İleri kalite adayları:** SwinIR ve HAT benchmark sonrası; SUPIR ticari lisans ve ağır bağımlılıklar nedeniyle v1 dışındadır.
+
 ## Ortam
 
 - **Bu klasörün oluşturulduğu makine:** MacBook, Apple M1, 8GB RAM, macOS 26.6.1. Sadece planlama/doküman üretimi için kullanıldı, hiç kurulum yapılmadı.
