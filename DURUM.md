@@ -18,6 +18,14 @@ Python motorunda normalize image I/O, model bütünlüğü, token korumalı asse
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-09-14 — macOS arm64 imzasız release candidate paketlendi
+
+- Electron/React masaüstü kabuğu, sandbox renderer, contextBridge dar API, tokenlı sidecar main-client bağlantısı, pixelmend preview protokolü, mask stroke journal, undo/redo, OpenCV/LaMa/Lanczos başlatma ve save akışlarıyla eklendi.
+- PyInstaller `onedir` sidecar üretildi; pakete `extraResources` olarak alındı. Paketli app açılışında Electron main, sandbox renderer ve `Resources/engine/pixelmend-engine` sidecar süreçleri doğrulandı.
+- `release/1.0.0-rc.1/` altında DMG, ZIP, SHA256SUMS, SBOM ve build manifest bulunuyor. DMG/ZIP SHA-256 doğrulaması geçti; DMG başarıyla bağlandı/ayrıldı.
+- Doğrulama: engine tam koşusu **87 passed, 1 skipped, 1 third-party TestClient deprecation warning**; masaüstü Vitest **2 passed** ve production Vite build geçti. Gerçek LaMa smoke ayrıca önceki koşuda başarılıydı.
+- RC imzasızdır; Developer ID/notarization yoktur. Varsayılan Electron ikonu kullanılıyor; Real-ESRGAN ve SD/SDXL runtime/model yöneticisi bu RC'de uygulanmadı. `MANUAL_TEST.md` bu sınırları ve kabul adımlarını içerir.
+
 ### 2026-09-14 — İş kuyruğu, export ve gerçek sidecar temel akışı
 
 - OpenAPI kapatıldı; Origin/Host sınırı ve bozuk token reddi test edildi. Dört export formatında kaynak EXIF temizliği, ICC, alfa ve JPEG beyaz zemin doğrulandı.
