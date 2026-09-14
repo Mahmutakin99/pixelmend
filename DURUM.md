@@ -26,6 +26,11 @@ Python motorunda normalize image I/O, model bütünlüğü, token korumalı asse
 - Doğrulama: engine tam koşusu **87 passed, 1 skipped, 1 third-party TestClient deprecation warning**; masaüstü Vitest **2 passed** ve production Vite build geçti. Gerçek LaMa smoke ayrıca önceki koşuda başarılıydı.
 - RC imzasızdır; Developer ID/notarization yoktur. Varsayılan Electron ikonu kullanılıyor; Real-ESRGAN ve SD/SDXL runtime/model yöneticisi bu RC'de uygulanmadı. `MANUAL_TEST.md` bu sınırları ve kabul adımlarını içerir.
 
+### 2026-09-14 — Paketli renderer beyaz ekran düzeltmesi
+
+- Vite production çıktısı Electron `file:` URL bağlamında mutlak `/assets/...` yazarak JS bundle'ını filesystem kökünde arıyordu. Bu paketli uygulamada beyaz pencereye neden oldu.
+- `apps/desktop/vite.config.ts` ile `base: './'` seçildi; üretim index'i artık `./assets/...` yolunu kullanıyor. Yeni DMG/ZIP oluşturuldu ve `SHA256SUMS` yenilendi.
+
 ### 2026-09-14 — İş kuyruğu, export ve gerçek sidecar temel akışı
 
 - OpenAPI kapatıldı; Origin/Host sınırı ve bozuk token reddi test edildi. Dört export formatında kaynak EXIF temizliği, ICC, alfa ve JPEG beyaz zemin doğrulandı.
