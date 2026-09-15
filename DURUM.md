@@ -15,6 +15,8 @@ Python motorunda normalize image I/O, model bütünlüğü, token korumalı asse
 3. **Üretken doldurma:** SD 1.5 / SDXL ayrı ağır runtime olarak, lisans onayı ve bellek/iptal korumalarıyla ele alınacak.
 4. **İleri kalite adayları:** SwinIR ve HAT benchmark sonrası; SUPIR ticari lisans ve ağır bağımlılıklar nedeniyle v1 dışındadır.
 
+Kolaydan zora, bağımlılık kapılarıyla sıralanmış nihai ürün yol haritası: `docs/superpowers/specs/2026-09-15-product-completion-roadmap-design.md`.
+
 ## Ortam
 
 - **Bu klasörün oluşturulduğu makine:** MacBook, Apple M1, 8GB RAM, macOS 26.6.1. Sadece planlama/doküman üretimi için kullanıldı, hiç kurulum yapılmadı.
