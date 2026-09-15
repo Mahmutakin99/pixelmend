@@ -1,12 +1,763 @@
-import React,{useEffect,useRef,useState}from'react';import{createRoot}from'react-dom/client';import{addStroke,applyResult,createDocument,redo,undo,type EditorDocument,type Stroke}from'./document';import{drawStroke,drawStrokeSegment,drawStrokeStart}from'./brush';import{imagePoint}from'./strokes';import{fitDimension,targetIsValid,type Dimensions}from'./upscale';import'./style.css';
-declare global{interface Window{pixelmend:any}}type Tool='paint'|'paintErase'|'select'|'selectErase';type Active={pointerId:number;target:'paint'|'selection';stroke:Stroke};
-function App(){const[doc,setDoc]=useState<EditorDocument>();const[tool,setTool]=useState<Tool>('paint'),[size,setSize]=useState(28),[color,setColor]=useState('#ff3b6b'),[opacity,setOpacity]=useState(80),[notice,setNotice]=useState(''),[job,setJob]=useState<any>(),[preview,setPreview]=useState<any>(),[settings,setSettings]=useState<any>(),[showSettings,setShowSettings]=useState(false),[showSave,setShowSave]=useState(false),[showExit,setShowExit]=useState(false),[showExitSave,setShowExitSave]=useState(false),[ratioLocked,setRatioLocked]=useState(true),[target,setTarget]=useState<Dimensions>(),[zoom,setZoom]=useState(1),[zoomOrigin,setZoomOrigin]=useState('50% 50%');const paint=useRef<HTMLCanvasElement>(null),mask=useRef<HTMLCanvasElement>(null),active=useRef<Active|null>(null),locked=useRef(false);const p=doc?.history.present;const[starting,setStarting]=useState(false),busy=starting||!!job,busyRef=useRef(false);busyRef.current=busy||!!preview;
- const redraw=()=>{if(!p)return;for(const[k,c]of[['paint',paint.current],['selection',mask.current]]as const){if(!c)continue;c.width=p.photo.width;c.height=p.photo.height;const x=c.getContext('2d')!;for(const s of p[k])drawStroke(x,s,k)}};useEffect(redraw,[doc]);useEffect(()=>{if(p){setTarget({width:p.photo.width*2,height:p.photo.height*2});setZoom(1)}},[p?.photo.id]);useEffect(()=>{window.pixelmend.settings().then(setSettings);return window.pixelmend.onAction((a:string)=>{if(a==='undo'&&!busyRef.current)setDoc(d=>d&&undo(d));if(a==='redo'&&!busyRef.current)setDoc(d=>d&&redo(d));if(a==='settings')setShowSettings(true)})},[]);useEffect(()=>{if(settings){document.documentElement.dataset.theme=settings.theme;document.documentElement.lang=settings.language==='en'?'en':'tr'}},[settings]);
- const open=async()=>{const a=await window.pixelmend.openImage();if(a){setDoc(createDocument({id:a.asset_id,uri:a.preview,width:a.width,height:a.height}));setPreview(null);setNotice(`${a.width} × ${a.height} görsel açıldı`)}};
- const point=(e:React.PointerEvent)=>{if(!p||busy||preview)return;const q=imagePoint(e.clientX,e.clientY,e.currentTarget.getBoundingClientRect(),p.photo.width,p.photo.height);if(e.type==='pointerdown'){if(e.button!==0||active.current)return;const targetName=tool.startsWith('paint')?'paint':'selection',mode=tool.endsWith('Erase')?'erase':'draw',stroke:Stroke={id:crypto.randomUUID(),mode,points:[{x:q[0],y:q[1]}],color:targetName==='paint'?color:'#ff3b6b',opacity:mode==='erase'||targetName==='selection'?1:opacity/100,size,hardness:1};e.currentTarget.setPointerCapture(e.pointerId);active.current={pointerId:e.pointerId,target:targetName,stroke};drawStrokeStart((targetName==='paint'?paint:mask).current!.getContext('2d')!,stroke,targetName)}else if(e.type==='pointermove'&&active.current?.pointerId===e.pointerId){const a=active.current,z=a.stroke.points,from=z[z.length-1],to={x:q[0],y:q[1]};z.push(to);drawStrokeSegment((a.target==='paint'?paint:mask).current!.getContext('2d')!,a.stroke,a.target,from,to)}else if((e.type==='pointerup'||e.type==='pointercancel')&&active.current?.pointerId===e.pointerId){const a=active.current;active.current=null;if(e.type==='pointerup')setDoc(d=>d&&addStroke(d,a.target,a.stroke));else redraw()}};
- useEffect(()=>{if(!job)return;let live=true,timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{const s=await window.pixelmend.job(job.job_id);if(!live)return;if(s.status==='completed'){const next=await window.pixelmend.continueResult(job.job_id,s.result_ids[0]);if(!live)return;setPreview({uri:next.preview,asset:next,op:job.op});setJob(null);locked.current=false;setNotice(`Sonuç hazır: ${next.width} × ${next.height}. Uygula veya Vazgeç.`)}else if(['failed','cancelled'].includes(s.status)){setJob(null);locked.current=false;setNotice(s.status==='cancelled'?'İşlem iptal edildi.':`Hata: ${s.error?.message||'İşlem başarısız'}`)}else{setNotice(s.status==='cancelling'?'İptal bekleniyor…':s.status==='queued'?'İş sırada bekliyor…':job.op==='remove'?'Nesne siliniyor…':'Görsel büyütülüyor…');timer=setTimeout(poll,150)}}catch(error){if(live){setNotice(`Hata: ${String(error)}`);setJob(null);locked.current=false}}};void poll();return()=>{live=false;clearTimeout(timer)}},[job]);
- const process=async(op:'remove'|'upscale',d?:Dimensions)=>{if(!p||locked.current||preview)return;if(op==='remove'){const data=mask.current!.getContext('2d')!.getImageData(0,0,p.photo.width,p.photo.height).data;if(!data.some((v,i)=>i%4===3&&v>=128)){setNotice('Önce Nesne Seçici ile silinecek alanı işaretleyin.');return}}if(op==='upscale'&&(!d||!targetIsValid(d.width,d.height))){setNotice('Geçerli ve en fazla 50 MP bir çıktı ölçüsü girin.');return}locked.current=true;setStarting(true);setNotice(op==='remove'?'Nesne silme başlatılıyor…':'Büyütme başlatılıyor…');try{const created=await window.pixelmend.startJob({assetId:p.photo.id,operation:op,mask:op==='remove'?mask.current!.toDataURL('image/png').split(',')[1]:undefined,targetWidth:d?.width,targetHeight:d?.height});setJob({...created,op})}catch(error){locked.current=false;setNotice(`Hata: ${String(error)}`)}finally{setStarting(false)}};
- const apply=()=>{const a=preview.asset;setDoc(d=>d&&applyResult(d,{id:a.asset_id,uri:a.preview,width:a.width,height:a.height},preview.op));setPreview(null);setNotice(preview.op==='remove'?'Nesne silindi; yeni alan seçebilirsiniz.':`Görsel ${a.width} × ${a.height} boyutuna getirildi.`)};const saveImage=async()=>{try{const image=new Image();image.src=await window.pixelmend.exportSource(p!.photo.id);await image.decode();const c=document.createElement('canvas');c.width=p!.photo.width;c.height=p!.photo.height;const x=c.getContext('2d')!;x.drawImage(image,0,0);x.drawImage(paint.current!,0,0);const ok=await window.pixelmend.saveRendered(c.toDataURL('image/png').split(',')[1],'PNG');setNotice(ok?'PNG görsel kaydedildi.':'Kaydetme iptal edildi.');return ok}catch(error){setNotice(`Hata: ${String(error)}`);return false}};const leaveHome=()=>{active.current=null;setPreview(null);setShowExit(false);setShowExitSave(false);setDoc(undefined)};const saveProject=async()=>{const ok=await window.pixelmend.saveProject(doc,false);setNotice(ok?'Proje kaydedildi.':'Kaydetme iptal edildi.');return ok};const requestHome=()=>{if(doc!.history.past.length||active.current)setShowExit(true);else leaveHome()};const updateTarget=(field:'width'|'height',raw:string)=>{if(!p)return;const n=Number(raw);if(!Number.isInteger(n)||n<1)return;setTarget(ratioLocked?fitDimension(p.photo,field,n):{...target!,[field]:n})};const wheel=(e:React.WheelEvent)=>{if(!(e.ctrlKey||e.metaKey))return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setZoomOrigin(`${(e.clientX-r.left)*100/r.width}% ${(e.clientY-r.top)*100/r.height}%`);setZoom(v=>Math.max(.25,Math.min(8,v*(e.deltaY<0?1.12:1/1.12))))};
- if(!doc)return <main className="home"><h1>PixelMend</h1><p>Fotoğrafları yerelde düzenleyin.</p><button onClick={open}>Görsel Aç</button><button onClick={async()=>{const d=await window.pixelmend.openProject();if(d)setDoc(d)}}>Proje Aç</button><button onClick={()=>setShowSettings(true)}>Ayarlar</button>{showSettings&&<Settings value={settings} close={()=>setShowSettings(false)} set={setSettings}/>}</main>;const valid=!!target&&targetIsValid(target.width,target.height),mp=target?target.width*target.height/1e6:0;
- return <main><header><button disabled={busy||!!preview} onClick={requestHome}>Başlangıç</button><h1>PixelMend</h1><button onClick={()=>setDoc(d=>d&&undo(d))} disabled={busy||!!preview||!doc.history.past.length}>Geri al</button><button onClick={()=>setDoc(d=>d&&redo(d))} disabled={busy||!!preview||!doc.history.future.length}>Yinele</button><div className="save-menu"><button disabled={busy||!!preview} aria-expanded={showSave} onClick={()=>setShowSave(v=>!v)}>Kaydet</button>{showSave&&<div className="save-options"><button onClick={async()=>{setShowSave(false);await saveImage()}}>Görsel olarak kaydet (PNG)</button><button onClick={async()=>{setShowSave(false);await saveProject()}}>Projeyi kaydet (.pixelmend)</button></div>}</div></header><section className="workspace"><aside><section className="tool-group"><h2>Çizim</h2><p>Görselin üzerine renk ekleyin.</p><button aria-pressed={tool==='paint'} onClick={()=>setTool('paint')}>Fırça</button><button aria-pressed={tool==='paintErase'} onClick={()=>setTool('paintErase')}>Silgi</button><label>Renk <input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label><label>Opaklık <span className="value-input"><input type="range" min="1" max="100" value={opacity} onChange={e=>setOpacity(+e.target.value)}/><input aria-label="Opaklık yüzdesi" type="number" min="1" max="100" value={opacity} onChange={e=>setOpacity(Math.max(1,Math.min(100,+e.target.value||1)))}/><span>%</span></span></label><label>Fırça boyutu <span className="value-input"><input type="range" min="2" max="160" value={size} onChange={e=>setSize(+e.target.value)}/><input aria-label="Fırça boyutu piksel" type="number" min="2" max="160" value={size} onChange={e=>setSize(Math.max(2,Math.min(160,+e.target.value||2)))}/><span>px</span></span></label></section><section className="tool-group"><h2>Nesne Silgisi</h2><p>Silinecek alanı işaretleyin.</p><button aria-pressed={tool==='select'} onClick={()=>setTool('select')}>Nesne Seçici</button><button aria-pressed={tool==='selectErase'} onClick={()=>setTool('selectErase')}>Seçimi Sil</button><button disabled={busy||!!preview} onClick={()=>process('remove')}>Nesneyi Sil</button></section><section className="tool-group"><h2>Büyütme</h2><p>Lanczos ile hedef piksel ölçüsüne getirin.</p><div className="quick-actions"><button disabled={busy||!!preview} onClick={()=>{const d={width:p!.photo.width*2,height:p!.photo.height*2};setTarget(d);void process('upscale',d)}}>2×</button><button disabled={busy||!!preview} onClick={()=>{const d={width:p!.photo.width*4,height:p!.photo.height*4};setTarget(d);void process('upscale',d)}}>4×</button></div><label>Genişlik <input aria-label="Hedef genişlik" type="number" min="1" value={target?.width??''} onChange={e=>updateTarget('width',e.target.value)}/></label><label>Yükseklik <input aria-label="Hedef yükseklik" type="number" min="1" value={target?.height??''} onChange={e=>updateTarget('height',e.target.value)}/></label><label className="lock"><input type="checkbox" checked={ratioLocked} onChange={e=>setRatioLocked(e.target.checked)}/> Oranı koru</label><p className={valid?'hint':'hint error'}>{valid?`${mp.toFixed(1)} MP çıktı`:'En fazla 50 MP ve pozitif tam sayılar girin.'}</p><button disabled={busy||!!preview||!valid} onClick={()=>process('upscale',target)}>Özel ölçüyle büyüt</button></section><p className="status" role="status">{notice}</p></aside><article onWheel={wheel}><div className="canvas zoomable" style={{transform:`scale(${zoom})`,transformOrigin:zoomOrigin}}><img src={preview?.uri||p!.photo.uri} alt="Düzenlenen görsel"/><canvas style={{visibility:preview?'hidden':'visible'}} className="paint" ref={paint}/><canvas style={{visibility:preview?'hidden':'visible'}} className="mask" ref={mask} onPointerDown={point} onPointerMove={point} onPointerUp={point} onPointerCancel={point}/></div>{busy&&<div className="processing" role="region" aria-label="İşlem durumu"><progress aria-label="İşlem sürüyor"/><strong>{notice}</strong>{job&&<button onClick={async()=>{try{setNotice('İptal isteniyor…');await window.pixelmend.cancel(job.job_id)}catch(error){setNotice(`Hata: ${String(error)}`)}}}>İptal</button>}</div>}{preview&&<div className="preview"><strong>İşlem önizlemesi</strong><button onClick={apply}>Uygula</button><button onClick={()=>{setPreview(null);setNotice('Önizleme vazgeçildi. Seçim korunuyor.')}}>Vazgeç</button></div>}</article></section>{showExit&&<Exit close={()=>setShowExit(false)} discard={leaveHome} save={()=>{setShowExit(false);setShowExitSave(true)}}/>}{showExitSave&&<SaveExit close={()=>setShowExitSave(false)} image={saveImage} project={saveProject} leave={leaveHome}/>} {showSettings&&<Settings value={settings} close={()=>setShowSettings(false)} set={setSettings}/>}</main>}
-function Exit({close,discard,save}:{close:()=>void;discard:()=>void;save:()=>void}){return <div className="modal" role="dialog"><h2>Değişiklikler kaydedilsin mi?</h2><p>Çizimler ve yapılan işlemler kaydedilmeden ana ekrana dönülecek.</p><div className="modal-actions"><button onClick={close}>Vazgeç</button><button onClick={discard}>Kaydetmeden çık</button><button onClick={save}>Kaydet</button></div></div>}function SaveExit({close,image,project,leave}:{close:()=>void;image:()=>Promise<boolean>;project:()=>Promise<boolean>;leave:()=>void}){return <div className="modal" role="dialog"><h2>Nasıl kaydetmek istersiniz?</h2><p>Görsel PNG olarak dışa aktarılır; proje düzenlemeye devam etmek için saklanır.</p><div className="modal-actions"><button onClick={close}>Vazgeç</button><button onClick={async()=>{if(await image())leave()}}>PNG olarak kaydet</button><button onClick={async()=>{if(await project())leave()}}>Projeyi kaydet</button></div></div>}function Settings({value,close,set}:{value:any;close:()=>void;set:(v:any)=>void}){const v=value||{language:'tr',theme:'system'};return <div className="modal" role="dialog" aria-label="Ayarlar"><h2>Ayarlar</h2><label>Dil <select value={v.language} onChange={async e=>{const x={...v,language:e.target.value};await window.pixelmend.setSettings(x);set(x)}}><option value="tr">Türkçe</option><option value="en">English</option></select></label><label>Tema <select value={v.theme} onChange={async e=>{const x={...v,theme:e.target.value};await window.pixelmend.setSettings(x);set(x)}}><option value="system">Sistem</option><option value="dark">Koyu</option><option value="light">Açık</option></select></label><button onClick={close}>Kapat</button></div>}createRoot(document.getElementById('root')!).render(<App/>);
+import React, { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  addStroke,
+  applyResult,
+  createDocument,
+  redo,
+  undo,
+  type EditorDocument,
+  type Stroke,
+} from "./document";
+import { drawStroke, drawStrokeSegment, drawStrokeStart } from "./brush";
+import { imagePoint } from "./strokes";
+import { fitDimension, targetIsValid, type Dimensions } from "./upscale";
+import { Settings as PerformanceSettings } from "./Settings";
+import { useModels } from "./useModels";
+import "./bridge";
+import "./style.css";
+type Tool = "paint" | "paintErase" | "select" | "selectErase";
+type Active = {
+  pointerId: number;
+  target: "paint" | "selection";
+  stroke: Stroke;
+};
+function App() {
+  const [doc, setDoc] = useState<EditorDocument>();
+  const [tool, setTool] = useState<Tool>("paint"),
+    [size, setSize] = useState(28),
+    [color, setColor] = useState("#ff3b6b"),
+    [opacity, setOpacity] = useState(80),
+    [notice, setNotice] = useState(""),
+    [job, setJob] = useState<any>(),
+    [preview, setPreview] = useState<any>(),
+    [settings, setSettings] = useState<any>(),
+    [showSettings, setShowSettings] = useState(false),
+    [showSave, setShowSave] = useState(false),
+    [showExit, setShowExit] = useState(false),
+    [showExitSave, setShowExitSave] = useState(false),
+    [ratioLocked, setRatioLocked] = useState(true),
+    [target, setTarget] = useState<Dimensions>(),
+    [zoom, setZoom] = useState(1),
+    [zoomOrigin, setZoomOrigin] = useState("50% 50%"),
+    [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos");
+  const paint = useRef<HTMLCanvasElement>(null),
+    mask = useRef<HTMLCanvasElement>(null),
+    active = useRef<Active | null>(null),
+    locked = useRef(false);
+  const p = doc?.history.present;
+  const { models, capabilities, error: modelError, refresh } = useModels();
+  const aiReady = models.some(
+    (m) =>
+      m.id === "realesrgan-x4plus" &&
+      m.state === "ready" &&
+      m.probe?.status === "passed",
+  );
+  const outputLimit = capabilities?.policy?.max_output_pixels ?? 200_000_000;
+  const [starting, setStarting] = useState(false),
+    busy = starting || !!job,
+    busyRef = useRef(false);
+  busyRef.current = busy || !!preview;
+  useEffect(() => {
+    if (aiReady) setUpscaleMethod("ai");
+    else if (upscaleMethod === "ai") setUpscaleMethod("lanczos");
+  }, [aiReady]);
+  const redraw = () => {
+    if (!p) return;
+    for (const [k, c] of [
+      ["paint", paint.current],
+      ["selection", mask.current],
+    ] as const) {
+      if (!c) continue;
+      c.width = p.photo.width;
+      c.height = p.photo.height;
+      const x = c.getContext("2d")!;
+      for (const s of p[k]) drawStroke(x, s, k);
+    }
+  };
+  useEffect(redraw, [doc]);
+  useEffect(() => {
+    if (p) {
+      setTarget({ width: p.photo.width * 2, height: p.photo.height * 2 });
+      setZoom(1);
+    }
+  }, [p?.photo.id]);
+  useEffect(() => {
+    window.pixelmend.settings().then(setSettings);
+    return window.pixelmend.onAction((a: string) => {
+      if (a === "undo" && !busyRef.current) setDoc((d) => d && undo(d));
+      if (a === "redo" && !busyRef.current) setDoc((d) => d && redo(d));
+      if (a === "settings") setShowSettings(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (settings) {
+      document.documentElement.dataset.theme = settings.theme;
+      document.documentElement.lang = settings.language === "en" ? "en" : "tr";
+    }
+  }, [settings]);
+  const open = async () => {
+    const a = await window.pixelmend.openImage();
+    if (a) {
+      setDoc(
+        createDocument({
+          id: a.asset_id,
+          uri: a.preview,
+          width: a.width,
+          height: a.height,
+        }),
+      );
+      setPreview(null);
+      setNotice(`${a.width} × ${a.height} görsel açıldı`);
+    }
+  };
+  const point = (e: React.PointerEvent) => {
+    if (!p || busy || preview) return;
+    const q = imagePoint(
+      e.clientX,
+      e.clientY,
+      e.currentTarget.getBoundingClientRect(),
+      p.photo.width,
+      p.photo.height,
+    );
+    if (e.type === "pointerdown") {
+      if (e.button !== 0 || active.current) return;
+      const targetName = tool.startsWith("paint") ? "paint" : "selection",
+        mode = tool.endsWith("Erase") ? "erase" : "draw",
+        stroke: Stroke = {
+          id: crypto.randomUUID(),
+          mode,
+          points: [{ x: q[0], y: q[1] }],
+          color: targetName === "paint" ? color : "#ff3b6b",
+          opacity:
+            mode === "erase" || targetName === "selection" ? 1 : opacity / 100,
+          size,
+          hardness: 1,
+        };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      active.current = { pointerId: e.pointerId, target: targetName, stroke };
+      drawStrokeStart(
+        (targetName === "paint" ? paint : mask).current!.getContext("2d")!,
+        stroke,
+        targetName,
+      );
+    } else if (
+      e.type === "pointermove" &&
+      active.current?.pointerId === e.pointerId
+    ) {
+      const a = active.current,
+        z = a.stroke.points,
+        from = z[z.length - 1],
+        to = { x: q[0], y: q[1] };
+      z.push(to);
+      drawStrokeSegment(
+        (a.target === "paint" ? paint : mask).current!.getContext("2d")!,
+        a.stroke,
+        a.target,
+        from,
+        to,
+      );
+    } else if (
+      (e.type === "pointerup" || e.type === "pointercancel") &&
+      active.current?.pointerId === e.pointerId
+    ) {
+      const a = active.current;
+      active.current = null;
+      if (e.type === "pointerup")
+        setDoc((d) => d && addStroke(d, a.target, a.stroke));
+      else redraw();
+    }
+  };
+  useEffect(() => {
+    if (!job) return;
+    let live = true,
+      timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const s = await window.pixelmend.job(job.job_id);
+        if (!live) return;
+        if (s.status === "completed") {
+          const next = await window.pixelmend.continueResult(
+            job.job_id,
+            s.result_ids[0],
+          );
+          if (!live) return;
+          setPreview({ uri: next.preview, asset: next, op: job.op });
+          setJob(null);
+          locked.current = false;
+          setNotice(
+            `Sonuç hazır: ${next.width} × ${next.height}. Uygula veya Vazgeç.`,
+          );
+        } else if (["failed", "cancelled"].includes(s.status)) {
+          setJob(null);
+          locked.current = false;
+          setNotice(
+            s.status === "cancelled"
+              ? "İşlem iptal edildi."
+              : `Hata: ${s.error?.message || "İşlem başarısız"}`,
+          );
+        } else {
+          setNotice(
+            s.status === "cancelling"
+              ? "İptal bekleniyor…"
+              : s.status === "queued"
+                ? "İş sırada bekliyor…"
+                : job.op === "remove"
+                  ? "Nesne siliniyor…"
+                  : "Görsel büyütülüyor…",
+          );
+          timer = setTimeout(poll, 150);
+        }
+      } catch (error) {
+        if (live) {
+          setNotice(`Hata: ${String(error)}`);
+          setJob(null);
+          locked.current = false;
+        }
+      }
+    };
+    void poll();
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [job]);
+  const process = async (op: "remove" | "upscale", d?: Dimensions) => {
+    if (!p || locked.current || preview) return;
+    if (op === "remove") {
+      const data = mask
+        .current!.getContext("2d")!
+        .getImageData(0, 0, p.photo.width, p.photo.height).data;
+      if (!data.some((v, i) => i % 4 === 3 && v >= 128)) {
+        setNotice("Önce Nesne Seçici ile silinecek alanı işaretleyin.");
+        return;
+      }
+    }
+    if (
+      op === "upscale" &&
+      (!d || !targetIsValid(d.width, d.height, outputLimit))
+    ) {
+      setNotice(
+        `Geçerli ve en fazla ${outputLimit / 1e6} MP bir çıktı ölçüsü girin.`,
+      );
+      return;
+    }
+    if (op === "upscale" && upscaleMethod === "ai" && !aiReady) {
+      setNotice(
+        "AI Kalite modeli hazır değil. Performans ayarlarından modeli indirin.",
+      );
+      return;
+    }
+    locked.current = true;
+    setStarting(true);
+    setNotice(
+      op === "remove"
+        ? "Nesne silme başlatılıyor…"
+        : upscaleMethod === "ai"
+          ? "AI kalite artırma başlatılıyor…"
+          : "Büyütme başlatılıyor…",
+    );
+    try {
+      const created = await window.pixelmend.startJob({
+        assetId: p.photo.id,
+        operation: op,
+        mask:
+          op === "remove"
+            ? mask.current!.toDataURL("image/png").split(",")[1]
+            : undefined,
+        targetWidth: d?.width,
+        targetHeight: d?.height,
+        upscaleMethod,
+      });
+      setJob({ ...created, op });
+    } catch (error) {
+      locked.current = false;
+      setNotice(`Hata: ${String(error)}`);
+    } finally {
+      setStarting(false);
+    }
+  };
+  const apply = () => {
+    const a = preview.asset;
+    setDoc(
+      (d) =>
+        d &&
+        applyResult(
+          d,
+          { id: a.asset_id, uri: a.preview, width: a.width, height: a.height },
+          preview.op,
+        ),
+    );
+    setPreview(null);
+    setNotice(
+      preview.op === "remove"
+        ? "Nesne silindi; yeni alan seçebilirsiniz."
+        : `Görsel ${a.width} × ${a.height} boyutuna getirildi.`,
+    );
+  };
+  const saveImage = async () => {
+    try {
+      if (!p!.paint.length) {
+        const ok = await window.pixelmend.saveImage({ assetId: p!.photo.id });
+        setNotice(ok ? "PNG görsel kaydedildi." : "Kaydetme iptal edildi.");
+        return ok;
+      }
+      if (p!.photo.width * p!.photo.height > 50_000_000) {
+        setNotice(
+          "Çizimli 50 MP üzeri dışa aktarma henüz desteklenmiyor. Önce çizimleri uygulayın veya daha küçük görsel kullanın.",
+        );
+        return false;
+      }
+      const image = new Image();
+      image.src = await window.pixelmend.exportSource(p!.photo.id);
+      await image.decode();
+      const c = document.createElement("canvas");
+      c.width = p!.photo.width;
+      c.height = p!.photo.height;
+      const x = c.getContext("2d")!;
+      x.drawImage(image, 0, 0);
+      x.drawImage(paint.current!, 0, 0);
+      const ok = await window.pixelmend.saveRendered(
+        c.toDataURL("image/png").split(",")[1],
+        "PNG",
+      );
+      setNotice(ok ? "PNG görsel kaydedildi." : "Kaydetme iptal edildi.");
+      return ok;
+    } catch (error) {
+      setNotice(`Hata: ${String(error)}`);
+      return false;
+    }
+  };
+  const leaveHome = () => {
+    active.current = null;
+    setPreview(null);
+    setShowExit(false);
+    setShowExitSave(false);
+    setDoc(undefined);
+  };
+  const saveProject = async () => {
+    const ok = await window.pixelmend.saveProject(doc, false);
+    setNotice(ok ? "Proje kaydedildi." : "Kaydetme iptal edildi.");
+    return ok;
+  };
+  const requestHome = () => {
+    if (doc!.history.past.length || active.current) setShowExit(true);
+    else leaveHome();
+  };
+  const updateTarget = (field: "width" | "height", raw: string) => {
+    if (!p) return;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1) return;
+    setTarget(
+      ratioLocked
+        ? fitDimension(p.photo, field, n)
+        : { ...target!, [field]: n },
+    );
+  };
+  const wheel = (e: React.WheelEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const r = e.currentTarget.getBoundingClientRect();
+    setZoomOrigin(
+      `${((e.clientX - r.left) * 100) / r.width}% ${((e.clientY - r.top) * 100) / r.height}%`,
+    );
+    setZoom((v) =>
+      Math.max(0.25, Math.min(8, v * (e.deltaY < 0 ? 1.12 : 1 / 1.12))),
+    );
+  };
+  if (!doc)
+    return (
+      <main className="home">
+        <h1>PixelMend</h1>
+        <p>Fotoğrafları yerelde düzenleyin.</p>
+        <button onClick={open}>Görsel Aç</button>
+        <button
+          onClick={async () => {
+            const d = await window.pixelmend.openProject();
+            if (d) setDoc(d);
+          }}
+        >
+          Proje Aç
+        </button>
+        <button onClick={() => setShowSettings(true)}>Ayarlar</button>
+        {showSettings && (
+          <PerformanceSettings
+            value={settings}
+            close={() => setShowSettings(false)}
+            set={setSettings}
+            models={models}
+            capabilities={capabilities}
+            refresh={refresh}
+            error={modelError}
+          />
+        )}
+      </main>
+    );
+  const valid =
+      !!target && targetIsValid(target.width, target.height, outputLimit),
+    mp = target ? (target.width * target.height) / 1e6 : 0;
+  return (
+    <main>
+      <header>
+        <button disabled={busy || !!preview} onClick={requestHome}>
+          Başlangıç
+        </button>
+        <h1>PixelMend</h1>
+        <button
+          onClick={() => setDoc((d) => d && undo(d))}
+          disabled={busy || !!preview || !doc.history.past.length}
+        >
+          Geri al
+        </button>
+        <button
+          onClick={() => setDoc((d) => d && redo(d))}
+          disabled={busy || !!preview || !doc.history.future.length}
+        >
+          Yinele
+        </button>
+        <div className="save-menu">
+          <button
+            disabled={busy || !!preview}
+            aria-expanded={showSave}
+            onClick={() => setShowSave((v) => !v)}
+          >
+            Kaydet
+          </button>
+          {showSave && (
+            <div className="save-options">
+              <button
+                onClick={async () => {
+                  setShowSave(false);
+                  await saveImage();
+                }}
+              >
+                Görsel olarak kaydet (PNG)
+              </button>
+              <button
+                onClick={async () => {
+                  setShowSave(false);
+                  await saveProject();
+                }}
+              >
+                Projeyi kaydet (.pixelmend)
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+      <section className="workspace">
+        <aside>
+          <section className="tool-group">
+            <h2>Çizim</h2>
+            <p>Görselin üzerine renk ekleyin.</p>
+            <button
+              aria-pressed={tool === "paint"}
+              onClick={() => setTool("paint")}
+            >
+              Fırça
+            </button>
+            <button
+              aria-pressed={tool === "paintErase"}
+              onClick={() => setTool("paintErase")}
+            >
+              Silgi
+            </button>
+            <label>
+              Renk{" "}
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+              />
+            </label>
+            <label>
+              Opaklık{" "}
+              <span className="value-input">
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={opacity}
+                  onChange={(e) => setOpacity(+e.target.value)}
+                />
+                <input
+                  aria-label="Opaklık yüzdesi"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={opacity}
+                  onChange={(e) =>
+                    setOpacity(Math.max(1, Math.min(100, +e.target.value || 1)))
+                  }
+                />
+                <span>%</span>
+              </span>
+            </label>
+            <label>
+              Fırça boyutu{" "}
+              <span className="value-input">
+                <input
+                  type="range"
+                  min="2"
+                  max="160"
+                  value={size}
+                  onChange={(e) => setSize(+e.target.value)}
+                />
+                <input
+                  aria-label="Fırça boyutu piksel"
+                  type="number"
+                  min="2"
+                  max="160"
+                  value={size}
+                  onChange={(e) =>
+                    setSize(Math.max(2, Math.min(160, +e.target.value || 2)))
+                  }
+                />
+                <span>px</span>
+              </span>
+            </label>
+          </section>
+          <section className="tool-group">
+            <h2>Nesne Silgisi</h2>
+            <p>Silinecek alanı işaretleyin.</p>
+            <button
+              aria-pressed={tool === "select"}
+              onClick={() => setTool("select")}
+            >
+              Nesne Seçici
+            </button>
+            <button
+              aria-pressed={tool === "selectErase"}
+              onClick={() => setTool("selectErase")}
+            >
+              Seçimi Sil
+            </button>
+            <button
+              disabled={busy || !!preview}
+              onClick={() => process("remove")}
+            >
+              Nesneyi Sil
+            </button>
+          </section>
+          <section className="tool-group">
+            <h2>Büyütme</h2>
+            <p>{upscaleMethod === "ai" ? "AI Kalite ile ayrıntıları iyileştirin." : "Lanczos ile hedef piksel ölçüsüne getirin."}</p>
+            <label><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/> AI Kalite{!aiReady && " (model hazır değil)"}</label>
+            <label><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => setUpscaleMethod("lanczos")}/> Hızlı Lanczos</label>
+            <div className="quick-actions">
+              <button
+                disabled={busy || !!preview}
+                onClick={() => {
+                  const d = {
+                    width: p!.photo.width * 2,
+                    height: p!.photo.height * 2,
+                  };
+                  setTarget(d);
+                  void process("upscale", d);
+                }}
+              >
+                2×
+              </button>
+              <button
+                disabled={busy || !!preview}
+                onClick={() => {
+                  const d = {
+                    width: p!.photo.width * 4,
+                    height: p!.photo.height * 4,
+                  };
+                  setTarget(d);
+                  void process("upscale", d);
+                }}
+              >
+                4×
+              </button>
+            </div>
+            <label>
+              Genişlik{" "}
+              <input
+                aria-label="Hedef genişlik"
+                type="number"
+                min="1"
+                value={target?.width ?? ""}
+                onChange={(e) => updateTarget("width", e.target.value)}
+              />
+            </label>
+            <label>
+              Yükseklik{" "}
+              <input
+                aria-label="Hedef yükseklik"
+                type="number"
+                min="1"
+                value={target?.height ?? ""}
+                onChange={(e) => updateTarget("height", e.target.value)}
+              />
+            </label>
+            <label className="lock">
+              <input
+                type="checkbox"
+                checked={ratioLocked}
+                onChange={(e) => setRatioLocked(e.target.checked)}
+              />{" "}
+              Oranı koru
+            </label>
+            <p className={valid ? "hint" : "hint error"}>{valid ? `${mp.toFixed(1)} MP çıktı` : `En fazla ${outputLimit / 1e6} MP ve pozitif tam sayılar girin.`}</p>
+            <button
+              disabled={busy || !!preview || !valid}
+              onClick={() => process("upscale", target)}
+            >
+              Özel ölçüyle büyüt
+            </button>
+          </section>
+          <p className="status" role="status">
+            {notice}
+          </p>
+        </aside>
+        <article onWheel={wheel}>
+          <div
+            className="canvas zoomable"
+            style={{ transform: `scale(${zoom})`, transformOrigin: zoomOrigin }}
+          >
+            <img src={preview?.uri || p!.photo.uri} alt="Düzenlenen görsel" />
+            <canvas
+              style={{ visibility: preview ? "hidden" : "visible" }}
+              className="paint"
+              ref={paint}
+            />
+            <canvas
+              style={{ visibility: preview ? "hidden" : "visible" }}
+              className="mask"
+              ref={mask}
+              onPointerDown={point}
+              onPointerMove={point}
+              onPointerUp={point}
+              onPointerCancel={point}
+            />
+          </div>
+          {busy && (
+            <div className="processing" role="region" aria-label="İşlem durumu">
+              <progress aria-label="İşlem sürüyor" />
+              <strong>{notice}</strong>
+              {job && (
+                <button
+                  onClick={async () => {
+                    try {
+                      setNotice("İptal isteniyor…");
+                      await window.pixelmend.cancel(job.job_id);
+                    } catch (error) {
+                      setNotice(`Hata: ${String(error)}`);
+                    }
+                  }}
+                >
+                  İptal
+                </button>
+              )}
+            </div>
+          )}
+          {preview && (
+            <div className="preview">
+              <strong>İşlem önizlemesi</strong>
+              <button onClick={apply}>Uygula</button>
+              <button
+                onClick={() => {
+                  setPreview(null);
+                  setNotice("Önizleme vazgeçildi. Seçim korunuyor.");
+                }}
+              >
+                Vazgeç
+              </button>
+            </div>
+          )}
+        </article>
+      </section>
+      {showExit && (
+        <Exit
+          close={() => setShowExit(false)}
+          discard={leaveHome}
+          save={() => {
+            setShowExit(false);
+            setShowExitSave(true);
+          }}
+        />
+      )}
+      {showExitSave && (
+        <SaveExit
+          close={() => setShowExitSave(false)}
+          image={saveImage}
+          project={saveProject}
+          leave={leaveHome}
+        />
+      )}{" "}
+      {showSettings && (
+        <PerformanceSettings
+          value={settings}
+          close={() => setShowSettings(false)}
+          set={setSettings}
+          models={models}
+          capabilities={capabilities}
+          refresh={refresh}
+          error={modelError}
+        />
+      )}
+    </main>
+  );
+}
+function Exit({
+  close,
+  discard,
+  save,
+}: {
+  close: () => void;
+  discard: () => void;
+  save: () => void;
+}) {
+  return (
+    <div className="modal" role="dialog">
+      <h2>Değişiklikler kaydedilsin mi?</h2>
+      <p>Çizimler ve yapılan işlemler kaydedilmeden ana ekrana dönülecek.</p>
+      <div className="modal-actions">
+        <button onClick={close}>Vazgeç</button>
+        <button onClick={discard}>Kaydetmeden çık</button>
+        <button onClick={save}>Kaydet</button>
+      </div>
+    </div>
+  );
+}
+function SaveExit({
+  close,
+  image,
+  project,
+  leave,
+}: {
+  close: () => void;
+  image: () => Promise<boolean>;
+  project: () => Promise<boolean>;
+  leave: () => void;
+}) {
+  return (
+    <div className="modal" role="dialog">
+      <h2>Nasıl kaydetmek istersiniz?</h2>
+      <p>
+        Görsel PNG olarak dışa aktarılır; proje düzenlemeye devam etmek için
+        saklanır.
+      </p>
+      <div className="modal-actions">
+        <button onClick={close}>Vazgeç</button>
+        <button
+          onClick={async () => {
+            if (await image()) leave();
+          }}
+        >
+          PNG olarak kaydet
+        </button>
+        <button
+          onClick={async () => {
+            if (await project()) leave();
+          }}
+        >
+          Projeyi kaydet
+        </button>
+      </div>
+    </div>
+  );
+}
+createRoot(document.getElementById("root")!).render(<App />);

@@ -6,7 +6,7 @@ Fotoğraflarınızda istemediğiniz bir alanı fırçayla işaretleyip silin —
 - **Çapraz platform** — v1 hedefi macOS Apple Silicon, Windows x64 ve Linux x64.
 - **Doğrulanmış kapasiteye göre uyarlanır** — cihazda gerçekten çalışan backend ve modeller ölçülür; uygun olmayan ağır yöntemler varsayılan kapalı kalır.
 
-> **Durum:** Planlama aşaması. Henüz uygulama kodu veya kullanılabilir bir sürüm yok. Güncel kararları `DURUM.md`'den takip edebilirsiniz.
+> **Durum:** Yerel motor ve masaüstü uygulaması geliştirme aşamasında. RealESRGAN AI upscale altyapısı hazır olsa da doğrulanmış public model artefaktı ve M4 benchmarkı tamamlanmadığı için AI modu henüz etkin değildir. Güncel kararları `DURUM.md`'den takip edebilirsiniz.
 
 ## Bu ne işe yarar
 
@@ -43,4 +43,4 @@ Kurulum adımları: [`docs/faz-0-kurulum.md`](docs/faz-0-kurulum.md).
 
 ## Lisans
 
-Belirlenecek (öneri: MIT veya Apache-2.0) — üçüncü parti model lisansları ayrıdır, bkz. [`docs/modeller-ve-lisanslar.md`](docs/modeller-ve-lisanslar.md).
+Proje Apache-2.0 lisanslıdır. Üçüncü parti model lisansları ayrıdır; bkz. [`docs/modeller-ve-lisanslar.md`](docs/modeller-ve-lisanslar.md).

@@ -7,7 +7,8 @@ from threading import RLock
 from time import monotonic
 from contextlib import contextmanager
 
-from .imageio import ImageAsset, ImageWarningCode, encode_preview_png, load_image
+from .imageio import ImageAsset, ImageWarningCode, encode_thumbnail_png, load_image
+from .policy import POLICY
 
 
 class AssetError(Exception):
@@ -54,7 +55,7 @@ class _StoredAsset:
 class AssetStore:
     """Own in-memory assets for one sidecar process and their job references."""
 
-    def __init__(self, *, max_assets=32, byte_budget=512 * 1024 * 1024,
+    def __init__(self, *, max_assets=32, byte_budget=POLICY.asset_budget_bytes,
                  ttl_seconds=3600) -> None:
         self._assets: dict[str, _StoredAsset] = {}
         self._lock = RLock()
@@ -87,7 +88,17 @@ class AssetStore:
             if len(self._assets) >= self.max_assets:
                 raise AssetCapacityError('asset count exceeded')
             image = load_image(source)
-            stored = _StoredAsset(image=image, preview=encode_preview_png(image), touched=monotonic())
+            return self.adopt_image(image)
+
+    def adopt_image(self, image: ImageAsset) -> ImportedAsset:
+        """Share immutable job output pixels, avoiding a full PNG encode/decode round trip."""
+        with self._lock:
+            if len(self._assets) >= self.max_assets:
+                raise AssetCapacityError('asset count exceeded')
+            pixel_bytes = image.rgb.nbytes + (image.alpha.nbytes if image.alpha is not None else 0)
+            if self.used_bytes + pixel_bytes > self.byte_budget:
+                raise AssetCapacityError('asset memory budget exceeded')
+            stored = _StoredAsset(image=image, preview=encode_thumbnail_png(image), touched=monotonic())
             if self.used_bytes + stored.size_bytes > self.byte_budget:
                 raise AssetCapacityError('asset memory budget exceeded')
             asset_id = uuid4().hex

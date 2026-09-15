@@ -1,16 +1,16 @@
 # DURUM — PixelMend
 
-Son güncelleme: 2026-09-14
+Son güncelleme: 2026-09-15
 
 ## Şu an neredeyiz
 
 **Faz 1 — Hafif/headless motor** başladı. Faz 0 M4 kurulumu tamamlandı; kullanıcı 2026-08-29 tarihinde açık kodlama onayı verdi. Repo üst lisansı Apache-2.0 olarak seçildi, HEIF/HEIC v1 kapsamından çıkarıldı.
 
-Python motorunda normalize image I/O, model bütünlüğü, token korumalı asset/health/capabilities API, sıralı job kuyruğu, SSE replay, iptal, sonuç export ve sonuçtan asset oluşturma mevcut. OpenCV, LaMa CPU ve Lanczos adaptörleri eklendi. LaMa sabit manifestle indirildi ve gerçek inference testi geçti. Masaüstü UI, tam model yönetimi ve yayın paketleri henüz tamamlanmadı; release candidate yok.
+Python motorunda normalize image I/O, model bütünlüğü, token korumalı asset/health/capabilities API, sıralı job kuyruğu, SSE replay, iptal, sonuç export ve sonuçtan asset oluşturma mevcut. OpenCV, LaMa CPU ve Lanczos adaptörleri eklendi. RealESRGAN_x4plus için model yaşam döngüsü, tiled ONNX adapter, 200 MP kaynak/çıktı politikası ve masaüstü Performans ayarları uygulandı. Public, immutable ONNX artefaktı ve lisanslı benchmark fixture seti henüz yayımlanmadığından AI seçeneği kullanılabilir değildir; Lanczos güvenli fallback olarak kalır.
 
 ## Sıradaki işler — 2026-09-14 kararı
 
-1. **AI kalite artırma:** İlk ürün adayı RealESRGAN_x4plus; model yöneticisi, immutable manifest/hash/lisans, Apple Silicon benchmarkı ve AI kalite UI'ı eklenecek. Ayrıntılı araştırma: `docs/ai-upscale-arastirmasi-2026-09-14.md`.
+1. **AI kalite artırma:** İlk ürün adayı RealESRGAN_x4plus'ın yerel altyapısı tamamlandı. Sıradaki dış kapılar public immutable ONNX yayını (revision, byte, SHA-256, lisans) ve CC0/public-domain 12 fotoğraflık M4 benchmarkıdır. Ayrıntılı araştırma: `docs/ai-upscale-arastirmasi-2026-09-14.md`.
 2. **Windows/Linux:** Platforma özgü engine ikilileri, paketleme ve gerçek makine inference doğrulaması olmadan paylaşılabilir paket ilan edilmeyecek.
 3. **Üretken doldurma:** SD 1.5 / SDXL ayrı ağır runtime olarak, lisans onayı ve bellek/iptal korumalarıyla ele alınacak.
 4. **İleri kalite adayları:** SwinIR ve HAT benchmark sonrası; SUPIR ticari lisans ve ağır bağımlılıklar nedeniyle v1 dışındadır.
@@ -24,6 +24,14 @@ Python motorunda normalize image I/O, model bütünlüğü, token korumalı asse
 - Faz 0 araç doğrulaması tamamlandı. Sistem `python3` komutu macOS Python 3.9.6'yı gösterdiği için proje komutları `uv` üzerinden Python 3.12 kullanır.
 
 ## Yapılanlar (tarihli, en yeni üstte)
+
+### 2026-09-15 — RealESRGAN AI upscale altyapısı ve güvenli performans sözleşmesi eklendi
+
+- `realesrgan-x4plus` için immutable-manifest temelli model yöneticisi, token korumalı model API/SSE, indirme iptali, atomik doğrulama, süreçler arası kilit, probe ve kullanım sırasında silmeye karşı lease eklendi. Uygulama açılışındaki cache keşfi yalnız hash/boyut doğrular; runtime yüklemesi yalnız açık probe veya kurulum eyleminde yapılır.
+- RealESRGAN_x4plus ONNX adapter'ı dinamik NCHW doğrulaması, 4× doğal ara çıktı sınırı, alfa koruması, iptal/progress ve disk tabanlı feather-blended tile birleştirmesiyle eklendi. Varsayılan sınır çıktı ve AI doğal ara çıktı için 200 MP; sonuç bütçesi 1 GiB, asset deposu 2 GiB'dir. Sınırlar `GET /capabilities` ile masaüstüne taşınır.
+- Masaüstünde AI/Lanczos seçimi, model durumu/sağlayıcı probe'u gösteren Ayarlar → Performans ekranı ve dar IPC/SSE proxy eklendi. AI yalnız model gerçekten `ready` ve probe başarılıysa seçilebilir; yayımlanmamış manifest `unavailable` görünür. Çizim yokken kaydetme tam çözünürlüklü native export kullanır; mevcut browser canvas katmanı nedeniyle çizimli 50 MP üzeri export açıkça reddedilir.
+- `tools/model-export/` yalıtılmış export/parity kapısını ve `engine/bench/` kaynak lisansı/hash zorunlu benchmark runner'ını içerir. Yerel aday üretildi ve parity geçti, ancak ağırlık/aday ONNX git'e eklenmedi ve public artefakt bilgileri uydurulmadı.
+- Doğrulama: `engine/.venv/bin/python -m pytest engine/tests -q -k 'not sidecar_process'` → **107 passed, 1 skipped, 1 deselected** (tek üçüncü taraf TestClient deprecation warning); `apps/desktop` altında `corepack pnpm test` → **16 passed**; `corepack pnpm build` geçti. Sandbox loopback kısıtı nedeniyle sidecar alt-süreç testi bu tam koşudan ayrı tutuldu; önceki yükseltilmiş koşuda geçti.
 
 ### 2026-09-14 — macOS arm64 imzasız release candidate paketlendi
 
