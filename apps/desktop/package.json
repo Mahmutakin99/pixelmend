@@ -71,8 +71,10 @@
       "icon": "build/icons",
       "category": "Graphics",
       "desktopName": "PixelMend",
-      "maintainer": "Mahmut AKIN <Mahmutakin99@users.noreply.github.com>",
       "target": ["AppImage", "deb"]
+    },
+    "deb": {
+      "maintainer": "Mahmut AKIN <Mahmutakin99@users.noreply.github.com>"
     }
   }
 }

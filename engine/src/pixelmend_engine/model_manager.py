@@ -176,7 +176,13 @@ class ModelManager:
         """Hash a regular file in bounded chunks, allowing cancellation during verification."""
         _check_cancel(cancel)
         try:
-            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            # O_NOFOLLOW/O_NONBLOCK are POSIX hardening flags. They are not
+            # supported by Windows' os.open implementation, where passing them
+            # turns an ordinary local model into a generic transport error.
+            flags = os.O_RDONLY
+            if os.name != 'nt':
+                flags |= os.O_NOFOLLOW | os.O_NONBLOCK
+            descriptor = os.open(path, flags)
         except FileNotFoundError:
             raise ModelManagerError('missing_model', 'Model is not installed.') from None
         with os.fdopen(descriptor, 'rb') as source:

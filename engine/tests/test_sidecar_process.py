@@ -1,9 +1,11 @@
 import json
 import os
 from pathlib import Path
+import queue
 import secrets
 import subprocess
 import sys
+import threading
 import urllib.request
 
 
@@ -13,10 +15,13 @@ def test_real_loopback_sidecar_startup_health_and_shutdown():
     process = subprocess.Popen([sys.executable, '-m', 'pixelmend_engine'], env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
-        import select
-        ready, _, _ = select.select([process.stdout], [], [], 15)
-        assert ready, 'startup timed out'
-        line = process.stdout.readline()
+        # select() accepts pipe file descriptors on Unix but not Windows.
+        lines = queue.Queue()
+        threading.Thread(target=lambda: lines.put(process.stdout.readline()), daemon=True).start()
+        try:
+            line = lines.get(timeout=15)
+        except queue.Empty:
+            raise AssertionError('startup timed out') from None
         assert token not in line
         startup = json.loads(line)
         request = urllib.request.Request(f"http://127.0.0.1:{startup['port']}/health",
