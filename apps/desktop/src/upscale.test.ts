@@ -10,6 +10,9 @@ describe('upscale dimensions', () => {
   it('accepts a safe target and rejects invalid or over-limit targets', () => {
     expect(targetIsValid(3840, 2160)).toBe(true);
     expect(targetIsValid(0, 2160)).toBe(false);
-    expect(targetIsValid(10000, 6000)).toBe(false);
+    expect(targetIsValid(20000, 10000)).toBe(true);
+    expect(targetIsValid(20001, 10000)).toBe(false);
+    expect(targetIsValid(10000, 6000, 50_000_000)).toBe(false);
+    expect(targetIsValid(10000, 6000, 80_000_000)).toBe(true);
   });
 });

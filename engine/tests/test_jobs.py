@@ -101,7 +101,7 @@ def test_lanczos_accepts_explicit_safe_output_dimensions():
             image = next(iter(job.results.values()))
             assert (image.width, image.height) == (15, 12)
             with pytest.raises(ValueError):
-                queue.submit(asset_id, ['lanczos'], target_width=10000, target_height=6000)
+                queue.submit(asset_id, ['lanczos'], target_width=20000, target_height=10001)
             with pytest.raises(ValueError):
                 queue.submit(asset_id, ['lanczos'], target_width=15)
     asyncio.run(scenario())

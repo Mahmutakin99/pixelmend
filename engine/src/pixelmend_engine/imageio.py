@@ -9,10 +9,15 @@ from typing import BinaryIO
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image, ImageCms, ImageOps, UnidentifiedImageError
+import psutil
+
+from .policy import POLICY
 
 SUPPORTED_FORMATS = ("JPEG", "PNG", "WEBP", "TIFF")
-MAX_SOURCE_BYTES = 256 * 1024 * 1024
-MAX_IMAGE_PIXELS = 50_000_000
+MAX_SOURCE_BYTES = max(256 * 1024 * 1024, POLICY.max_output_pixels * 4 + 16 * 1024 * 1024)
+MAX_IMAGE_PIXELS = POLICY.max_output_pixels
+# Pillow's own bomb threshold must agree with our explicit decoder admission.
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 MAX_IMAGE_FRAMES = 256
 MAX_METADATA_BYTES = 4 * 1024 * 1024
 _ALPHA_MODES = frozenset({"LA", "La", "PA", "RGBA", "RGBa"})
@@ -168,6 +173,8 @@ def _decode_image(source: BinaryIO, *, source_is_16_bit: bool) -> ImageAsset:
             raise ImageTooLargeError(
                 f"image exceeds {MAX_IMAGE_PIXELS} decoded pixels"
             )
+        if pixel_count * 20 + 128 * 1024**2 > psutil.virtual_memory().available:
+            raise ImageTooLargeError('image decode exceeds currently available memory')
         frame_count = getattr(image, "n_frames", 1)
         if frame_count > MAX_IMAGE_FRAMES:
             raise ImageFrameLimitError(
@@ -260,6 +267,18 @@ def encode_preview_png(asset: ImageAsset) -> bytes:
         format="PNG",
         icc_profile=asset.metadata.srgb_icc_profile,
     )
+    return encoded.getvalue()
+
+
+def encode_thumbnail_png(asset: ImageAsset, max_edge=2048) -> bytes:
+    """Send bounded display pixels while retaining full-resolution source assets."""
+    preview = Image.fromarray(asset.rgb)
+    preview.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+    if asset.alpha is not None:
+        alpha = Image.fromarray(asset.alpha).resize(preview.size, Image.Resampling.LANCZOS)
+        preview.putalpha(alpha)
+    encoded = BytesIO()
+    preview.save(encoded, format='PNG', icc_profile=asset.metadata.srgb_icc_profile)
     return encoded.getvalue()
 
 

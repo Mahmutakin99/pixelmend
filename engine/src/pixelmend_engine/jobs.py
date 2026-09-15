@@ -3,6 +3,7 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
+from threading import Event
 from time import monotonic
 from uuid import uuid4
 
@@ -14,6 +15,9 @@ from .assets import AssetStore
 from .imageio import ImageAsset
 from .models.opencv_inpaint import OpenCVInpaint
 from .model_store import ModelFileMissingError, ModelStoreError
+from .model_manager import ModelManager, ModelManagerError
+from .models.realesrgan_onnx import InferenceCancelled, RealESRGANUpscale
+from .policy import POLICY, ResourceLimitError, admit_image_job
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
 
@@ -25,13 +29,25 @@ def lama_adapter():
     return LamaInpaint(get_models_dir())
 
 
-def process(image, mask, algorithm, scale, target_size=None):
+def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
+            provider=None, cancel_event=None, progress=None):
     """Execute native inference in the queue's dedicated worker."""
     if algorithm == 'lanczos':
         size = target_size or (image.width * scale, image.height * scale)
         rgb = np.asarray(Image.fromarray(image.rgb).resize(size, Image.Resampling.LANCZOS)).copy()
         alpha = None if image.alpha is None else np.asarray(
             Image.fromarray(image.alpha).resize(size, Image.Resampling.LANCZOS)).copy()
+        return replace(image, rgb=rgb, alpha=alpha)
+    if algorithm == 'realesrgan_x4plus':
+        if model_path is None or provider is None:
+            raise ModelManagerError('not_ready', 'AI kalite modeli hazır değil.')
+        adapter = RealESRGANUpscale(model_path, providers=[provider],
+                                    tile_size=POLICY.tile_size,
+                                    overlap=POLICY.tile_overlap)
+        rgb = adapter.run(image.rgb, target_size=target_size,
+                          cancel_event=cancel_event, progress=progress)
+        alpha = None if image.alpha is None else np.asarray(
+            Image.fromarray(image.alpha).resize(rgb.shape[1::-1], Image.Resampling.LANCZOS)).copy()
         return replace(image, rgb=rgb, alpha=alpha)
     adapter = lama_adapter() if algorithm == 'lama' else OpenCVInpaint(
         {'opencv_telea': 'telea', 'opencv_ns': 'ns'}[algorithm])
@@ -51,6 +67,9 @@ class Job:
     events: list[dict] = field(default_factory=list)
     result_bytes: int = 0
     error: dict | None = None
+    progress: dict | None = None
+    model_lease: object | None = None
+    cancel_event: Event = field(default_factory=Event)
 
     def emit(self, event, **data):
         """Assign monotonic event ids for deterministic SSE replay."""
@@ -60,6 +79,7 @@ class Job:
         return {'job_id': self.job_id, 'status': self.status,
                 'result_ids': list(self.results), 'algorithms': self.algorithms,
                 'error': self.error,
+                'progress': self.progress,
                 'result_details': [{'result_id': key, 'width': image.width, 'height': image.height}
                                    for key, image in self.results.items()]}
 
@@ -68,11 +88,12 @@ class JobQueue:
     """Serialize native work and keep cancellation independent of thread preemption."""
 
     def __init__(self, assets: AssetStore, *, processor=process, max_jobs=32,
-                 result_budget=512 * 1024 * 1024):
+                 result_budget=POLICY.result_budget_bytes, model_manager: ModelManager | None = None):
         self.assets = assets
         self.processor = processor
         self.max_jobs = max_jobs
         self.result_budget = result_budget
+        self.model_manager = model_manager
         self.jobs = {}
         self.pending = asyncio.Queue()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='inference')
@@ -98,12 +119,12 @@ class JobQueue:
             raise ValueError('job capacity unavailable')
         if not algorithms or len(algorithms) > 8 or len(set(algorithms)) != len(algorithms):
             raise ValueError('select unique algorithms')
-        if any(a not in {'opencv_telea', 'opencv_ns', 'lama', 'lanczos'} for a in algorithms):
+        if any(a not in {'opencv_telea', 'opencv_ns', 'lama', 'lanczos', 'realesrgan_x4plus'} for a in algorithms):
             raise ValueError('algorithm unavailable')
         image = self.assets.get_image(asset_id)
         target_size = None
-        if 'lanczos' in algorithms:
-            if algorithms != ['lanczos']:
+        if any(a in {'lanczos', 'realesrgan_x4plus'} for a in algorithms):
+            if len(algorithms) != 1:
                 raise ValueError('upscale requires a separate job')
             has_target = target_width is not None or target_height is not None
             if has_target:
@@ -112,9 +133,9 @@ class JobQueue:
                 target_size = (target_width, target_height)
             elif scale not in (2, 4):
                 raise ValueError('upscale requires scale 2 or 4, or a target size')
-            output_pixels = target_width * target_height if target_size else image.width * image.height * scale * scale
-            if output_pixels > 50_000_000:
-                raise ValueError('output pixel limit exceeded')
+            target_size = target_size or (image.width * scale, image.height * scale)
+            admit_image_job(image, target_size, ai=algorithms == ['realesrgan_x4plus'],
+                            result_bytes=sum(j.result_bytes for j in self.jobs.values()))
         else:
             if scale != 1:
                 raise ValueError('inpaint scale must be 1')
@@ -124,6 +145,17 @@ class JobQueue:
                 raise ValueError('mask must contain a binary selection')
         self.assets.acquire_for_job(asset_id)
         job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale, target_size)
+        if algorithms == ['realesrgan_x4plus']:
+            if self.model_manager is None:
+                self.assets.release_from_job(asset_id)
+                raise ValueError('AI upscale unavailable')
+            try:
+                job.model_lease = self.model_manager.lease('realesrgan-x4plus')
+                job.model_path = job.model_lease.__enter__()
+                job.provider = self.model_manager.selected_provider('realesrgan-x4plus')
+            except Exception:
+                self.assets.release_from_job(asset_id)
+                raise
         self.jobs[job.job_id] = job
         job.emit('queued', **job.snapshot())
         self.pending.put_nowait(job)
@@ -137,6 +169,7 @@ class JobQueue:
         job = self.get(job_id)
         if job.status not in TERMINAL:
             job.status = 'cancelling'
+            job.cancel_event.set()
         return job
 
     def delete(self, job_id):
@@ -165,8 +198,18 @@ class JobQueue:
                     image = self.assets.get_image(job.asset_id)
                     for algorithm in job.algorithms:
                         started = monotonic()
-                        args = (image, job.mask, algorithm, job.scale, job.target_size) if self.processor is process else (image, job.mask, algorithm, job.scale)
-                        result = await asyncio.get_running_loop().run_in_executor(self.executor, self.processor, *args)
+                        if self.processor is process:
+                            def update_progress(done, total):
+                                job.progress = {'completed': done, 'total': total, 'phase': 'tiles'}
+                            result = await asyncio.get_running_loop().run_in_executor(
+                                self.executor, lambda: self.processor(
+                                    image, job.mask, algorithm, job.scale, job.target_size,
+                                    model_path=getattr(job, 'model_path', None),
+                                    provider=getattr(job, 'provider', None),
+                                    cancel_event=job.cancel_event, progress=update_progress))
+                        else:
+                            result = await asyncio.get_running_loop().run_in_executor(
+                                self.executor, self.processor, image, job.mask, algorithm, job.scale)
                         if job.status == 'cancelling':
                             break
                         size = result.rgb.nbytes + (result.alpha.nbytes if result.alpha is not None else 0)
@@ -178,6 +221,8 @@ class JobQueue:
                         job.emit('result', result_id=result_id, algorithm=algorithm,
                                  seconds=monotonic() - started, width=result.width, height=result.height)
                 job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
+            except (InferenceCancelled, asyncio.CancelledError):
+                job.status = 'cancelled'
             except Exception as error:
                 job.status = 'cancelled' if job.status == 'cancelling' else 'failed'
                 if job.status == 'failed':
@@ -187,11 +232,18 @@ class JobQueue:
                         job.error = {'code': 'model_invalid', 'message': 'LaMa modelinin bütünlük doğrulaması başarısız. Model yeniden kurulmalı.'}
                     elif isinstance(error, MemoryError):
                         job.error = {'code': 'memory_limit', 'message': 'İşlem için yeterli bellek yok. Daha küçük bir görsel deneyin.'}
+                    elif isinstance(error, ResourceLimitError):
+                        job.error = {'code': error.code, 'message': str(error)}
+                    elif isinstance(error, ModelManagerError):
+                        job.error = {'code': error.code, 'message': str(error)}
                     else:
                         job.error = {'code': 'inference_failed', 'message': 'Görüntü işleme başarısız oldu. Seçili algoritmayı ve görseli kontrol edip tekrar deneyin.'}
                     job.emit('error', **job.error)
             finally:
                 job.mask = None
                 self.assets.release_from_job(job.asset_id)
+                if job.model_lease is not None:
+                    job.model_lease.__exit__(None, None, None)
+                    job.model_lease = None
                 job.emit(job.status, job_id=job.job_id)
                 self.pending.task_done()

@@ -14,25 +14,33 @@ from .imageio import ImageIOError
 from .imageio import MAX_SOURCE_BYTES
 from .jobs import JobQueue
 from .job_api import job_router
+from .model_api import model_router
+from .model_manager import ModelManager
+from .paths import get_models_dir
+from .policy import POLICY
 
 
 def create_app(*, session_token: str) -> FastAPI:
     """Create a production sidecar app with its private session asset store."""
     assets = AssetStore()
-    queue = JobQueue(assets)
+    manager = ModelManager(get_models_dir(), prober=_probe_model)
+    queue = JobQueue(assets, model_manager=manager)
 
     @asynccontextmanager
     async def lifespan(app):
         try:
+            await manager.start()
             async with queue:
                 yield
         finally:
+            await manager.close()
             assets.close()
 
     app = FastAPI(title="PixelMend Engine", docs_url=None, redoc_url=None,
                   openapi_url=None, lifespan=lifespan)
     token_dependency = require_session_token(session_token)
     app.include_router(job_router(queue, assets, token_dependency))
+    app.include_router(model_router(manager, token_dependency))
 
     @app.middleware('http')
     async def validate_request_boundary(request, call_next):
@@ -52,7 +60,9 @@ def create_app(*, session_token: str) -> FastAPI:
     @app.get("/capabilities")
     def capabilities(_: None = Depends(token_dependency)) -> dict[str, object]:
         """Expose observed device facts without deriving unsupported budgets."""
-        return collect_capabilities().as_dict()
+        report = collect_capabilities().as_dict()
+        report['policy'] = POLICY.as_dict()
+        return report
 
     @app.post("/assets", status_code=status.HTTP_201_CREATED)
     async def import_asset(
@@ -90,6 +100,17 @@ def create_app(*, session_token: str) -> FastAPI:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found") from error
         return Response(content=preview, media_type="image/png")
 
+    @app.get('/assets/{asset_id}/export')
+    def export_asset(asset_id: str, format: str = 'PNG', _: None = Depends(token_dependency)) -> Response:
+        """Stream full normalized pixels for native save without a renderer canvas."""
+        from .imageio import encode_export
+        if format not in {'PNG', 'JPEG', 'WEBP', 'TIFF'}:
+            raise HTTPException(422, 'unsupported format')
+        try:
+            return Response(encode_export(assets.get_image(asset_id), format), media_type=f'image/{format.lower()}')
+        except AssetNotFoundError as error:
+            raise HTTPException(404, 'asset not found') from error
+
     @app.delete("/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
     def delete_asset(
         asset_id: str,
@@ -105,3 +126,37 @@ def create_app(*, session_token: str) -> FastAPI:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return app
+
+
+def _probe_model(manifest, path):
+    """Run a real session before advertising a downloaded model as usable."""
+    import time
+    import numpy as np
+    import onnxruntime as ort
+    from .models.lama_onnx import LamaInpaint
+    from .models.realesrgan_onnx import RealESRGANUpscale
+
+    providers = list(ort.get_available_providers())
+    candidates = [p for p in ('CoreMLExecutionProvider', 'CPUExecutionProvider') if p in providers]
+    timings = []
+    for provider in candidates:
+        try:
+            started = time.monotonic()
+            if manifest.model_id == 'realesrgan-x4plus':
+                adapter = RealESRGANUpscale(path, providers=[provider])
+                value = adapter.run(np.zeros((8, 9, 3), dtype=np.uint8))
+                if value.shape != (32, 36, 3):
+                    raise ValueError('unexpected upscale output')
+            elif manifest.model_id == 'lama':
+                adapter = LamaInpaint(get_models_dir())
+                value = adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
+                if value.shape != (16, 16, 3):
+                    raise ValueError('unexpected inpaint output')
+            else:
+                continue
+            timings.append((time.monotonic() - started, provider))
+        except Exception:
+            continue
+    if not timings:
+        raise ValueError('no usable provider')
+    return {'selected_provider': min(timings)[1], 'providers': [p for _, p in timings]}

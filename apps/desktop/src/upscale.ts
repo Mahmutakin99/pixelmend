@@ -1,4 +1,4 @@
-export const MAX_OUTPUT_PIXELS = 50_000_000;
+export const MAX_OUTPUT_PIXELS = 200_000_000;
 
 export type Dimensions = {width: number; height: number};
 
@@ -9,6 +9,6 @@ export function fitDimension(source: Dimensions, edited: 'width' | 'height', val
     : {width: Math.max(1, Math.round(normalized * source.width / source.height)), height: normalized};
 }
 
-export function targetIsValid(width: number, height: number) {
-  return Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 && width * height <= MAX_OUTPUT_PIXELS;
+export function targetIsValid(width: number, height: number, maxPixels = MAX_OUTPUT_PIXELS) {
+  return Number.isSafeInteger(width) && Number.isSafeInteger(height) && width > 0 && height > 0 && width * height <= maxPixels;
 }

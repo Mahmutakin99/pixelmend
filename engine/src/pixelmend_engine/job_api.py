@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Uploa
 from fastapi.responses import Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
-from .assets import AssetNotFoundError
+from .assets import AssetNotFoundError, AssetCapacityError
 from .imageio import MAX_SOURCE_BYTES, encode_export, encode_preview_png
 from .jobs import TERMINAL
+from .policy import ResourceLimitError
 
 
 def job_router(queue, assets, auth):
@@ -63,8 +64,10 @@ def job_router(queue, assets, auth):
             job = queue.submit(asset_id, selected, canonical, scale, target_width, target_height)
         except AssetNotFoundError:
             raise HTTPException(404, 'asset not found')
+        except ResourceLimitError as error:
+            raise HTTPException(422, str(error)) from error
         except (ValueError, UnidentifiedImageError, OSError):
-            raise HTTPException(422, 'Geçersiz veya boş maske. Görselde bir alan boyayıp tekrar deneyin.')
+            raise HTTPException(422, 'İşlem, model, maske veya çıktı ölçüsü geçersiz.')
         finally:
             if mask:
                 await mask.close()
@@ -123,9 +126,9 @@ def job_router(queue, assets, auth):
     async def continue_editing(job_id: str, result_id: str):
         image = result(job_id, result_id)
 
-        def copy_asset():
-            return assets.import_image(BytesIO(encode_preview_png(image)))
-
-        return asdict(await run_in_threadpool(copy_asset))
+        try:
+            return asdict(await run_in_threadpool(assets.adopt_image, image))
+        except AssetCapacityError:
+            raise HTTPException(507, 'Düzenleme belleği dolu. Kullanılmayan görselleri kapatın.')
 
     return router
