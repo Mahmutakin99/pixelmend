@@ -20,6 +20,7 @@ describe('model availability and performance facts',()=>{
   it('shows unknown hardware honestly and keeps unpublished installation disabled',()=>{
     const html=renderToStaticMarkup(<Settings value={{language:'tr',theme:'system'}} close={()=>{}} set={()=>{}} models={[model]} capabilities={undefined} refresh={()=>{}} error=""/>);
     expect(html).toContain('Performans');expect(html).toContain('Ölçülmedi');
+    expect(html).toContain('settings-body');expect(html).toContain('performance-facts');
     expect(html).toContain('Henüz yayınlanmadı');
     expect(html).toMatch(/disabled=""[^>]*>İndir/);
   });
