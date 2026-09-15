@@ -21,7 +21,10 @@ function jobForm(payload, policy = {}) {
     if (!Number.isSafeInteger(w) || !Number.isSafeInteger(h) || w < 1 || h < 1 || w*h > limit) throw new Error(`Geçersiz çıktı ölçüsü (en fazla ${limit/1e6} MP)`);
     form.append('target_width', String(w));form.append('target_height', String(h));
   }
-  if (payload.mask) form.append('mask', new Blob([Buffer.from(payload.mask, 'base64')]), 'mask.png');
+  if (!upscale) {
+    if (!Array.isArray(payload.selectionStrokes)) throw new Error('Geçersiz seçim çizimleri');
+    form.append('selection_strokes', JSON.stringify(payload.selectionStrokes));
+  }
   return form;
 }
 

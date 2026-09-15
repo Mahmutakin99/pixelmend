@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .assets import AssetNotFoundError, AssetCapacityError
 from .imageio import MAX_SOURCE_BYTES, encode_export, encode_preview_png
+from .strokes import StrokeValidationError, rasterize_selection
 from .jobs import TERMINAL
 from .policy import ResourceLimitError
 
@@ -34,7 +35,7 @@ def job_router(queue, assets, auth):
 
     @router.post('/jobs', status_code=201)
     async def submit(asset_id: str = Form(...), algorithms: str = Form(...),
-                     mask: UploadFile | None = File(None), scale: int = Form(1),
+                     mask: UploadFile | None = File(None), selection_strokes: str | None = Form(None), scale: int = Form(1),
                      target_width: int | None = Form(None), target_height: int | None = Form(None)):
         """Bound compressed mask input and decode against the canonical source size."""
         try:
@@ -42,6 +43,8 @@ def job_router(queue, assets, auth):
             if not isinstance(selected, list) or any(not isinstance(a, str) for a in selected):
                 raise ValueError('algorithms must be a string list')
             image = assets.get_image(asset_id)
+            if mask and selection_strokes:
+                raise ValueError('choose either a mask or selection strokes')
             raw = await mask.read(MAX_SOURCE_BYTES + 1) if mask else b''
             if len(raw) > MAX_SOURCE_BYTES:
                 raise HTTPException(413, 'mask too large')
@@ -61,12 +64,15 @@ def job_router(queue, assets, auth):
                     return np.where(coverage >= 128, 255, 0).astype(np.uint8)
 
             canonical = await run_in_threadpool(decode) if mask else None
+            if selection_strokes is not None:
+                canonical = await run_in_threadpool(
+                    rasterize_selection, json.loads(selection_strokes), image.width, image.height)
             job = queue.submit(asset_id, selected, canonical, scale, target_width, target_height)
         except AssetNotFoundError:
             raise HTTPException(404, 'asset not found')
         except ResourceLimitError as error:
             raise HTTPException(422, str(error)) from error
-        except (ValueError, UnidentifiedImageError, OSError):
+        except (ValueError, StrokeValidationError, UnidentifiedImageError, OSError):
             raise HTTPException(422, 'İşlem, model, maske veya çıktı ölçüsü geçersiz.')
         finally:
             if mask:

@@ -16,6 +16,13 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+!apps/desktop/build/
+!apps/desktop/build/icon.svg
+!apps/desktop/build/icon.png
+!apps/desktop/build/icon.icns
+!apps/desktop/build/icon.ico
+!apps/desktop/build/icons/
+!apps/desktop/build/icons/*.png
 .pytest_cache/
 .ruff_cache/
 

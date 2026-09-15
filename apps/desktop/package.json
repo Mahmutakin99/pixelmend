@@ -32,7 +32,7 @@
     "directories": {
       "output": "out.noindex"
     },
-    "appId": "local.pixelmend.desktop",
+    "appId": "com.mahmutakin.pixelmend",
     "productName": "PixelMend",
     "files": [
       "dist/**",
@@ -45,12 +45,19 @@
       }
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "target": [
         "dmg",
         "zip"
       ],
       "identity": null,
       "category": "public.app-category.photography"
+    },
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "icon": "build/icons"
     }
   }
 }

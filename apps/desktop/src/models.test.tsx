@@ -3,7 +3,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {Settings} from './Settings';
 import {aiReady, allowedActions, type ModelView} from './models';
 
-const model:ModelView={id:'realesrgan-x4plus',name:'RealESRGAN x4plus',state:'unavailable',published:false,size_bytes:null,downloaded_bytes:0,revision:null,sha256:null,license_id:null,license_url:null,error:null,probe:null,in_use:false};
+const model:ModelView={id:'realesrgan-x4plus',name:'RealESRGAN x4plus',state:'unavailable',published:false,size_bytes:null,downloaded_bytes:0,revision:null,sha256:null,license_id:null,license_url:null,error:null,probe:null,in_use:false,stored_bytes:0,active_revision:null,last_used_at:null,stale_revisions:[]};
 describe('model availability and performance facts',()=>{
   it('requires installed weights and a successful provider probe to enable AI',()=>{
     expect(aiReady(model)).toBe(false);

@@ -27,6 +27,19 @@ Kolaydan zora, bağımlılık kapılarıyla sıralanmış nihai ürün yol harit
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-09-15 — Editör zoom ve önizleme erişilebilirliği iyileştirildi
+
+- Trackpad/fare tekeri zoom’u artık delta sınırlandırmalı üstel hesapla küçük adımlarda ilerler; sol panelde 0,5×–4,0× ayarlanabilir hassasiyet ve görünümü 1×’e döndüren denetim eklendi.
+- Sonuç önizlemesinin `Uygula` ve `Vazgeç` eylemleri görüntü alanından sol panelin altına taşındı; büyütülmüş görüntü bunları artık görünür alandan çıkarmaz.
+- Doğrulama: `apps/desktop` altında `corepack pnpm test` → **18 passed**; `corepack pnpm build` geçti.
+
+### 2026-09-15 — Yerel yayın-hazırlık, vektör stroke ve oturum güvenliği
+
+- Electron uygulama kimliği `com.mahmutakin.pixelmend` olarak sabitlendi; koyu lacivert/m​ercan onarım işaretinden `.icns`, `.ico` ve Linux PNG ikonları üretildi. `CHANGELOG.md` SemVer/`1.0.0-rc.N` politikasını kaydeder; PR ve `main` push için `engine-tests` ile `desktop-check` CI işleri eklendi. GitHub branch protection, depo ayarı olarak bu iki işi zorunlu kılacak şekilde ayrıca etkinleştirilmelidir.
+- Renderer artık kaynak boyutunda canvas veya PNG/base64 maske üretmez: preview canvas maksimum 2048 kenardır, pointer koordinatları native kaynak koordinatlarında tutulur. Sidecar `selection_strokes` ile kanonik `uint8` maske üretir ve `/assets/{id}/rendered` ile paint stroke’larını native çözünürlükte opaque asset’e işler. Çizimli 50 MP export engeli kaldırıldı; kaydetme native streamed asset export ile yapılır ve metadata temizliği kullanıcıya bildirilir.
+- Sidecar başlangıçta yalnız kendi işaretli geçici oturumlarını TTL ile temizler; aktif oturum kapanışta silinir ve kullanıcı görselleri yeniden başlatma sonrası kurtarılmaz. Model görünümü depolanan boyut, etkin revision, son kullanım ve stale revision alanlarını içerir. Benchmark fixture manifest şeması kaynak/lisans/hash/ölçü/kullanım bilgilerini zorunlu tutar; rapor cold/warm, RSS, tile seam ve Lanczos karşılaştırma alanları taşır.
+- Doğrulama: `engine/.venv/bin/python -m pytest engine/tests -q -k 'not sidecar_process'` → **115 passed, 1 skipped, 1 deselected**; `apps/desktop` altında `corepack pnpm test` → **16 passed**; `corepack pnpm build` geçti.
+
 ### 2026-09-15 — RealESRGAN AI upscale altyapısı ve güvenli performans sözleşmesi eklendi
 
 - `realesrgan-x4plus` için immutable-manifest temelli model yöneticisi, token korumalı model API/SSE, indirme iptali, atomik doğrulama, süreçler arası kilit, probe ve kullanım sırasında silmeye karşı lease eklendi. Uygulama açılışındaki cache keşfi yalnız hash/boyut doğrular; runtime yüklemesi yalnız açık probe veya kurulum eyleminde yapılır.

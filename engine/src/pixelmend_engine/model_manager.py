@@ -127,6 +127,8 @@ class ModelManager:
                 'revision': m.revision if m else None, 'sha256': m.sha256 if m else None,
                 'license_id': m.license_id if m else None, 'license_url': m.license_url if m else None,
                 'error': None, 'probe': None, 'in_use': 0,
+                'stored_bytes': 0, 'active_revision': m.revision if m else None,
+                'last_used_at': None, 'stale_revisions': [],
             }
 
     def _entry(self, model_id):
@@ -304,7 +306,7 @@ class ModelManager:
                     os.replace(candidate, target)
                     signature = self._signature(target.stat())
             self._signatures[model_id] = signature
-            self._change(model_id, downloaded_bytes=manifest.size_bytes)
+            self._change(model_id, downloaded_bytes=manifest.size_bytes, stored_bytes=manifest.size_bytes)
             _check_cancel(cancel)
             # Startup discovery establishes artifact integrity only.  Loading an
             # ONNX session here would make opening the app unexpectedly expensive
@@ -373,6 +375,7 @@ class ModelManager:
                     raise ModelManagerError('busy', 'Model is being modified by another process.') from None
                 self._lease_locks[model_id] = lock
             self._change(model_id, in_use=view['in_use'] + 1)
+            self._change(model_id, last_used_at=datetime.now(timezone.utc).isoformat())
         try:
             yield target
         finally:

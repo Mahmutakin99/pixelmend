@@ -13,6 +13,7 @@ function ModelCard({model,refresh}:{model:ModelView;refresh:()=>void}) {
   return <section className="model-card" aria-label={model.name}>
     <h3>{model.name}</h3><p>{stateLabels[model.state]||model.state}{model.in_use?' · Kullanımda':''}</p>
     <dl><dt>İndirme boyutu</dt><dd>{formatBytes(model.size_bytes)}</dd><dt>Lisans</dt><dd>{model.license_id||'Bilinmiyor'} {model.license_url&&<span className="license-url">{model.license_url}</span>}</dd>
+      <dt>Depolanan boyut</dt><dd>{formatBytes(model.stored_bytes)}</dd><dt>Etkin revision</dt><dd>{model.active_revision||'Yayınlanmadı'}</dd><dt>Son kullanım</dt><dd>{model.last_used_at||'Ölçülmedi'}</dd><dt>Eski revision</dt><dd>{model.stale_revisions?.length ? 'Temizleme için kullanıcı eylemi gerekir.' : 'Yok'}</dd>
       <dt>Sağlayıcı sınaması</dt><dd>{probeLabels[model.probe?.status||'unmeasured']}</dd>
       <dt>Seçilen sağlayıcı</dt><dd>{model.probe?.selected_provider||'Ölçülmedi'}</dd>
       <dt>Oturum sağlayıcıları</dt><dd>{model.probe?.providers.join(', ')||'Ölçülmedi'}</dd>

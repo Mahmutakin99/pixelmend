@@ -10,13 +10,14 @@ from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile,
 from .assets import AssetCapacityError, AssetInUseError, AssetNotFoundError, AssetStore
 from .auth import require_session_token
 from .capabilities import collect_capabilities
-from .imageio import ImageIOError
+from .imageio import ImageIOError, ImageAsset
+from .strokes import StrokeValidationError, render_paint
 from .imageio import MAX_SOURCE_BYTES
 from .jobs import JobQueue
 from .job_api import job_router
 from .model_api import model_router
 from .model_manager import ModelManager
-from .paths import get_models_dir
+from .paths import get_models_dir, cleanup_stale_sessions, create_session_dir
 from .policy import POLICY
 
 
@@ -25,16 +26,23 @@ def create_app(*, session_token: str) -> FastAPI:
     assets = AssetStore()
     manager = ModelManager(get_models_dir(), prober=_probe_model)
     queue = JobQueue(assets, model_manager=manager)
+    session_dir = None
 
     @asynccontextmanager
     async def lifespan(app):
+        nonlocal session_dir
         try:
+            cleanup_stale_sessions()
+            session_dir = create_session_dir()
             await manager.start()
             async with queue:
                 yield
         finally:
             await manager.close()
             assets.close()
+            if session_dir is not None:
+                import shutil
+                shutil.rmtree(session_dir, ignore_errors=True)
 
     app = FastAPI(title="PixelMend Engine", docs_url=None, redoc_url=None,
                   openapi_url=None, lifespan=lifespan)
@@ -110,6 +118,27 @@ def create_app(*, session_token: str) -> FastAPI:
             return Response(encode_export(assets.get_image(asset_id), format), media_type=f'image/{format.lower()}')
         except AssetNotFoundError as error:
             raise HTTPException(404, 'asset not found') from error
+
+    @app.post('/assets/{asset_id}/rendered', status_code=status.HTTP_201_CREATED)
+    async def render_asset(asset_id: str, payload: dict, _: None = Depends(token_dependency)) -> dict[str, object]:
+        """Create an opaque session asset by rendering paint vectors at native resolution."""
+        try:
+            source = assets.get_image(asset_id)
+            strokes = payload.get('paint_strokes')
+            if not isinstance(strokes, list):
+                raise StrokeValidationError('paint_strokes must be a list')
+            rgb = await run_in_threadpool(render_paint, source.rgb, strokes)
+            # A rendered result is an opaque edit layer baked into normalized source pixels.
+            imported = await run_in_threadpool(assets.adopt_image, ImageAsset(
+                rgb=rgb, alpha=source.alpha, metadata=source.metadata, warnings=source.warnings))
+        except AssetNotFoundError as error:
+            raise HTTPException(404, 'asset not found') from error
+        except AssetCapacityError:
+            raise HTTPException(507, 'Düzenleme belleği dolu. Kullanılmayan görselleri kapatın.')
+        except StrokeValidationError as error:
+            raise HTTPException(422, str(error)) from error
+        return {'asset_id': imported.asset_id, 'width': imported.width, 'height': imported.height,
+                'warnings': list(imported.warnings)}
 
     @app.delete("/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
     def delete_asset(

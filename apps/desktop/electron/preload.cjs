@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld('pixelmend', {
   startJob: payload => ipcRenderer.invoke('pixelmend:start-job', payload), job: id => ipcRenderer.invoke('pixelmend:job', id),
   result: (jobId, resultId) => ipcRenderer.invoke('pixelmend:result', jobId, resultId), cancel: id => ipcRenderer.invoke('pixelmend:cancel', id),
   continueResult: (jobId, resultId) => ipcRenderer.invoke('pixelmend:continue-result', jobId, resultId),
-  saveRendered: (base64, format) => ipcRenderer.invoke('pixelmend:save-rendered', base64, format),
+  renderAsset: payload => ipcRenderer.invoke('pixelmend:render-asset', payload),
   exportSource: id => ipcRenderer.invoke('pixelmend:export-source', id),
   saveImage: payload => ipcRenderer.invoke('pixelmend:save-image', payload),
   settings: () => ipcRenderer.invoke('pixelmend:settings'), setSettings: value => ipcRenderer.invoke('pixelmend:set-settings', value),

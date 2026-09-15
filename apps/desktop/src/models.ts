@@ -5,6 +5,7 @@ export type ModelView = {
   error:{code:string;message:string}|null;
   probe:{status:'unmeasured'|'running'|'passed'|'failed';selected_provider:string|null;providers:string[];measured_at:string|null}|null;
   in_use:boolean;
+  stored_bytes:number;active_revision:string|null;last_used_at:string|null;stale_revisions:string[];
 };
 export type Capabilities = {
   host_ram_total_bytes:number|null;host_ram_available_bytes:number|null;cpu_count:number|null;

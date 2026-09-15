@@ -9,6 +9,33 @@ from PIL import Image
 from pixelmend_engine.main import create_app
 
 
+def test_job_api_accepts_selection_strokes_without_a_renderer_png():
+    data = BytesIO()
+    Image.new('RGB', (32, 32), 'white').save(data, format='PNG')
+    strokes = [{'mode': 'draw', 'points': [{'x': 16, 'y': 16}], 'color': '#ff3b6b',
+                'opacity': 1, 'size': 8, 'hardness': 1}]
+    with TestClient(create_app(session_token='a' * 64), base_url='http://127.0.0.1',
+                    headers={'X-PixelMend-Token': 'a' * 64}) as client:
+        asset = client.post('/assets', files={'image': ('source.png', data.getvalue())}).json()
+        response = client.post('/jobs', data={'asset_id': asset['asset_id'],
+            'algorithms': '["opencv_telea"]', 'selection_strokes': json.dumps(strokes)})
+        assert response.status_code == 201, response.text
+
+
+def test_rendered_asset_composites_paint_strokes_server_side():
+    data = BytesIO()
+    Image.new('RGB', (16, 16), 'black').save(data, format='PNG')
+    strokes = [{'mode': 'draw', 'points': [{'x': 8, 'y': 8}], 'color': '#ff8040',
+                'opacity': 1, 'size': 4, 'hardness': 1}]
+    with TestClient(create_app(session_token='a' * 64), base_url='http://127.0.0.1',
+                    headers={'X-PixelMend-Token': 'a' * 64}) as client:
+        asset = client.post('/assets', files={'image': ('source.png', data.getvalue())}).json()
+        response = client.post(f"/assets/{asset['asset_id']}/rendered", json={'paint_strokes': strokes})
+        assert response.status_code == 201, response.text
+        rendered = client.get(f"/assets/{response.json()['asset_id']}/export")
+        assert Image.open(BytesIO(rendered.content)).convert('RGB').getpixel((8, 8)) == (255, 128, 64)
+
+
 @pytest.mark.parametrize('color', [(0, 0, 0), (255, 59, 107)])
 def test_canvas_rgba_selection_uses_alpha_and_preserves_surround(color):
     """The actual canvas exports RGBA, including black strokes and erased pixels."""

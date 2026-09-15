@@ -11,6 +11,7 @@ import {
 } from "./document";
 import { drawStroke, drawStrokeSegment, drawStrokeStart } from "./brush";
 import { imagePoint } from "./strokes";
+import { wheelZoom } from "./zoom";
 import { fitDimension, targetIsValid, type Dimensions } from "./upscale";
 import { Settings as PerformanceSettings } from "./Settings";
 import { useModels } from "./useModels";
@@ -22,6 +23,14 @@ type Active = {
   target: "paint" | "selection";
   stroke: Stroke;
 };
+const PREVIEW_MAX_EDGE = 2048;
+function previewSize(width: number, height: number) {
+  const scale = Math.min(1, PREVIEW_MAX_EDGE / Math.max(width, height));
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), scale };
+}
+function previewStroke(stroke: Stroke, scale: number): Stroke {
+  return {...stroke, size: stroke.size * scale, points: stroke.points.map(p => ({x:p.x * scale, y:p.y * scale}))};
+}
 function App() {
   const [doc, setDoc] = useState<EditorDocument>();
   const [tool, setTool] = useState<Tool>("paint"),
@@ -39,6 +48,7 @@ function App() {
     [ratioLocked, setRatioLocked] = useState(true),
     [target, setTarget] = useState<Dimensions>(),
     [zoom, setZoom] = useState(1),
+    [zoomSensitivity, setZoomSensitivity] = useState(1),
     [zoomOrigin, setZoomOrigin] = useState("50% 50%"),
     [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos");
   const paint = useRef<HTMLCanvasElement>(null),
@@ -64,15 +74,16 @@ function App() {
   }, [aiReady]);
   const redraw = () => {
     if (!p) return;
+    const display = previewSize(p.photo.width, p.photo.height);
     for (const [k, c] of [
       ["paint", paint.current],
       ["selection", mask.current],
     ] as const) {
       if (!c) continue;
-      c.width = p.photo.width;
-      c.height = p.photo.height;
+      c.width = display.width;
+      c.height = display.height;
       const x = c.getContext("2d")!;
-      for (const s of p[k]) drawStroke(x, s, k);
+      for (const s of p[k]) drawStroke(x, previewStroke(s, display.scale), k);
     }
   };
   useEffect(redraw, [doc]);
@@ -138,7 +149,7 @@ function App() {
       active.current = { pointerId: e.pointerId, target: targetName, stroke };
       drawStrokeStart(
         (targetName === "paint" ? paint : mask).current!.getContext("2d")!,
-        stroke,
+        previewStroke(stroke, previewSize(p.photo.width, p.photo.height).scale),
         targetName,
       );
     } else if (
@@ -152,10 +163,10 @@ function App() {
       z.push(to);
       drawStrokeSegment(
         (a.target === "paint" ? paint : mask).current!.getContext("2d")!,
-        a.stroke,
+        previewStroke(a.stroke, previewSize(p.photo.width, p.photo.height).scale),
         a.target,
-        from,
-        to,
+        {x: from.x * previewSize(p.photo.width, p.photo.height).scale, y: from.y * previewSize(p.photo.width, p.photo.height).scale},
+        {x: to.x * previewSize(p.photo.width, p.photo.height).scale, y: to.y * previewSize(p.photo.width, p.photo.height).scale},
       );
     } else if (
       (e.type === "pointerup" || e.type === "pointercancel") &&
@@ -225,10 +236,7 @@ function App() {
   const process = async (op: "remove" | "upscale", d?: Dimensions) => {
     if (!p || locked.current || preview) return;
     if (op === "remove") {
-      const data = mask
-        .current!.getContext("2d")!
-        .getImageData(0, 0, p.photo.width, p.photo.height).data;
-      if (!data.some((v, i) => i % 4 === 3 && v >= 128)) {
+      if (!p.selection.some(s => s.mode === "draw")) {
         setNotice("Önce Nesne Seçici ile silinecek alanı işaretleyin.");
         return;
       }
@@ -261,10 +269,7 @@ function App() {
       const created = await window.pixelmend.startJob({
         assetId: p.photo.id,
         operation: op,
-        mask:
-          op === "remove"
-            ? mask.current!.toDataURL("image/png").split(",")[1]
-            : undefined,
+        selectionStrokes: op === "remove" ? p.selection : undefined,
         targetWidth: d?.width,
         targetHeight: d?.height,
         upscaleMethod,
@@ -297,32 +302,16 @@ function App() {
   };
   const saveImage = async () => {
     try {
-      if (!p!.paint.length) {
-        const ok = await window.pixelmend.saveImage({ assetId: p!.photo.id });
-        setNotice(ok ? "PNG görsel kaydedildi." : "Kaydetme iptal edildi.");
+      let assetId = p!.photo.id;
+      if (p!.paint.length) {
+        const rendered = await window.pixelmend.renderAsset({assetId, paintStrokes: p!.paint});
+        assetId = rendered.asset_id;
+      }
+      {
+        const ok = await window.pixelmend.saveImage({ assetId });
+        setNotice(ok ? "PNG görsel kaydedildi; EXIF/GPS/XMP metadata temizlendi." : "Kaydetme iptal edildi.");
         return ok;
       }
-      if (p!.photo.width * p!.photo.height > 50_000_000) {
-        setNotice(
-          "Çizimli 50 MP üzeri dışa aktarma henüz desteklenmiyor. Önce çizimleri uygulayın veya daha küçük görsel kullanın.",
-        );
-        return false;
-      }
-      const image = new Image();
-      image.src = await window.pixelmend.exportSource(p!.photo.id);
-      await image.decode();
-      const c = document.createElement("canvas");
-      c.width = p!.photo.width;
-      c.height = p!.photo.height;
-      const x = c.getContext("2d")!;
-      x.drawImage(image, 0, 0);
-      x.drawImage(paint.current!, 0, 0);
-      const ok = await window.pixelmend.saveRendered(
-        c.toDataURL("image/png").split(",")[1],
-        "PNG",
-      );
-      setNotice(ok ? "PNG görsel kaydedildi." : "Kaydetme iptal edildi.");
-      return ok;
     } catch (error) {
       setNotice(`Hata: ${String(error)}`);
       return false;
@@ -361,9 +350,7 @@ function App() {
     setZoomOrigin(
       `${((e.clientX - r.left) * 100) / r.width}% ${((e.clientY - r.top) * 100) / r.height}%`,
     );
-    setZoom((v) =>
-      Math.max(0.25, Math.min(8, v * (e.deltaY < 0 ? 1.12 : 1 / 1.12))),
-    );
+    setZoom((v) => wheelZoom(v, e.deltaY, zoomSensitivity / 1000));
   };
   if (!doc)
     return (
@@ -611,6 +598,21 @@ function App() {
           <p className="status" role="status">
             {notice}
           </p>
+          <section className="tool-group" aria-label="Görünüm ayarları">
+            <label>
+              Yakınlaştırma hassasiyeti
+              <input aria-label="Yakınlaştırma hassasiyeti" type="range" min="0.5" max="4" step="0.5" value={zoomSensitivity} onChange={e => setZoomSensitivity(Number(e.target.value))} />
+              <span>{zoomSensitivity.toFixed(1)}×</span>
+            </label>
+            <button onClick={() => setZoom(1)}>Görünümü sıfırla</button>
+          </section>
+          {preview && (
+            <section className="tool-group preview-actions" aria-label="İşlem önizlemesi">
+              <strong>İşlem önizlemesi hazır</strong>
+              <button onClick={apply}>Uygula</button>
+              <button onClick={() => { setPreview(null); setNotice("Önizleme vazgeçildi. Seçim korunuyor."); }}>Vazgeç</button>
+            </section>
+          )}
         </aside>
         <article onWheel={wheel}>
           <div
@@ -651,20 +653,6 @@ function App() {
                   İptal
                 </button>
               )}
-            </div>
-          )}
-          {preview && (
-            <div className="preview">
-              <strong>İşlem önizlemesi</strong>
-              <button onClick={apply}>Uygula</button>
-              <button
-                onClick={() => {
-                  setPreview(null);
-                  setNotice("Önizleme vazgeçildi. Seçim korunuyor.");
-                }}
-              >
-                Vazgeç
-              </button>
             </div>
           )}
         </article>
