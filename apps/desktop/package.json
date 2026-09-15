@@ -9,8 +9,12 @@
     "test": "vitest run",
     "start": "electron .",
     "test:e2e": "node e2e/editor.cjs",
-    "build:engine": "cd ../../engine && .venv/bin/python -m PyInstaller --clean --noconfirm pixelmend-engine.spec",
-    "package": "corepack pnpm build:engine && corepack pnpm build && electron-builder --mac dmg zip --arm64"
+    "build:engine": "uv --directory ../../engine run pyinstaller --clean --noconfirm --distpath dist --workpath build pixelmend-engine.spec",
+    "package": "corepack pnpm build:engine && corepack pnpm build && electron-builder --publish never",
+    "package:mac": "corepack pnpm package --mac dmg zip --arm64",
+    "package:win": "corepack pnpm package --win nsis --x64",
+    "package:linux": "corepack pnpm package --linux AppImage deb --x64",
+    "test:ci-tools": "node --test ../../tools/ci/*.test.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -54,10 +58,12 @@
       "category": "public.app-category.photography"
     },
     "win": {
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "target": ["nsis"]
     },
     "linux": {
-      "icon": "build/icons"
+      "icon": "build/icons",
+      "target": ["AppImage", "deb"]
     }
   }
 }

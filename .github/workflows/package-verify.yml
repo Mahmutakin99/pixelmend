@@ -1,0 +1,153 @@
+name: package-verify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.format }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            os: macos
+            arch: arm64
+            format: dmg
+            builder_target: dmg
+          - runner: macos-26
+            os: macos
+            arch: arm64
+            format: zip
+            builder_target: zip
+          - runner: windows-2025
+            os: windows
+            arch: x64
+            format: nsis
+            builder_target: nsis
+          - runner: ubuntu-24.04
+            os: linux
+            arch: x64
+            format: appimage
+            builder_target: AppImage
+          - runner: ubuntu-24.04
+            os: linux
+            arch: x64
+            format: deb
+            builder_target: deb
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - uses: astral-sh/setup-uv@v5
+      - name: Verify selected runner architecture
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            macos) test "$(uname -s)" = Darwin; test "$(uname -m)" = arm64 ;;
+            linux) test "$(uname -s)" = Linux; test "$(uname -m)" = x86_64 ;;
+            windows) test "${RUNNER_OS}" = Windows; test "${PROCESSOR_ARCHITECTURE}" = AMD64 ;;
+          esac
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          uv --directory ../../engine sync --all-groups --locked
+      - name: Verify source and CI helper contracts
+        shell: bash
+        run: |
+          pnpm test
+          pnpm build
+          pnpm test:ci-tools
+          uv --directory ../../engine run pytest tests -q
+      - name: Build unsigned package
+        shell: bash
+        run: pnpm package -- --${{ matrix.os == 'macos' && 'mac' || matrix.os == 'windows' && 'win' || 'linux' }} ${{ matrix.builder_target }} --${{ matrix.arch }}
+      - name: Locate the requested package
+        id: package
+        shell: bash
+        run: |
+          case "${{ matrix.format }}" in
+            dmg) pattern='*.dmg' ;;
+            zip) pattern='*.zip' ;;
+            nsis) pattern='*.exe' ;;
+            appimage) pattern='*.AppImage' ;;
+            deb) pattern='*.deb' ;;
+          esac
+          package_file="$(find out.noindex -maxdepth 1 -type f -name "$pattern" -print -quit)"
+          test -n "$package_file"
+          echo "file=$package_file" >> "$GITHUB_OUTPUT"
+      - name: Smoke macOS package contents
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg='${{ steps.package.outputs.file }}'
+          temp_dir="$(mktemp -d)"
+          if [ '${{ matrix.format }}' = dmg ]; then
+            volume="$(hdiutil attach -nobrowse -readonly "$pkg" | awk '/\/Volumes\// {print $3; exit}')"
+            trap 'hdiutil detach "$volume" -quiet || true; rm -rf "$temp_dir"' EXIT
+            app_path="$(find "$volume" -maxdepth 1 -name 'PixelMend.app' -print -quit)"
+          else
+            unzip -q "$pkg" -d "$temp_dir"
+            trap 'rm -rf "$temp_dir"' EXIT
+            app_path="$(find "$temp_dir" -name 'PixelMend.app' -print -quit)"
+          fi
+          test -n "$app_path"
+          PIXELMEND_CI_SMOKE=1 "$app_path/Contents/MacOS/PixelMend"
+      - name: Smoke Linux package contents
+        if: matrix.os == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg='${{ steps.package.outputs.file }}'; temp_dir="$(mktemp -d)"; trap 'rm -rf "$temp_dir" squashfs-root' EXIT
+          if [ '${{ matrix.format }}' = appimage ]; then
+            chmod +x "$pkg"; APPIMAGE_EXTRACT_AND_RUN=1 PIXELMEND_CI_SMOKE=1 "$pkg"
+          else
+            dpkg-deb -x "$pkg" "$temp_dir"
+            app_bin="$(find "$temp_dir" -type f -name pixelmend -perm -111 -print -quit)"
+            test -n "$app_bin"; PIXELMEND_CI_SMOKE=1 "$app_bin"
+          fi
+      - name: Smoke Windows NSIS package contents
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          $extract = Join-Path $env:RUNNER_TEMP 'pixelmend-nsis'
+          7z x '${{ steps.package.outputs.file }}' "-o$extract" | Out-Host
+          $app = Get-ChildItem -Path $extract -Filter PixelMend.exe -Recurse | Select-Object -First 1
+          if ($null -eq $app) { throw 'PixelMend.exe was not extracted from NSIS package' }
+          $env:PIXELMEND_CI_SMOKE = '1'
+          $process = Start-Process -FilePath $app.FullName -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "packaged smoke failed: $($process.ExitCode)" }
+      - name: Generate manifest and SBOMs
+        shell: bash
+        run: |
+          mkdir -p ci-evidence
+          PIXELMEND_PYTHON_VERSION="$(uv --directory ../../engine run python --version)" node ../../tools/ci/package-evidence.mjs manifest --output apps/desktop/ci-evidence/build-manifest.json --os '${{ matrix.os }}' --arch '${{ matrix.arch }}'
+          npx --yes @cyclonedx/cyclonedx-npm --output-file ci-evidence/sbom-node.cdx.json --output-format JSON
+          uvx cyclonedx-py environment --of JSON -o ci-evidence/sbom-python.cdx.json "$(uv --directory ../../engine run python -c 'import sys; print(sys.executable)')"
+      - name: Stage package evidence
+        id: artifact
+        shell: bash
+        run: |
+          name="$(node ../../tools/ci/package-evidence.mjs stage --package '${{ steps.package.outputs.file }}' --format '${{ matrix.format }}' --os '${{ matrix.os }}' --arch '${{ matrix.arch }}' --manifest apps/desktop/ci-evidence/build-manifest.json --node-sbom apps/desktop/ci-evidence/sbom-node.cdx.json --python-sbom apps/desktop/ci-evidence/sbom-python.cdx.json --output apps/desktop/ci-artifacts)"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: apps/desktop/ci-artifacts/${{ steps.artifact.outputs.name }}
+          if-no-files-found: error
+          retention-days: 14

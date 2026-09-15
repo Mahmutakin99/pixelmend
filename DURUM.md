@@ -27,6 +27,13 @@ Kolaydan zora, bağımlılık kapılarıyla sıralanmış nihai ürün yol harit
 
 ## Yapılanlar (tarihli, en yeni üstte)
 
+### 2026-09-15 — Üç platform imzasız paket doğrulaması eklendi
+
+- `package-verify` yalnız `main` push ve manuel başlatmada çalışır; PR doğrulamasındaki `engine-tests` ile `desktop-check` değişmeden kalır. Sabit `macos-26` arm64, `windows-2025` x64 ve `ubuntu-24.04` x64 runner'ları OS/mimariyi paketlemeden önce doğrular.
+- Her hedef gerçek paket içeriğinden smoke edilir: Electron ana süreç token korumalı sidecar'ı başlatır, `/health` ve `/capabilities` çağrılır, küçük OpenCV işi ile native PNG export tamamlanır ve sidecar kapatılır. Artefaktlar paket, SHA-256, commit/sürüm/araç/lock-hash manifesti ve ayrı Node/Python CycloneDX SBOM'larını taşır. Model ağırlıkları ve fixture görselleri eklenmez.
+- Engine sidecar yolu artık platform bağımsız PyInstaller komutuyla `engine/dist/pixelmend-engine` altında üretilir; Windows paketinde `.exe` uzantısı Electron tarafından seçilir. `main` ruleset tanımı `.github/rulesets/main.json` içindedir: `engine-tests` ve `desktop-check` zorunlu, force-push ve dal silme kapalıdır. GitHub depo yöneticisi bu tanımı Rulesets arayüzü/API ile etkinleştirmelidir; paket işi yalnız main/manuel olduğu için zorunlu check değildir.
+- Açık dış kapılar: üç hedefte gerçek donanım inference kabulü, Apple Developer ID/notarization, Windows imzalama ve genel release. AI kalite modu public immutable RealESRGAN artefaktı ile lisanslı benchmark seti gelene kadar kapalıdır.
+
 ### 2026-09-15 — Editör zoom ve önizleme erişilebilirliği iyileştirildi
 
 - Trackpad/fare tekeri zoom’u artık delta sınırlandırmalı üstel hesapla küçük adımlarda ilerler; sol panelde 0,5×–4,0× ayarlanabilir hassasiyet ve görünümü 1×’e döndüren denetim eklendi.

@@ -14,5 +14,7 @@ export class StrokeHistory {
 }
 
 export function imagePoint(clientX: number, clientY: number, rect: DOMRect | {left:number;top:number;width:number;height:number}, width: number, height: number): [number, number] {
-  return [Math.max(0, Math.min(width, Math.round((clientX - rect.left) * width / rect.width))), Math.max(0, Math.min(height, Math.round((clientY - rect.top) * height / rect.height)))];
+  // The engine deliberately rejects x === width/y === height. Pointer input on
+  // a CSS edge must therefore map to the final addressable source pixel.
+  return [Math.max(0, Math.min(width - 1, Math.round((clientX - rect.left) * width / rect.width))), Math.max(0, Math.min(height - 1, Math.round((clientY - rect.top) * height / rect.height)))];
 }

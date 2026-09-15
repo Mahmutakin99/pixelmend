@@ -24,6 +24,12 @@ def test_paint_strokes_compose_at_native_coordinates_and_erase():
     assert erased[8, 8].tolist() == [0, 0, 0]
 
 
+def test_strokes_at_the_final_addressable_pixel_are_accepted():
+    image = np.zeros((16, 16, 3), dtype=np.uint8)
+    painted = render_paint(image, [stroke(points=[{'x': 15, 'y': 15}])])
+    assert painted[15, 15].tolist() == [255, 0, 0]
+
+
 @pytest.mark.parametrize('bad', [
     {'mode': 'draw', 'points': [{'x': float('nan'), 'y': 1}], 'color': '#fff', 'opacity': 1, 'size': 1, 'hardness': 1},
     {'mode': 'draw', 'points': [{'x': 99, 'y': 1}], 'color': '#fff', 'opacity': 1, 'size': 1, 'hardness': 1},

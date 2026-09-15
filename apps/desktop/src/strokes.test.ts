@@ -19,6 +19,10 @@ describe('stroke journal', () => {
     expect(imagePoint(110, 90, {left: 10, top: 30, width: 200, height: 100}, 1000, 500))
       .toEqual([500, 300]);
   });
+  it('keeps points on the right and bottom edge inside source bounds', () => {
+    expect(imagePoint(210, 130, {left: 10, top: 30, width: 200, height: 100}, 1000, 500))
+      .toEqual([999, 499]);
+  });
   it('includes an active stroke in the rendered journal without committing it', () => {
     const history = new StrokeHistory();
     history.add({ mode: 'paint', radius: 8, points: [[1, 2]] });

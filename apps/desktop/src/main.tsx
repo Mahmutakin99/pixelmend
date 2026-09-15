@@ -11,8 +11,10 @@ import {
 } from "./document";
 import { drawStroke, drawStrokeSegment, drawStrokeStart } from "./brush";
 import { imagePoint } from "./strokes";
-import { wheelZoom } from "./zoom";
+import { boundedPan, wheelZoom } from "./zoom";
 import { fitDimension, targetIsValid, type Dimensions } from "./upscale";
+import { userError, type ErrorContext, type UserError } from "./errors";
+import { keepsErasePreview } from "./cursor-preview";
 import { Settings as PerformanceSettings } from "./Settings";
 import { useModels } from "./useModels";
 import "./bridge";
@@ -23,6 +25,8 @@ type Active = {
   target: "paint" | "selection";
   stroke: Stroke;
 };
+type CursorPreview = { target: "paint" | "selection"; x: number; y: number; erasing: boolean };
+type PanGesture = { pointerId: number; x: number; y: number; startX: number; startY: number };
 const PREVIEW_MAX_EDGE = 2048;
 function previewSize(width: number, height: number) {
   const scale = Math.min(1, PREVIEW_MAX_EDGE / Math.max(width, height));
@@ -48,12 +52,18 @@ function App() {
     [ratioLocked, setRatioLocked] = useState(true),
     [target, setTarget] = useState<Dimensions>(),
     [zoom, setZoom] = useState(1),
-    [zoomSensitivity, setZoomSensitivity] = useState(1),
+    [zoomSensitivity, setZoomSensitivity] = useState(1.5),
     [zoomOrigin, setZoomOrigin] = useState("50% 50%"),
+    [pan, setPan] = useState({x: 0, y: 0}),
+    [cursorPreview, setCursorPreview] = useState<CursorPreview | null>(null),
+    [error, setError] = useState<UserError | null>(null),
     [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos");
   const paint = useRef<HTMLCanvasElement>(null),
     mask = useRef<HTMLCanvasElement>(null),
+    cursorLayer = useRef<HTMLCanvasElement>(null),
+    article = useRef<HTMLElement>(null),
     active = useRef<Active | null>(null),
+    panGesture = useRef<PanGesture | null>(null),
     locked = useRef(false);
   const p = doc?.history.present;
   const { models, capabilities, error: modelError, refresh } = useModels();
@@ -68,6 +78,10 @@ function App() {
     busy = starting || !!job,
     busyRef = useRef(false);
   busyRef.current = busy || !!preview;
+  const reportError = (context: ErrorContext, cause: unknown) => {
+    console.error(cause);
+    setError(userError(context, cause));
+  };
   useEffect(() => {
     if (aiReady) setUpscaleMethod("ai");
     else if (upscaleMethod === "ai") setUpscaleMethod("lanczos");
@@ -85,14 +99,46 @@ function App() {
       const x = c.getContext("2d")!;
       for (const s of p[k]) drawStroke(x, previewStroke(s, display.scale), k);
     }
+    if (cursorLayer.current) {
+      cursorLayer.current.width = display.width;
+      cursorLayer.current.height = display.height;
+    }
   };
   useEffect(redraw, [doc]);
   useEffect(() => {
     if (p) {
       setTarget({ width: p.photo.width * 2, height: p.photo.height * 2 });
       setZoom(1);
+      setPan({x: 0, y: 0});
     }
-  }, [p?.photo.id]);
+  }, [doc?.original.id]);
+  useEffect(() => {
+    const canvas = cursorLayer.current;
+    if (!canvas || !p) return;
+    const context = canvas.getContext('2d')!;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (!cursorPreview) return;
+    const source = cursorPreview.target === 'paint' ? paint.current : mask.current;
+    const display = previewSize(p.photo.width, p.photo.height);
+    const radius = size * display.scale / 2;
+    if (cursorPreview.erasing && source) {
+      context.drawImage(source, 0, 0);
+      context.save();
+      context.globalCompositeOperation = 'destination-out';
+      context.beginPath();
+      context.arc(cursorPreview.x, cursorPreview.y, radius, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    }
+    context.save();
+    context.strokeStyle = cursorPreview.erasing ? '#e8ecf0' : cursorPreview.target === 'selection' ? '#ff735c' : color;
+    context.lineWidth = Math.max(1, 2 * display.scale);
+    context.setLineDash(cursorPreview.target === 'selection' ? [5 * display.scale, 4 * display.scale] : []);
+    context.beginPath();
+    context.arc(cursorPreview.x, cursorPreview.y, radius, 0, Math.PI * 2);
+    context.stroke();
+    context.restore();
+  }, [cursorPreview, doc, p, size, color]);
   useEffect(() => {
     window.pixelmend.settings().then(setSettings);
     return window.pixelmend.onAction((a: string) => {
@@ -122,7 +168,41 @@ function App() {
       setNotice(`${a.width} × ${a.height} görsel açıldı`);
     }
   };
+  const clampPan = (next: {x: number; y: number}, scale = zoom) => {
+    const surface = article.current, canvas = mask.current;
+    if (!surface || !canvas) return next;
+    const rect = canvas.getBoundingClientRect();
+    const baseWidth = rect.width / scale, baseHeight = rect.height / scale;
+    return boundedPan(next, {width: baseWidth, height: baseHeight}, {width: surface.clientWidth, height: surface.clientHeight}, scale);
+  };
+  const cursorAt = (e: React.PointerEvent): CursorPreview | null => {
+    const canvas = e.currentTarget as HTMLCanvasElement;
+    if (!p || busy || preview || !canvas.width) return null;
+    const rect = canvas.getBoundingClientRect();
+    const target = tool.startsWith('paint') ? 'paint' : 'selection';
+    return {
+      target,
+      x: Math.max(0, Math.min(canvas.width - 1, (e.clientX - rect.left) * canvas.width / rect.width)),
+      y: Math.max(0, Math.min(canvas.height - 1, (e.clientY - rect.top) * canvas.height / rect.height)),
+      erasing: tool.endsWith('Erase'),
+    };
+  };
   const point = (e: React.PointerEvent) => {
+    if (e.type === 'pointerdown' && e.button === 1) {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      panGesture.current = {pointerId: e.pointerId, x: e.clientX, y: e.clientY, startX: pan.x, startY: pan.y};
+      setCursorPreview(null);
+      return;
+    }
+    if (panGesture.current?.pointerId === e.pointerId) {
+      if (e.type === 'pointermove') {
+        const gesture = panGesture.current;
+        setPan(clampPan({x: gesture.startX + e.clientX - gesture.x, y: gesture.startY + e.clientY - gesture.y}));
+      }
+      if (e.type === 'pointerup' || e.type === 'pointercancel') panGesture.current = null;
+      return;
+    }
     if (!p || busy || preview) return;
     const q = imagePoint(
       e.clientX,
@@ -133,6 +213,8 @@ function App() {
     );
     if (e.type === "pointerdown") {
       if (e.button !== 0 || active.current) return;
+      if (keepsErasePreview(tool.endsWith('Erase') ? 'erase' : 'draw')) setCursorPreview(cursorAt(e));
+      else setCursorPreview(null);
       const targetName = tool.startsWith("paint") ? "paint" : "selection",
         mode = tool.endsWith("Erase") ? "erase" : "draw",
         stroke: Stroke = {
@@ -168,12 +250,16 @@ function App() {
         {x: from.x * previewSize(p.photo.width, p.photo.height).scale, y: from.y * previewSize(p.photo.width, p.photo.height).scale},
         {x: to.x * previewSize(p.photo.width, p.photo.height).scale, y: to.y * previewSize(p.photo.width, p.photo.height).scale},
       );
+      if (keepsErasePreview(a.stroke.mode)) setCursorPreview(cursorAt(e));
+    } else if (e.type === 'pointermove') {
+      setCursorPreview(cursorAt(e));
     } else if (
       (e.type === "pointerup" || e.type === "pointercancel") &&
       active.current?.pointerId === e.pointerId
     ) {
       const a = active.current;
       active.current = null;
+      setCursorPreview(cursorAt(e));
       if (e.type === "pointerup")
         setDoc((d) => d && addStroke(d, a.target, a.stroke));
       else redraw();
@@ -202,11 +288,8 @@ function App() {
         } else if (["failed", "cancelled"].includes(s.status)) {
           setJob(null);
           locked.current = false;
-          setNotice(
-            s.status === "cancelled"
-              ? "İşlem iptal edildi."
-              : `Hata: ${s.error?.message || "İşlem başarısız"}`,
-          );
+          if (s.status === 'cancelled') setNotice('İşlem iptal edildi.');
+          else reportError(job.op, new Error(s.error?.message || 'inference_failed'));
         } else {
           setNotice(
             s.status === "cancelling"
@@ -221,7 +304,7 @@ function App() {
         }
       } catch (error) {
         if (live) {
-          setNotice(`Hata: ${String(error)}`);
+          reportError(job.op, error);
           setJob(null);
           locked.current = false;
         }
@@ -237,7 +320,7 @@ function App() {
     if (!p || locked.current || preview) return;
     if (op === "remove") {
       if (!p.selection.some(s => s.mode === "draw")) {
-        setNotice("Önce Nesne Seçici ile silinecek alanı işaretleyin.");
+        reportError('remove', new Error('selection_required'));
         return;
       }
     }
@@ -245,9 +328,7 @@ function App() {
       op === "upscale" &&
       (!d || !targetIsValid(d.width, d.height, outputLimit))
     ) {
-      setNotice(
-        `Geçerli ve en fazla ${outputLimit / 1e6} MP bir çıktı ölçüsü girin.`,
-      );
+      reportError('upscale', new Error('target_invalid'));
       return;
     }
     if (op === "upscale" && upscaleMethod === "ai" && !aiReady) {
@@ -277,7 +358,7 @@ function App() {
       setJob({ ...created, op });
     } catch (error) {
       locked.current = false;
-      setNotice(`Hata: ${String(error)}`);
+      reportError(op, error);
     } finally {
       setStarting(false);
     }
@@ -293,6 +374,7 @@ function App() {
           preview.op,
         ),
     );
+    setTarget({width: a.width, height: a.height});
     setPreview(null);
     setNotice(
       preview.op === "remove"
@@ -313,7 +395,7 @@ function App() {
         return ok;
       }
     } catch (error) {
-      setNotice(`Hata: ${String(error)}`);
+      reportError('save', error);
       return false;
     }
   };
@@ -350,7 +432,11 @@ function App() {
     setZoomOrigin(
       `${((e.clientX - r.left) * 100) / r.width}% ${((e.clientY - r.top) * 100) / r.height}%`,
     );
-    setZoom((v) => wheelZoom(v, e.deltaY, zoomSensitivity / 1000));
+    setZoom((v) => {
+      const next = wheelZoom(v, e.deltaY, zoomSensitivity);
+      setPan((current) => clampPan(current, next));
+      return next;
+    });
   };
   if (!doc)
     return (
@@ -604,7 +690,8 @@ function App() {
               <input aria-label="Yakınlaştırma hassasiyeti" type="range" min="0.5" max="4" step="0.5" value={zoomSensitivity} onChange={e => setZoomSensitivity(Number(e.target.value))} />
               <span>{zoomSensitivity.toFixed(1)}×</span>
             </label>
-            <button onClick={() => setZoom(1)}>Görünümü sıfırla</button>
+            <p className="hint">⌘/Ctrl + tekerlek ile yakınlaştırın; tekerleğe basılı sürükleyerek görseli kaydırın.</p>
+            <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }}>Görünümü sıfırla</button>
           </section>
           {preview && (
             <section className="tool-group preview-actions" aria-label="İşlem önizlemesi">
@@ -614,25 +701,32 @@ function App() {
             </section>
           )}
         </aside>
-        <article onWheel={wheel}>
+        <article ref={article} onWheel={wheel}>
           <div
             className="canvas zoomable"
-            style={{ transform: `scale(${zoom})`, transformOrigin: zoomOrigin }}
+            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: zoomOrigin }}
           >
             <img src={preview?.uri || p!.photo.uri} alt="Düzenlenen görsel" />
             <canvas
-              style={{ visibility: preview ? "hidden" : "visible" }}
+              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'paint' ? 0 : undefined }}
               className="paint"
               ref={paint}
             />
             <canvas
-              style={{ visibility: preview ? "hidden" : "visible" }}
+              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined }}
               className="mask"
               ref={mask}
               onPointerDown={point}
               onPointerMove={point}
               onPointerUp={point}
               onPointerCancel={point}
+              onPointerLeave={() => { if (!active.current && !panGesture.current) setCursorPreview(null); }}
+            />
+            <canvas
+              aria-hidden="true"
+              className="cursor-layer"
+              style={{ visibility: preview ? 'hidden' : 'visible', opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? .42 : 1 }}
+              ref={cursorLayer}
             />
           </div>
           {busy && (
@@ -646,7 +740,7 @@ function App() {
                       setNotice("İptal isteniyor…");
                       await window.pixelmend.cancel(job.job_id);
                     } catch (error) {
-                      setNotice(`Hata: ${String(error)}`);
+                      reportError('cancel', error);
                     }
                   }}
                 >
@@ -686,8 +780,16 @@ function App() {
           error={modelError}
         />
       )}
+      {error && <ErrorDialog value={error} close={() => setError(null)} />}
     </main>
   );
+}
+function ErrorDialog({value, close}: {value: UserError; close: () => void}) {
+  return <div className="modal error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-title">
+    <h2 id="error-title">{value.title}</h2>
+    <p>{value.message}</p>
+    <div className="modal-actions"><button autoFocus onClick={close}>Tamam</button></div>
+  </div>;
 }
 function Exit({
   close,

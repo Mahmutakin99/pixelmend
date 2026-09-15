@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const {jobForm, registerModelIpc} = require('./model-ipc.cjs');
+const {engineCommand} = require('./engine-path.cjs');
+if (process.env.PIXELMEND_CI_SMOKE === '1') {
+  app.commandLine.appendSwitch('headless');
+  app.commandLine.appendSwitch('disable-gpu');
+}
 let modelEvents;
 let engine; let token; let mainWindow; let projectFile; const sources = new Map();
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
@@ -14,15 +19,43 @@ function request(route, options={}) { return fetch(`http://127.0.0.1:${engine.po
 async function api(route, options={}) { const response = await request(route, options); if (!response.ok) { let detail = `Motor hatası (${response.status})`; try { detail = (await response.json()).detail || detail; } catch {} throw new Error(detail); } return response; }
 async function startEngine() {
   token = crypto.randomBytes(32).toString('hex');
-  const executable = app.isPackaged ? path.join(process.resourcesPath, 'engine', 'pixelmend-engine') : path.join(__dirname, '../../../engine/.venv/bin/python');
-  const args = app.isPackaged ? [] : ['-m', 'pixelmend_engine'];
+  const {executable, args} = engineCommand({isPackaged:app.isPackaged, resourcesPath:process.resourcesPath, dirname:__dirname});
   engine = spawn(executable, args, {env: {...process.env, PIXELMEND_SESSION_TOKEN: token}, stdio: ['ignore', 'pipe', 'pipe']});
   const line = await new Promise((resolve, reject) => { let buf=''; engine.stdout.on('data', d => { buf += d; const i=buf.indexOf('\n'); if(i>=0) resolve(buf.slice(0,i)); }); engine.once('error', reject); setTimeout(() => reject(new Error('Engine startup timed out')), 15000); });
   engine.port = JSON.parse(line).port;
   await api('/health');
 }
+async function stopEngine() {
+  const child = engine;
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  await new Promise(resolve => {
+    const timeout = setTimeout(resolve, 5000);
+    child.once('exit', () => { clearTimeout(timeout); resolve(); });
+    child.kill('SIGTERM');
+  });
+  if (child.exitCode === null && child.signalCode === null) throw new Error('sidecar did not stop');
+}
+async function runSmoke() {
+  const health = await (await api('/health')).json();
+  const capabilities = await (await api('/capabilities')).json();
+  if (health.status !== 'ok' || !capabilities.policy) throw new Error('sidecar health or capabilities failed');
+  // A tiny opaque PNG: the app's real main process submits the light OpenCV path
+  // and reads a native PNG export without shipping a fixture image.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFUlEQVR4nGP8//8/AzbAhFV00EoAAFbUAw037MyjAAAAAElFTkSuQmCC', 'base64');
+  const form = new FormData(); form.append('image', new Blob([png]), 'smoke.png');
+  const asset = await (await api('/assets', {method:'POST', body:form})).json();
+  const jobForm = new FormData();
+  jobForm.append('asset_id', asset.asset_id); jobForm.append('algorithms', '["opencv_telea"]');
+  jobForm.append('selection_strokes', JSON.stringify([{mode:'draw',points:[{x:4,y:4}],color:'#ff3b6b',opacity:1,size:2,hardness:1}]));
+  const job = await (await api('/jobs', {method:'POST',body:jobForm})).json();
+  let state;
+  for (let attempt=0; attempt<100; attempt++) { state = await (await api(`/jobs/${job.job_id}`)).json(); if (['completed','failed','cancelled'].includes(state.status)) break; await new Promise(resolve=>setTimeout(resolve, 50)); }
+  if (state?.status !== 'completed') throw new Error(`OpenCV smoke job failed: ${state?.status}`);
+  const exportResponse = await api(`/jobs/${job.job_id}/results/${state.result_ids[0]}?format=PNG`);
+  if ((await exportResponse.arrayBuffer()).byteLength < 16) throw new Error('native PNG export was empty');
+}
 function createWindow() { const window = new BrowserWindow({width: 1320, height: 900, minWidth: 760, minHeight: 600, webPreferences: {preload:path.join(__dirname,'preload.cjs'), contextIsolation:true, sandbox:true, nodeIntegration:false}}); window.loadFile(path.join(__dirname,'../dist/index.html')); return window; }
-app.whenReady().then(async () => { protocol.handle('pixelmend', async requestUrl => { const key = requestUrl.url.replace('pixelmend://',''); const value=sources.get(key); return new Response(value || '', {status:value ? 200 : 404, headers:{'Content-Type':'image/png'}}); }); await startEngine(); const window=mainWindow=createWindow();
+app.whenReady().then(async () => { protocol.handle('pixelmend', async requestUrl => { const key = requestUrl.url.replace('pixelmend://',''); const value=sources.get(key); return new Response(value || '', {status:value ? 200 : 404, headers:{'Content-Type':'image/png'}}); }); await startEngine(); if (process.env.PIXELMEND_CI_SMOKE === '1') { let code=0; try { await runSmoke(); } catch (error) { console.error(error); code=1; } finally { try { await stopEngine(); } catch (error) { console.error(error); code=1; } } app.exit(code); return; } const window=mainWindow=createWindow();
  modelEvents = registerModelIpc(ipcMain, api, sender => sender === mainWindow?.webContents);
  window.webContents.on('did-start-loading', () => modelEvents.unsubscribe(window.webContents));
  ipcMain.handle('pixelmend:open-image', async () => { const result=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'Images',extensions:['png','jpg','jpeg','webp','tif','tiff']}]}); if(result.canceled) return null; const form=new FormData(); form.append('image', new Blob([fs.readFileSync(result.filePaths[0])]), path.basename(result.filePaths[0])); const asset=await (await api('/assets',{method:'POST',body:form})).json(); const preview=await (await api(`/assets/${asset.asset_id}/preview`)).arrayBuffer(); sources.set(`asset/${asset.asset_id}`,preview); return {...asset, preview:`pixelmend://asset/${asset.asset_id}`}; });

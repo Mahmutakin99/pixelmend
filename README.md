@@ -6,7 +6,15 @@ Fotoğraflarınızda istemediğiniz bir alanı fırçayla işaretleyip silin —
 - **Çapraz platform** — v1 hedefi macOS Apple Silicon, Windows x64 ve Linux x64.
 - **Doğrulanmış kapasiteye göre uyarlanır** — cihazda gerçekten çalışan backend ve modeller ölçülür; uygun olmayan ağır yöntemler varsayılan kapalı kalır.
 
-> **Durum:** Yerel motor ve masaüstü uygulaması geliştirme aşamasında. RealESRGAN AI upscale altyapısı hazır olsa da doğrulanmış public model artefaktı ve M4 benchmarkı tamamlanmadığı için AI modu henüz etkin değildir. Güncel kararları `DURUM.md`'den takip edebilirsiniz.
+> **Durum:** Yerel motor ve masaüstü uygulaması geliştirme aşamasında. macOS arm64, Windows x64 ve Linux x64 için imzasız CI paketleri üretilir; gerçek platform kabulü ve kod imzalama henüz tamamlanmamıştır. RealESRGAN AI upscale altyapısı hazır olsa da doğrulanmış public model artefaktı ve M4 benchmarkı tamamlanmadığı için AI modu henüz etkin değildir. Güncel kararları `DURUM.md`'den takip edebilirsiniz.
+
+## Paket desteği
+
+| Hedef | CI çıktısı | Dağıtım durumu |
+|---|---|---|
+| macOS Apple Silicon | arm64 DMG ve ZIP | İmzasız test paketi üretilir; gerçek cihaz kabulü, Developer ID ve notarization bekler. |
+| Windows x64 | NSIS | İmzasız test paketi üretilir; gerçek cihaz kabulü ve imzalama bekler. |
+| Linux x64 | AppImage ve DEB | İmzasız test paketi üretilir; gerçek dağıtım/masaüstü kabulü bekler. |
 
 ## Bu ne işe yarar
 
