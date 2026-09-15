@@ -79,7 +79,10 @@ jobs:
           uv --directory ../../engine run pytest tests -q
       - name: Build unsigned package
         shell: bash
-        run: pnpm package -- --${{ matrix.os == 'macos' && 'mac' || matrix.os == 'windows' && 'win' || 'linux' }} ${{ matrix.builder_target }} --${{ matrix.arch }}
+        run: |
+          pnpm build:engine
+          pnpm build
+          pnpm exec electron-builder --publish never --${{ matrix.os == 'macos' && 'mac' || matrix.os == 'windows' && 'win' || 'linux' }} ${{ matrix.builder_target }} --${{ matrix.arch }}
       - name: Locate the requested package
         id: package
         shell: bash
@@ -102,9 +105,13 @@ jobs:
           pkg='${{ steps.package.outputs.file }}'
           temp_dir="$(mktemp -d)"
           if [ '${{ matrix.format }}' = dmg ]; then
-            volume="$(hdiutil attach -nobrowse -readonly "$pkg" | awk '/\/Volumes\// {print $3; exit}')"
-            trap 'hdiutil detach "$volume" -quiet || true; rm -rf "$temp_dir"' EXIT
-            app_path="$(find "$volume" -maxdepth 1 -name 'PixelMend.app' -print -quit)"
+            # A DMG volume name can contain spaces. Mount at a known path instead
+            # of parsing hdiutil's human-readable output.
+            mount_dir="$temp_dir/mount"
+            mkdir -p "$mount_dir"
+            hdiutil attach -nobrowse -readonly -mountpoint "$mount_dir" "$pkg" >/dev/null
+            trap 'hdiutil detach "$mount_dir" -quiet || true; rm -rf "$temp_dir"' EXIT
+            app_path="$(find "$mount_dir" -maxdepth 1 -name 'PixelMend.app' -print -quit)"
           else
             unzip -q "$pkg" -d "$temp_dir"
             trap 'rm -rf "$temp_dir"' EXIT
@@ -141,7 +148,10 @@ jobs:
         run: |
           mkdir -p ci-evidence
           PIXELMEND_PYTHON_VERSION="$(uv --directory ../../engine run python --version)" node ../../tools/ci/package-evidence.mjs manifest --output apps/desktop/ci-evidence/build-manifest.json --os '${{ matrix.os }}' --arch '${{ matrix.arch }}'
-          npx --yes @cyclonedx/cyclonedx-npm --output-file ci-evidence/sbom-node.cdx.json --output-format JSON
+          # The project is installed with pnpm. cyclonedx-npm delegates its
+          # inspection to npm, whose strict node_modules validation does not
+          # understand pnpm's virtual store; retain the resolved graph instead.
+          npx --yes @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-file ci-evidence/sbom-node.cdx.json --output-format JSON
           uvx cyclonedx-py environment --of JSON -o ci-evidence/sbom-python.cdx.json "$(uv --directory ../../engine run python -c 'import sys; print(sys.executable)')"
       - name: Stage package evidence
         id: artifact
