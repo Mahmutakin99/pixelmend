@@ -33,6 +33,12 @@ Python motorunda normalize image I/O, model bütünlüğü, token korumalı asse
 - `tools/model-export/` yalıtılmış export/parity kapısını ve `engine/bench/` kaynak lisansı/hash zorunlu benchmark runner'ını içerir. Yerel aday üretildi ve parity geçti, ancak ağırlık/aday ONNX git'e eklenmedi ve public artefakt bilgileri uydurulmadı.
 - Doğrulama: `engine/.venv/bin/python -m pytest engine/tests -q -k 'not sidecar_process'` → **107 passed, 1 skipped, 1 deselected** (tek üçüncü taraf TestClient deprecation warning); `apps/desktop` altında `corepack pnpm test` → **16 passed**; `corepack pnpm build` geçti. Sandbox loopback kısıtı nedeniyle sidecar alt-süreç testi bu tam koşudan ayrı tutuldu; önceki yükseltilmiş koşuda geçti.
 
+### 2026-09-15 — Private GitHub kaynak deposu oluşturuldu
+
+- Kaynak depo: [`Mahmutakin99/pixelmend`](https://github.com/Mahmutakin99/pixelmend) (private). `main` temizlenmiş geçmişle push edildi ve `origin/main` izleniyor.
+- Eski yerel geçmişte GitHub'ın normal Git dosya boyutu sınırını aşan DMG/ZIP release ikilileri vardı. Profesyonel kaynak depo politikası olarak `release/` tüm `main` geçmişinden çıkarıldı; en büyük erişilebilir kaynak nesnesi artık yaklaşık 108 KiB'dir. Eski geçmiş yalnız yerel `refs/archive/pre-github-cleanup` referansında korunur.
+- Gelecek DMG/ZIP/SBOM/manifest yayın paketleri Git nesnesi değil, ilgili GitHub Release'in asset'leri olarak yayımlanacaktır.
+
 ### 2026-09-14 — macOS arm64 imzasız release candidate paketlendi
 
 - Electron/React masaüstü kabuğu, sandbox renderer, contextBridge dar API, tokenlı sidecar main-client bağlantısı, pixelmend preview protokolü, mask stroke journal, undo/redo, OpenCV/LaMa/Lanczos başlatma ve save akışlarıyla eklendi.
