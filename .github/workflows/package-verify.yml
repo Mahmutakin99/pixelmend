@@ -46,6 +46,11 @@ jobs:
         working-directory: apps/desktop
     steps:
       - uses: actions/checkout@v4
+      # setup-node resolves the pnpm store while configuring its cache, so pnpm
+      # must exist before this action runs.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.1
       - uses: actions/setup-node@v4
         with:
           node-version: 25
@@ -63,7 +68,6 @@ jobs:
       - name: Install locked dependencies
         shell: bash
         run: |
-          corepack enable
           pnpm install --frozen-lockfile
           uv --directory ../../engine sync --all-groups --locked
       - name: Verify source and CI helper contracts
