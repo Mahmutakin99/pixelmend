@@ -44,5 +44,6 @@ def test_real_loopback_sidecar_startup_health_and_shutdown():
             process.kill()
             process.wait()
             raise
-    # Uvicorn restores and re-raises SIGTERM after its graceful lifespan shutdown.
-    assert process.returncode in (0, -15)
+    # Uvicorn restores SIGTERM on POSIX; Popen.terminate() maps to exit code 1
+    # on Windows. Both mean the sidecar was deliberately shut down.
+    assert process.returncode in ((0, 1) if os.name == 'nt' else (0, -15))

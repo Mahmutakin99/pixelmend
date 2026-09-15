@@ -70,7 +70,6 @@
     "linux": {
       "icon": "build/icons",
       "category": "Graphics",
-      "desktopName": "PixelMend",
       "target": ["AppImage", "deb"]
     },
     "deb": {
