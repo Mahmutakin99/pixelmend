@@ -32,7 +32,7 @@ Kolaydan zora, bağımlılık kapılarıyla sıralanmış nihai ürün yol harit
 - Ayarlar penceresi artık sabit başlık ve `min-height: 0` kaydırılabilir içerik alanıyla grid düzeninde çalışır; küçük ekranlarda güvenli yatay boşluk ve tek sütunlu alanlar korunur. `Esc` ve Kapat düğmesi pencereyi kapatır.
 - Dil ve tema Genel bölümüne alındı. Performans ve model verileri etiket-değer düzeninde okunabilir tutuldu; model kartının varsayılanı durum, indirme/depolama boyutu, lisans ve izinli eylemleri gösterir. Revision, SHA-256, sağlayıcı ölçümü ve eski revision bilgileri, açıklayıcı "Teknik ayrıntılar" özetinde kapalı olarak bulunur; uzun değerler satır kırar.
 - Doğrulama: `apps/desktop` altında `corepack pnpm test` → **26 passed**; `corepack pnpm build` geçti. `engine` altında `uv run python -m pytest tests -q` → **117 passed, 1 skipped** (mevcut üçüncü taraf `TestClient` deprecation uyarısı). Yeni arm64 DMG/ZIP üretildi ve paketli uygulamada `e2e/paint-crash.cjs` smoke testi geçti.
-- `/Applications/PixelMend.app` güncellemesi, uygulama açık olduğu için ertelendi; kullanıcı kapattıktan sonra yeni paket `apps/desktop/out.noindex/mac-arm64/PixelMend.app` ile değiştirilecek, eski uygulama Çöp'e taşınacak ve geçici paket çıktıları temizlenecek.
+- Smoke testi sonrası `1.0.0-rc.2` uygulaması `/Applications/PixelMend.app` konumuna kuruldu. Önceki uygulama `PixelMend.app.pre-settings-20260920` adıyla Çöp'e taşındı; 942 MB geçici `out.noindex/` paket çıktısı temizlendi.
 
 ### 2026-09-15 — Üç platform imzasız paket doğrulaması eklendi
 
