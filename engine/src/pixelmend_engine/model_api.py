@@ -2,7 +2,7 @@
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .model_manager import ModelManagerError
@@ -27,10 +27,14 @@ def model_router(manager, auth):
                                  headers={'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no'})
 
     @router.post('/{model_id}/{action}')
-    async def mutate(model_id: str, action: str):
-        if action not in {'install', 'cancel', 'retry', 'probe'}:
+    async def mutate(model_id: str, action: str, payload: dict | None = Body(default=None)):
+        if action not in {'install', 'install-local', 'cancel', 'retry', 'probe'}:
             raise HTTPException(404, 'Unknown model action.')
         try:
+            if action == 'install-local':
+                if not payload or not isinstance(payload.get('path'), str):
+                    raise HTTPException(422, 'Local file selection is required.')
+                return await manager.install_local(model_id, payload['path'])
             return await getattr(manager, action)(model_id)
         except ModelManagerError as error:
             raise HTTPException(error.status_code, {'code': error.code, 'message': str(error)}) from None

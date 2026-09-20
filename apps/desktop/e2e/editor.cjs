@@ -44,6 +44,10 @@ const assert = require('node:assert/strict');
     assert(await alpha() > 0, 'paint visible before mouse up');
     await page.mouse.up();
     await expect(page.getByRole('button', {name:'Yinele',exact:true})).toBeDisabled();
+    await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());
+    await expect(page.getByRole('heading',{name:'Değişiklikler kaydedilsin mi?',exact:true})).toBeVisible();
+    await page.getByRole('button',{name:'Vazgeç',exact:true}).click();
+    await expect(page.locator('.canvas img')).toBeVisible();
     // A long, angular translucent stroke must not change when it becomes history.
     // This caught the prior mismatch: live segments used round caps, replay used a mitered path.
     const zigzag = [
@@ -83,8 +87,12 @@ const assert = require('node:assert/strict');
     await expect(page.getByRole('region',{name:'İşlem durumu'})).toBeVisible();
     await expect(page.getByRole('button',{name:'Nesneyi Sil',exact:true})).toBeDisabled();
     await expect(page.getByRole('button', {name: 'Uygula', exact: true})).toBeVisible({timeout: 120000});
+    await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());
+    await expect(page.getByRole('status')).toContainText('önizlemeyi');
+    await expect(page.getByRole('button',{name:'Uygula',exact:true})).toBeVisible();
     await page.getByRole('button', {name: 'Vazgeç', exact: true}).click();
     await expect(page.getByRole('status')).toContainText('Seçim korunuyor');
+    await page.getByRole('radio',{name:'Hızlı — OpenCV',exact:true}).check();
     await page.getByRole('button', {name: 'Nesneyi Sil', exact: true}).click();
     await expect(page.getByRole('button', {name: 'Uygula', exact: true})).toBeVisible({timeout: 120000});
     await page.getByRole('button', {name: 'Uygula', exact: true}).click();
@@ -92,11 +100,11 @@ const assert = require('node:assert/strict');
     await page.getByRole('button', {name: 'Görsel olarak kaydet (PNG)', exact: true}).click();
     await expect(page.getByRole('status')).toContainText('kaydedildi');
     assert((await fs.stat(savedPath)).size > 0);
-    await page.screenshot({path: path.join(artifacts, 'opencv-result.png')});
+    await page.screenshot({path: path.join(artifacts, 'lama-result.png')});
     await page.getByRole('button',{name:'2×',exact:true}).click();
-    await expect(page.getByRole('button',{name:'Uygula',exact:true})).toBeVisible({timeout:15000});
+    await expect(page.getByRole('button',{name:'Uygula',exact:true})).toBeVisible({timeout:120000});
     await page.getByRole('button',{name:'Uygula',exact:true}).click();
-    await expect(page.getByRole('status')).toContainText('192 × 128',{timeout:15000});
+    await expect(page.getByRole('status')).toContainText('192 × 128',{timeout:120000});
     await expect.poll(()=>page.locator('.canvas img').evaluate(img=>[img.naturalWidth,img.naturalHeight])).toEqual([192,128]);
     await page.getByLabel('Opaklık yüzdesi').fill('55');
     await expect(page.getByLabel('Opaklık yüzdesi')).toHaveValue('55');
@@ -104,8 +112,9 @@ const assert = require('node:assert/strict');
     await expect(page.getByLabel('Fırça boyutu piksel')).toHaveValue('44');
     await page.getByLabel('Hedef genişlik').fill('300');
     await expect(page.getByLabel('Hedef yükseklik')).toHaveValue('200');
+    await page.getByRole('radio',{name:'Hızlı Lanczos',exact:true}).check();
     await page.getByRole('button',{name:'Özel ölçüyle büyüt',exact:true}).click();
-    await expect(page.getByRole('button',{name:'Uygula',exact:true})).toBeVisible({timeout:15000});
+    await expect(page.getByRole('button',{name:'Uygula',exact:true})).toBeVisible({timeout:120000});
     await page.getByRole('button',{name:'Uygula',exact:true}).click();
     await expect.poll(()=>page.locator('.canvas img').evaluate(img=>[img.naturalWidth,img.naturalHeight])).toEqual([300,200]);
     const article = page.locator('article');
@@ -129,10 +138,12 @@ const assert = require('node:assert/strict');
     console.error('Renderer errors:',errors);
     if (page) {
       console.error('UI status:', await page.getByRole('status').textContent({timeout:2000}).catch(()=>'(renderer unavailable)'));
-      await page.screenshot({path: path.join(artifacts, 'failure.png')});
+      await page.screenshot({path: path.join(artifacts, 'failure.png')}).catch(()=>{});
     }
     throw error;
   } finally {
+    if (page && !page.isClosed()) await page.evaluate(()=>window.pixelmend.confirmClose()).catch(()=>{});
     await application.close();
+    await fs.rm(temp,{recursive:true,force:true});
   }
 })().catch(error => {console.error(error); process.exitCode = 1;});

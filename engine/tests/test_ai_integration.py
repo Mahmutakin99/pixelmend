@@ -17,11 +17,12 @@ def test_capabilities_expose_one_output_policy_and_ai_model_stays_unpublished():
         models = client.get('/models', headers=headers)
         assert models.status_code == 200
         ai = next(item for item in models.json()['models'] if item['id'] == 'realesrgan-x4plus')
-        assert ai['state'] == 'unavailable'
-        assert ai['revision'] is None and ai['sha256'] is None
+        assert ai['state'] in {'absent', 'ready'}
+        assert ai['source'] == 'local' and ai['verified_manifest']
+        assert ai['revision'] and ai['sha256']
         denied = client.post('/models/realesrgan-x4plus/install', headers=headers)
         assert denied.status_code == 409
-        assert denied.json()['detail']['code'] == 'unpublished'
+        assert denied.json()['detail']['code'] == 'local_source_required'
 
 
 def test_asset_export_is_authenticated_and_returns_full_normalized_png():

@@ -1,0 +1,91 @@
+{
+  "created_at": "2026-09-20T12:16:13.696902+00:00",
+  "weights_url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
+  "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+  "weights_size_bytes": 67040989,
+  "source_release": "v0.1.0",
+  "license_commit": "a4abfb2979a7bbff3f69f58f58ae324608821e27",
+  "basicsr_commit": "651835a1b9d38dbbdaf45750f56906be2364f01a",
+  "architecture_sha256": "7413ff6427d5e5a0084ea74e1410931a3ed9d89edbad7c9af5af4331532f1850",
+  "export_script_sha256": "4be29334d113aaf93c47eee3bc82d7f417e6a35d7a70990104221f70cfb90d61",
+  "uv_lock_sha256": "27650e8cc2d9f0e81c24a995d5ef7728cec8eceada92b718848443431fa54264",
+  "license_sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2",
+  "license_url": "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/a4abfb2979a7bbff3f69f58f58ae324608821e27/LICENSE",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "python": "3.12.13",
+  "packages": {
+    "torch": "2.7.1",
+    "onnx": "1.18.0",
+    "onnxruntime": "1.22.0",
+    "numpy": "2.2.6"
+  },
+  "graph": {
+    "opset": 17,
+    "dtype": "float32",
+    "layout": "NCHW",
+    "batch": 1,
+    "channels": "RGB",
+    "input_range": [
+      0,
+      1
+    ],
+    "output": "raw; clip 0..1 before uint8",
+    "scale": 4
+  },
+  "parity": {
+    "provider": "CPUExecutionProvider",
+    "rtol": 0.002,
+    "atol": 0.0002,
+    "cases": [
+      {
+        "input_shape": [
+          1,
+          3,
+          8,
+          8
+        ],
+        "max_abs_error": 9.357929229736328e-06,
+        "mean_abs_error": 1.1668162187561393e-06,
+        "passed": true
+      },
+      {
+        "input_shape": [
+          1,
+          3,
+          11,
+          17
+        ],
+        "max_abs_error": 6.467103958129883e-06,
+        "mean_abs_error": 3.741360217190959e-07,
+        "passed": true
+      },
+      {
+        "input_shape": [
+          1,
+          3,
+          24,
+          19
+        ],
+        "max_abs_error": 7.331371307373047e-06,
+        "mean_abs_error": 3.983773240179289e-07,
+        "passed": true
+      },
+      {
+        "input_shape": [
+          1,
+          3,
+          32,
+          40
+        ],
+        "max_abs_error": 2.086162567138672e-06,
+        "mean_abs_error": 3.085243633904611e-07,
+        "passed": true
+      }
+    ]
+  },
+  "artifact": {
+    "filename": "realesrgan-x4plus-fp32.onnx",
+    "size_bytes": 67051639,
+    "sha256": "3d05f9cecd652841eeb408ceb02c360e48115eaba33c807894a06e6a00218fbc"
+  }
+}

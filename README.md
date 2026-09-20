@@ -1,54 +1,51 @@
 # PixelMend
 
-Fotoğraflarınızda istemediğiniz bir alanı fırçayla işaretleyip silin — çevresindeki piksellerden yola çıkarak doldurulsun. Aynı uygulamada düşük çözünürlüklü fotoğrafları da büyütün. Birden fazla algoritma sonucu yan yana karşılaştırın, en beğendiğinizi seçin.
+Bu Mac üzerinde fotoğrafları yerel olarak düzenleyen Electron uygulaması. Görseller dış servislere gönderilmez.
 
-- **Tamamen yerel çalışır** — görselleriniz cihazınızdan çıkmaz, hiçbir üçüncü parti API'ye gönderilmez.
-- **Çapraz platform** — v1 hedefi macOS Apple Silicon, Windows x64 ve Linux x64.
-- **Doğrulanmış kapasiteye göre uyarlanır** — cihazda gerçekten çalışan backend ve modeller ölçülür; uygun olmayan ağır yöntemler varsayılan kapalı kalır.
+- **Nesne silme:** varsayılan AI — LaMa veya açıkça seçilen Hızlı — OpenCV. LaMa hazır değilse Ayarlar → Modeller üzerinden kurulum/sınama gerekir; sessiz yöntem değişikliği yapılmaz.
+- **Büyütme:** RealESRGAN x4plus AI veya Lanczos; 2×, 4× ve özel ölçü. AI önce doğal 4× çıktı üretir. Sonuç önizlemesini uygulayabilir veya vazgeçebilirsiniz.
+- **Düzenleme:** çizim, seçim ve silgiler, geri al/yinele, zoom, sonuçtan devam, PNG kaydı ve `.pixelmend` projesi.
+- **Modeller:** SHA-256 ve boyut doğrulanır; kullanım boyunca kilit tutulur. Bu teslimde CPU kullanılır. LaMa sabit yayımlanmış kaynaktan indirilir; RealESRGAN uygulamanın sabit manifestine uyan yerel ONNX dosyasından kurulur.
 
-> **Durum:** Yerel motor ve masaüstü uygulaması geliştirme aşamasında. macOS arm64, Windows x64 ve Linux x64 için imzasız CI paketleri üretilir; gerçek platform kabulü ve kod imzalama henüz tamamlanmamıştır. RealESRGAN AI upscale altyapısı hazır olsa da doğrulanmış public model artefaktı ve M4 benchmarkı tamamlanmadığı için AI modu henüz etkin değildir. Güncel kararları `DURUM.md`'den takip edebilirsiniz.
+Bu teslim yalnız macOS Apple Silicon üzerindeki mevcut Mac'i kapsar. Genel imzalı dağıtım, Windows/Linux kabulü ve üretken doldurma kapsam dışıdır. Güncel doğrulama ve sınırlar: [Mac kabul raporu](docs/verification/mac-acceptance.md), [durum](DURUM.md).
 
-## Paket desteği
+## Model deposu
 
-| Hedef | CI çıktısı | Dağıtım durumu |
-|---|---|---|
-| macOS Apple Silicon | arm64 DMG ve ZIP | İmzasız test paketi üretilir; gerçek cihaz kabulü, Developer ID ve notarization bekler. |
-| Windows x64 | NSIS | İmzasız test paketi üretilir; gerçek cihaz kabulü ve imzalama bekler. |
-| Linux x64 | AppImage ve DEB | İmzasız test paketi üretilir; gerçek dağıtım/masaüstü kabulü bekler. |
+Varsayılan kalıcı konum `~/Library/Caches/PixelMend/models/<model>/<revision>/`.
+`PIXELMEND_MODELS_DIR` yalnız açık geliştirme/test override'ıdır. Her açılışta bütünlük ve gerçek CPU sınaması tekrar yapılır. Model dosyaları projeye veya Git'e eklenmez.
 
-## Bu ne işe yarar
+Yerel RealESRGAN export aracı `tools/model-export/export.py`; kaynak ağırlık, lisans, export ortamı ve PyTorch/ONNX eşdeğerliği [provenance kaydında](docs/verification/realesrgan-export.json). Ayarlar → Modeller → Yerel ONNX kur, dosyayı atomik olarak model deposuna kopyalar. Başka hash'e sahip ONNX dosyaları kabul edilmez.
 
-1. **Nesne/leke silme (inpainting):** Bir fotoğrafta istenmeyen bir nesneyi, yazıyı veya lekeyi fırçayla işaretleyin; uygulama o alanı çevredeki dokuya uygun şekilde doldurur.
-2. **Büyütme (upscale):** Düşük çözünürlüklü bir fotoğrafı detay kaybetmeden büyütün.
-3. **Karşılaştırma:** Her iki iş için de birden fazla algoritma çalıştırılır, sonuçlar yan yana gösterilir — en iyi sonucu siz seçersiniz.
+## Geliştirme ve doğrulama
 
-## Cihazınıza göre önerilen mod
+```sh
+cd apps/desktop
+corepack pnpm test
+corepack pnpm build
+corepack pnpm test:ci-tools
+```
 
-Tier yalnız toplam RAM'e bakılarak seçilmeyecek. Uygulama; host belleğini, gerçekten seçilmiş accelerator/adapter'ın bellek bütçesini, modelin ilgili execution provider'da açılıp açılmadığını ve kısa kalibrasyon ölçümünü ayrı ayrı değerlendirecek.
+Zorunlu gerçek model kabulü (iki model kurulu olmalıdır; atlanan test başarı değildir):
 
-| Doğrulanmış cihaz profili | Önerilen tier | Varsayılan kapsam |
-|---|---|---|
-| Hızlandırıcı yok, doğrulanamadı veya model probe'u başarısız | **Hafif** | OpenCV inpainting ve klasik Lanczos büyütme |
-| LaMa, seçili backend'de doğruluk ve süre bütçesini geçti | **Orta** | + LaMa ile gelişmiş nesne silme |
-| Real-ESRGAN bellek ve büyük görsel benchmark'ını geçti | **Yüksek** | + model tabanlı büyütme |
-| Opsiyonel ağır motor ve seçilen SD modeli kendi host/device bellek kapılarını geçti | **Maksimum** (ayrıca indirilir) | + prompt destekli üretken doldurma |
+```sh
+PIXELMEND_REAL_MODELS=1 engine/.venv/bin/python -m pytest engine/tests -q
+```
 
-8/16/24/32GB değerleri ancak ölçümler tamamlandığında yaklaşık örnekler olarak yayınlanacak; ayrık GPU'da VRAM, host RAM'in yerine geçmez. Ölçülemeyen kapasite `unknown` kalır ve uygulama temkinli öneri verir. Kullanıcı öneriyi **Ayarlar → Performans**'tan değiştirebilir. Ağır modlar varsayılan kapalıdır, yalnız kullanıcı açtığında ilgili model indirilir.
+Paketleme: `apps/desktop` altında `corepack pnpm package:mac`. Paketli GUI testleri `e2e/editor.cjs` ve `e2e/models.cjs`; `PIXELMEND_E2E_APP` uygulamanın `Contents/MacOS/PixelMend` yoludur. İkinci testte `PIXELMEND_E2E_FRESH=1` temiz model deposuna kurulum ve yeniden açılışı da doğrular.
 
-## Neden bu yaklaşım
+## Klasörler
 
-Tek bir algoritmayı "doğru cevap" olarak dayatmak yerine, her iş için birkaç farklı yöntemin sonucunu üretip karşılaştırma imkanı sunuyoruz — hangi algoritma sizin fotoğrafınızda daha iyi sonuç verir, önceden bilinemez. Aynı zamanda düşük donanımlı bir cihazda da uygulamanın kullanılabilir kalması için ağır algoritmalar isteğe bağlı tutuluyor.
+| Yol | Amaç |
+|---|---|
+| `apps/desktop/src`, `electron` | Arayüz ve güvenli yerel motor köprüsü |
+| `apps/desktop/e2e`, `engine/tests` | Gerçek uygulama ve motor regresyonları |
+| `engine/src` | Görsel, model, kuyruk ve kaynak sınırı kodu |
+| `engine/bench` | Fotoğraf benchmark araçları; yerel fixture pikselleri Git dışında |
+| `tools/model-export` | Yalıtılmış model export ortamı ve kaynak/lisans doğrulaması |
+| `docs/verification` | Manifestler, ölçümler ve kabul raporu |
+| `apps/desktop/test-results` | Yerel ekran görüntüleri ve karşılaştırma PNG'leri; Git dışında |
+| `node_modules`, `.venv` | Geliştirme/paketleme bağımlılıkları |
+| `dist`, `build`, `out.noindex` | Yeniden üretilebilir derleme/paket çıktıları |
+| `.git`, `.github`, `.ai` | Geçmiş, CI ve proje çalışma kuralları |
 
-## Kullanılan modeller ve lisanslar
-
-Bkz. [`docs/modeller-ve-lisanslar.md`](docs/modeller-ve-lisanslar.md).
-
-## Geliştirme
-
-Proje durumu, alınan kararlar ve sıradaki adımlar için: [`DURUM.md`](DURUM.md).
-Mimari detay: [`docs/mimari.md`](docs/mimari.md).
-Kurulum adımları: [`docs/faz-0-kurulum.md`](docs/faz-0-kurulum.md).
-
-## Lisans
-
-Proje Apache-2.0 lisanslıdır. Üçüncü parti model lisansları ayrıdır; bkz. [`docs/modeller-ve-lisanslar.md`](docs/modeller-ve-lisanslar.md).
+Proje Apache-2.0 lisanslıdır. Model ve üçüncü taraf lisansları ayrıca geçerlidir: [model lisansları](docs/modeller-ve-lisanslar.md).

@@ -28,3 +28,8 @@ def test_admission_checks_natural_output_ram_disk_and_existing_results():
     with pytest.raises(ResourceLimitError) as caught:
         admit_image_job(image, (100, 100), **args)
     assert caught.value.code == 'intermediate_limit'
+
+
+def test_ai_admission_uses_real_default_temporary_directory():
+    image = SimpleNamespace(width=16, height=16, alpha=None)
+    admit_image_job(image, (32, 32), ai=True, available_bytes=8 * 1024**3)

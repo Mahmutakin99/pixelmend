@@ -16,6 +16,7 @@ from .imageio import MAX_SOURCE_BYTES, encode_export, encode_preview_png
 from .strokes import StrokeValidationError, rasterize_selection
 from .jobs import TERMINAL
 from .policy import ResourceLimitError
+from .model_manager import ModelManagerError
 
 
 def job_router(queue, assets, auth):
@@ -70,6 +71,8 @@ def job_router(queue, assets, auth):
             job = queue.submit(asset_id, selected, canonical, scale, target_width, target_height)
         except AssetNotFoundError:
             raise HTTPException(404, 'asset not found')
+        except ModelManagerError as error:
+            raise HTTPException(error.status_code, {'code': error.code, 'message': str(error)}) from error
         except ResourceLimitError as error:
             raise HTTPException(422, str(error)) from error
         except (ValueError, StrokeValidationError, UnidentifiedImageError, OSError):

@@ -9,7 +9,6 @@ from uuid import uuid4
 
 import numpy as np
 from PIL import Image
-from functools import lru_cache
 
 from .assets import AssetStore
 from .imageio import ImageAsset
@@ -20,13 +19,6 @@ from .models.realesrgan_onnx import InferenceCancelled, RealESRGANUpscale
 from .policy import POLICY, ResourceLimitError, admit_image_job
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
-
-
-@lru_cache(maxsize=1)
-def lama_adapter():
-    from .models.lama_onnx import LamaInpaint
-    from .paths import get_models_dir
-    return LamaInpaint(get_models_dir())
 
 
 def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
@@ -49,8 +41,13 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
         alpha = None if image.alpha is None else np.asarray(
             Image.fromarray(image.alpha).resize(rgb.shape[1::-1], Image.Resampling.LANCZOS)).copy()
         return replace(image, rgb=rgb, alpha=alpha)
-    adapter = lama_adapter() if algorithm == 'lama' else OpenCVInpaint(
-        {'opencv_telea': 'telea', 'opencv_ns': 'ns'}[algorithm])
+    if algorithm == 'lama':
+        from .models.lama_onnx import LamaInpaint
+        if model_path is None or provider is None:
+            raise ModelManagerError('not_ready', 'LaMa model is not ready.')
+        adapter = LamaInpaint(model_path=model_path, providers=[provider])
+    else:
+        adapter = OpenCVInpaint({'opencv_telea': 'telea', 'opencv_ns': 'ns'}[algorithm])
     return replace(image, rgb=adapter.run(image.rgb, mask))
 
 
@@ -69,6 +66,9 @@ class Job:
     error: dict | None = None
     progress: dict | None = None
     model_lease: object | None = None
+    model_revision: str | None = None
+    provider: str | None = None
+    result_metadata: dict = field(default_factory=dict)
     cancel_event: Event = field(default_factory=Event)
 
     def emit(self, event, **data):
@@ -79,8 +79,8 @@ class Job:
         return {'job_id': self.job_id, 'status': self.status,
                 'result_ids': list(self.results), 'algorithms': self.algorithms,
                 'error': self.error,
-                'progress': self.progress,
-                'result_details': [{'result_id': key, 'width': image.width, 'height': image.height}
+                'progress': self.progress, 'model_revision': self.model_revision, 'provider': self.provider,
+                'result_details': [{'result_id': key, 'width': image.width, 'height': image.height, **self.result_metadata[key]}
                                    for key, image in self.results.items()]}
 
 
@@ -145,15 +145,19 @@ class JobQueue:
                 raise ValueError('mask must contain a binary selection')
         self.assets.acquire_for_job(asset_id)
         job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale, target_size)
-        if algorithms == ['realesrgan_x4plus']:
+        if 'realesrgan_x4plus' in algorithms or 'lama' in algorithms:
             if self.model_manager is None:
                 self.assets.release_from_job(asset_id)
-                raise ValueError('AI upscale unavailable')
+                raise ModelManagerError('not_ready', 'AI model is not ready.')
+            model_id = 'lama' if 'lama' in algorithms else 'realesrgan-x4plus'
             try:
-                job.model_lease = self.model_manager.lease('realesrgan-x4plus')
+                job.model_lease = self.model_manager.lease(model_id)
                 job.model_path = job.model_lease.__enter__()
-                job.provider = self.model_manager.selected_provider('realesrgan-x4plus')
+                job.provider = self.model_manager.selected_provider(model_id)
+                job.model_revision = job.model_path.parent.name
             except Exception:
+                if getattr(job, 'model_path', None) is not None:
+                    job.model_lease.__exit__(None, None, None)
                 self.assets.release_from_job(asset_id)
                 raise
         self.jobs[job.job_id] = job
@@ -217,8 +221,11 @@ class JobQueue:
                             raise MemoryError('result budget exceeded')
                         result_id = uuid4().hex
                         job.results[result_id] = result
+                        job.result_metadata[result_id] = {'algorithm': algorithm,
+                            'model_revision': job.model_revision if algorithm in {'lama', 'realesrgan_x4plus'} else None,
+                            'provider': job.provider if algorithm in {'lama', 'realesrgan_x4plus'} else 'CPU'}
                         job.result_bytes += size
-                        job.emit('result', result_id=result_id, algorithm=algorithm,
+                        job.emit('result', result_id=result_id, **job.result_metadata[result_id],
                                  seconds=monotonic() - started, width=result.width, height=result.height)
                 job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
             except (InferenceCancelled, asyncio.CancelledError):

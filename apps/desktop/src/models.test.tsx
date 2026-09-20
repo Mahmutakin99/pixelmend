@@ -26,9 +26,10 @@ describe('model availability and performance facts',()=>{
   });
   it('keeps settings summaries scannable and technical model metadata collapsed',()=>{
     const html=renderToStaticMarkup(<Settings value={{language:'tr',theme:'system'}} close={()=>{}} set={()=>{}} models={[model]} capabilities={undefined} refresh={()=>{}} error=""/>);
+    expect(html).not.toContain('value="en"');
     expect(html).toContain('Genel');
     expect(html).toContain('Performans');
-    expect(html).toContain('İndirme boyutu');
+    expect(html).toContain('Model boyutu');
     expect(html).toContain('Depolanan boyut');
     expect(html).toContain('<summary>Teknik ayrıntılar — revision, bütünlük ve sağlayıcı ölçümü</summary>');
     expect(html).not.toContain('<details open=');

@@ -166,7 +166,7 @@ def _probe_model(manifest, path):
     from .models.realesrgan_onnx import RealESRGANUpscale
 
     providers = list(ort.get_available_providers())
-    candidates = [p for p in ('CoreMLExecutionProvider', 'CPUExecutionProvider') if p in providers]
+    candidates = [p for p in ('CPUExecutionProvider',) if p in providers]
     timings = []
     for provider in candidates:
         try:
@@ -177,7 +177,7 @@ def _probe_model(manifest, path):
                 if value.shape != (32, 36, 3):
                     raise ValueError('unexpected upscale output')
             elif manifest.model_id == 'lama':
-                adapter = LamaInpaint(get_models_dir())
+                adapter = LamaInpaint(model_path=path, providers=[provider])
                 value = adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
                 if value.shape != (16, 16, 3):
                     raise ValueError('unexpected inpaint output')

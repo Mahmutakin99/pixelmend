@@ -1,0 +1,498 @@
+{
+  "created_at": "2026-09-20T12:26:27.200531+00:00",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "onnxruntime": "1.30.0",
+  "provider": "CPUExecutionProvider",
+  "model": {
+    "provider_identity": "CPUExecutionProvider",
+    "path": "realesrgan-x4plus-fp32.onnx",
+    "sha256": "3d05f9cecd652841eeb408ceb02c360e48115eaba33c807894a06e6a00218fbc"
+  },
+  "tile": {
+    "size": 128,
+    "overlap": 16
+  },
+  "results": [
+    {
+      "session_load_seconds": 0.0994366670056479,
+      "fixture": "camera",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/camera.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "e28e99e90630a6ea38d2a96be75da23f0de9338c2a66a5310357f8321c1e4161",
+      "target": "2x",
+      "width": 384,
+      "height": 384,
+      "raw_rgb_sha256": "8b50150f6413c9095a014eeae3f2fedfa8f8337c8210ccec4e79d8ec73e886a9",
+      "cold_seconds": 5.327357,
+      "warm_seconds": [
+        5.217388
+      ],
+      "warm_median_seconds": 5.217388165998273,
+      "host_peak_rss_bytes": 679133184,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09040983299928484,
+      "fixture": "camera",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/camera.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "e28e99e90630a6ea38d2a96be75da23f0de9338c2a66a5310357f8321c1e4161",
+      "target": "4x",
+      "width": 768,
+      "height": 768,
+      "raw_rgb_sha256": "ff8f6ef1066c5b65d2a3f4b71b6bf9c34b2fa5af3bed44eddcca517a14206727",
+      "cold_seconds": 5.145337,
+      "warm_seconds": [
+        5.034802
+      ],
+      "warm_median_seconds": 5.034801542002242,
+      "host_peak_rss_bytes": 690520064,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09093766599835362,
+      "fixture": "eagle",
+      "source_url": "https://gitlab.com/scikit-image/data/-/raw/1e4f62ac31ba4553d176d4473a5967ad1b076d62/eagle.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "95a062196c97eb724efe2271786130c39706d859e477d694cb7d6b75543aa8ad",
+      "target": "2x",
+      "width": 348,
+      "height": 384,
+      "raw_rgb_sha256": "fac91952bdd308f198bf6217deb03f61a2c4cf2504a700087c5f73e308c58f4e",
+      "cold_seconds": 5.071601,
+      "warm_seconds": [
+        5.094221
+      ],
+      "warm_median_seconds": 5.094221292005386,
+      "host_peak_rss_bytes": 693403648,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.0892178750000312,
+      "fixture": "eagle",
+      "source_url": "https://gitlab.com/scikit-image/data/-/raw/1e4f62ac31ba4553d176d4473a5967ad1b076d62/eagle.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "95a062196c97eb724efe2271786130c39706d859e477d694cb7d6b75543aa8ad",
+      "target": "4x",
+      "width": 696,
+      "height": 768,
+      "raw_rgb_sha256": "62b6697b7b8b615c9b31905fcd7d186f0931003210ddec8075f6fbd4905b0e28",
+      "cold_seconds": 5.627011,
+      "warm_seconds": [
+        5.006923
+      ],
+      "warm_median_seconds": 5.006922917003976,
+      "host_peak_rss_bytes": 696156160,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.10227529199619312,
+      "fixture": "astronaut",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/astronaut.png",
+      "license": "Public-Domain",
+      "fixture_sha256": "1998f41015c1258f6ff375a146575644390ad607f0e59c446806857321b966e2",
+      "target": "2x",
+      "width": 384,
+      "height": 384,
+      "raw_rgb_sha256": "47f71c03bd7955e6f2e0a0cf07c80535d6148061efb10c561f71d967bc3183e7",
+      "cold_seconds": 5.80156,
+      "warm_seconds": [
+        5.200395
+      ],
+      "warm_median_seconds": 5.2003950829966925,
+      "host_peak_rss_bytes": 697630720,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08938212499924703,
+      "fixture": "astronaut",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/astronaut.png",
+      "license": "Public-Domain",
+      "fixture_sha256": "1998f41015c1258f6ff375a146575644390ad607f0e59c446806857321b966e2",
+      "target": "4x",
+      "width": 768,
+      "height": 768,
+      "raw_rgb_sha256": "fc67c9b9fb2bc66013f6dd8884f4cc0746e20a8ef25186f08e76343359b91687",
+      "cold_seconds": 5.03494,
+      "warm_seconds": [
+        5.189869
+      ],
+      "warm_median_seconds": 5.189868833993387,
+      "host_peak_rss_bytes": 698040320,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08809774999826914,
+      "fixture": "brick",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/brick.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "71368e51df9a5049f5215284aae3847612fc4d51c91f823e4abb6d89b12fa445",
+      "target": "2x",
+      "width": 384,
+      "height": 384,
+      "raw_rgb_sha256": "013c13d8adb1d1290995b6680c653635d5f971954eb6d4e105d25b23daa25a99",
+      "cold_seconds": 5.211029,
+      "warm_seconds": [
+        5.050313
+      ],
+      "warm_median_seconds": 5.050313333995291,
+      "host_peak_rss_bytes": 698187776,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09281658400141168,
+      "fixture": "brick",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/brick.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "71368e51df9a5049f5215284aae3847612fc4d51c91f823e4abb6d89b12fa445",
+      "target": "4x",
+      "width": 768,
+      "height": 768,
+      "raw_rgb_sha256": "99835779815e050d9f2483574721f705f8fe58fc6df859a7f8639d024274f34e",
+      "cold_seconds": 5.122424,
+      "warm_seconds": [
+        5.60922
+      ],
+      "warm_median_seconds": 5.609219582998776,
+      "host_peak_rss_bytes": 698728448,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.11252829199656844,
+      "fixture": "grass",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/grass.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "3fcd96b19f06d1b94a1094cdc30c22e6ecf07f7bf3161edea9bea6e8878bc4ba",
+      "target": "2x",
+      "width": 384,
+      "height": 384,
+      "raw_rgb_sha256": "793362962af9e214526b43eaa7581f92beb6bf7d8e3ffd6d4c6587db46a2d755",
+      "cold_seconds": 5.81907,
+      "warm_seconds": [
+        5.639314
+      ],
+      "warm_median_seconds": 5.639313625004434,
+      "host_peak_rss_bytes": 685113344,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09581079200142995,
+      "fixture": "grass",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/grass.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "3fcd96b19f06d1b94a1094cdc30c22e6ecf07f7bf3161edea9bea6e8878bc4ba",
+      "target": "4x",
+      "width": 768,
+      "height": 768,
+      "raw_rgb_sha256": "a217dd7bce3b3779400ce26d7bb1643630a11f473d0ab8ee3e7375afce9070ed",
+      "cold_seconds": 5.075005,
+      "warm_seconds": [
+        5.151438
+      ],
+      "warm_median_seconds": 5.15143758400518,
+      "host_peak_rss_bytes": 685228032,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08968525000091176,
+      "fixture": "gravel",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/gravel.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "43f49b492ac9de2a4fedbf93933cb2f127ef1f8b01a9257bc459dfda125c00bd",
+      "target": "2x",
+      "width": 384,
+      "height": 384,
+      "raw_rgb_sha256": "b403936fbf13eedaef6d66a1daa615076ebb164f0aad7195cd7477b3a947be6e",
+      "cold_seconds": 5.100157,
+      "warm_seconds": [
+        5.06445
+      ],
+      "warm_median_seconds": 5.06444958299835,
+      "host_peak_rss_bytes": 685424640,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09168516699719476,
+      "fixture": "gravel",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/gravel.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "43f49b492ac9de2a4fedbf93933cb2f127ef1f8b01a9257bc459dfda125c00bd",
+      "target": "4x",
+      "width": 768,
+      "height": 768,
+      "raw_rgb_sha256": "bd669fb3f23550255fcd208e973c4cfe9379e58b9585ee7f6d461f3bf31e9ed3",
+      "cold_seconds": 5.067208,
+      "warm_seconds": [
+        5.057638
+      ],
+      "warm_median_seconds": 5.057637792000605,
+      "host_peak_rss_bytes": 685637632,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09217191600328078,
+      "fixture": "chelsea",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/chelsea.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "2150ddcc7db5cf3a0e0be8d8a9f70db1678141a4cb2f45297bb27a677edb525b",
+      "target": "2x",
+      "width": 384,
+      "height": 256,
+      "raw_rgb_sha256": "1cc0168126e666c856c8baef588fbd178e94d95dd51b0d077ab69202459017bb",
+      "cold_seconds": 2.242801,
+      "warm_seconds": [
+        2.224605
+      ],
+      "warm_median_seconds": 2.22460479199799,
+      "host_peak_rss_bytes": 683360256,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08863595800357871,
+      "fixture": "chelsea",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/chelsea.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "2150ddcc7db5cf3a0e0be8d8a9f70db1678141a4cb2f45297bb27a677edb525b",
+      "target": "4x",
+      "width": 768,
+      "height": 512,
+      "raw_rgb_sha256": "864c8d9bd1f242dc6a2c0462d55aceccc69971677e9792fb583b93bc707a5655",
+      "cold_seconds": 2.231634,
+      "warm_seconds": [
+        2.230029
+      ],
+      "warm_median_seconds": 2.230028833997494,
+      "host_peak_rss_bytes": 683376640,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09099762499681674,
+      "fixture": "clock_motion",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/clock_motion.png",
+      "license": "Public-Domain",
+      "fixture_sha256": "d3b20fc7b2c88675f686b1dbe2708455818e9d30b150b4f13ddaaa8fe1a46fb4",
+      "target": "2x",
+      "width": 384,
+      "height": 288,
+      "raw_rgb_sha256": "1c926842cce6a69d8d30f1c94c622925359e0fac85115d516a4dd46e5ff0f338",
+      "cold_seconds": 4.902422,
+      "warm_seconds": [
+        4.984911
+      ],
+      "warm_median_seconds": 4.984910667000804,
+      "host_peak_rss_bytes": 684212224,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.0916113339990261,
+      "fixture": "clock_motion",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/clock_motion.png",
+      "license": "Public-Domain",
+      "fixture_sha256": "d3b20fc7b2c88675f686b1dbe2708455818e9d30b150b4f13ddaaa8fe1a46fb4",
+      "target": "4x",
+      "width": 768,
+      "height": 576,
+      "raw_rgb_sha256": "e6802a4f1ad6ff731f0d845cba8ce16465afeeef543bc23a735ce9b99d93693d",
+      "cold_seconds": 5.003447,
+      "warm_seconds": [
+        4.989407
+      ],
+      "warm_median_seconds": 4.989407417000621,
+      "host_peak_rss_bytes": 684343296,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08929383299982874,
+      "fixture": "coffee",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/coffee.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "46767aeaec1aafec754174cf96ddcbf8d064fd2f197325ea8e156d2b0b13064c",
+      "target": "2x",
+      "width": 384,
+      "height": 256,
+      "raw_rgb_sha256": "866f731ff587622b4f23b48f4172faefda931b6a7ab36583fa449e0cfccabf36",
+      "cold_seconds": 2.223391,
+      "warm_seconds": [
+        2.229851
+      ],
+      "warm_median_seconds": 2.2298505419967114,
+      "host_peak_rss_bytes": 683704320,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08976554200489772,
+      "fixture": "coffee",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/coffee.png",
+      "license": "CC0-1.0",
+      "fixture_sha256": "46767aeaec1aafec754174cf96ddcbf8d064fd2f197325ea8e156d2b0b13064c",
+      "target": "4x",
+      "width": 768,
+      "height": 512,
+      "raw_rgb_sha256": "663586a272e01a26a4d67db01307d15ac43150e993abb6fcb2c2f49cb1e50165",
+      "cold_seconds": 2.223748,
+      "warm_seconds": [
+        2.352258
+      ],
+      "warm_median_seconds": 2.352257875005307,
+      "host_peak_rss_bytes": 683786240,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.08834416700119618,
+      "fixture": "hubble_deep_field",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/hubble_deep_field.jpg",
+      "license": "Public-Domain",
+      "fixture_sha256": "6e594bea7fe41e4217a66dbffcc9ca397654398222f03b9a0c353ce2cacdc8b4",
+      "target": "2x",
+      "width": 384,
+      "height": 334,
+      "raw_rgb_sha256": "725a241eef8f44ee1152e287ee7a862ee13d95c66b75550763aa598991a3c59c",
+      "cold_seconds": 5.347237,
+      "warm_seconds": [
+        5.613231
+      ],
+      "warm_median_seconds": 5.61323116600397,
+      "host_peak_rss_bytes": 685752320,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09229312500247033,
+      "fixture": "hubble_deep_field",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/hubble_deep_field.jpg",
+      "license": "Public-Domain",
+      "fixture_sha256": "6e594bea7fe41e4217a66dbffcc9ca397654398222f03b9a0c353ce2cacdc8b4",
+      "target": "4x",
+      "width": 768,
+      "height": 668,
+      "raw_rgb_sha256": "b3d9445b59075679f7caed1cfac8e4c01fea1df0f3beb25952f119444f275cad",
+      "cold_seconds": 5.247014,
+      "warm_seconds": [
+        5.126449
+      ],
+      "warm_median_seconds": 5.126449291994504,
+      "host_peak_rss_bytes": 685801472,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09144758399634156,
+      "fixture": "rocket",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/rocket.jpg",
+      "license": "Public-Domain",
+      "fixture_sha256": "77cf5e1bfd0bee6fddbfd5088fdb2b15276c04bca17f86c603799b57f481d87d",
+      "target": "2x",
+      "width": 384,
+      "height": 256,
+      "raw_rgb_sha256": "19e29777974023355c088360c876e5573f9fdc0163e78f6b389bd465a788293c",
+      "cold_seconds": 2.252639,
+      "warm_seconds": [
+        2.28636
+      ],
+      "warm_median_seconds": 2.2863602910001646,
+      "host_peak_rss_bytes": 683982848,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09224345799884759,
+      "fixture": "rocket",
+      "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/rocket.jpg",
+      "license": "Public-Domain",
+      "fixture_sha256": "77cf5e1bfd0bee6fddbfd5088fdb2b15276c04bca17f86c603799b57f481d87d",
+      "target": "4x",
+      "width": 768,
+      "height": 512,
+      "raw_rgb_sha256": "a9cc1297f8bc8f60a427897c4dd28a9db2807e678df89f01c57c0e6f87694a02",
+      "cold_seconds": 2.24817,
+      "warm_seconds": [
+        2.238649
+      ],
+      "warm_median_seconds": 2.2386487499970826,
+      "host_peak_rss_bytes": 684015616,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.0919461660014349,
+      "fixture": "skin",
+      "source_url": "https://gitlab.com/scikit-image/data/-/raw/2cdc5ce89b334d28f06a58c9f0ca21aa6992a5ba/Normal_Epidermis_and_Dermis_with_Intradermal_Nevus_10x.JPG",
+      "license": "Public-Domain",
+      "fixture_sha256": "1a320787bba74559193b37ff56411ef5acc698275c58c4ec2c454432c1d9a7c4",
+      "target": "2x",
+      "width": 384,
+      "height": 288,
+      "raw_rgb_sha256": "c80c24d684e70909b356daa7355e12dce7e4dee01384f16017165f6e16c9863f",
+      "cold_seconds": 5.030208,
+      "warm_seconds": [
+        5.04357
+      ],
+      "warm_median_seconds": 5.043569624998781,
+      "host_peak_rss_bytes": 684933120,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    },
+    {
+      "session_load_seconds": 0.09008408299996518,
+      "fixture": "skin",
+      "source_url": "https://gitlab.com/scikit-image/data/-/raw/2cdc5ce89b334d28f06a58c9f0ca21aa6992a5ba/Normal_Epidermis_and_Dermis_with_Intradermal_Nevus_10x.JPG",
+      "license": "Public-Domain",
+      "fixture_sha256": "1a320787bba74559193b37ff56411ef5acc698275c58c4ec2c454432c1d9a7c4",
+      "target": "4x",
+      "width": 768,
+      "height": 576,
+      "raw_rgb_sha256": "f087c69319b02f3addc95e06d04646e458f8b307e767cabb2c1dc4f6f58de4b0",
+      "cold_seconds": 5.030778,
+      "warm_seconds": [
+        5.080856
+      ],
+      "warm_median_seconds": 5.080855958003667,
+      "host_peak_rss_bytes": 685031424,
+      "device_peak_bytes": null,
+      "tile_seam_check": "No conspicuous hard boundary in reviewed 4x center crops spanning overlap; not numerical full-frame parity.",
+      "lanczos_comparison": "Both 2x and 4x pairs visually reviewed; quality observations in mac-acceptance.md."
+    }
+  ],
+  "scope": "12 licensed photographs, RGB thumbnails with longest edge 192; one cold and one warm inference per 2x/4x target. Not a megapixel throughput guarantee. CPU sampling at 10ms; concurrent GUI/build work may affect timing."
+}

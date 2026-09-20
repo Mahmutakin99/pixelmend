@@ -3,6 +3,7 @@
 from dataclasses import asdict, dataclass
 import os
 import shutil
+import tempfile
 
 import psutil
 
@@ -61,7 +62,7 @@ def admit_image_job(image, target_size, *, ai=False, result_bytes=0, policy=POLI
     if required + 256 * 1024**2 > available:
         raise ResourceLimitError('memory_limit', 'İşlem için yeterli kullanılabilir bellek yok. Diğer uygulamaları kapatın veya ölçüyü küçültün.')
     if ai:
-        free = shutil.disk_usage(temp_dir).free if disk_free_bytes is None else disk_free_bytes
+        free = shutil.disk_usage(temp_dir or tempfile.gettempdir()).free if disk_free_bytes is None else disk_free_bytes
         # RGB float accumulation + weight plane; mappings are session-owned.
         if free < natural_pixels * 16 + 256 * 1024**2:
             raise ResourceLimitError('disk_full', 'AI karo birleştirmesi için geçici disk alanı yetersiz.')

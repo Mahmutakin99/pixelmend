@@ -122,7 +122,8 @@ class ModelManager:
             m = entry.manifest
             self._views[entry.id] = {
                 'id': entry.id, 'name': entry.name,
-                'state': 'absent' if m else 'unavailable', 'published': m is not None,
+                'state': 'absent' if m else 'unavailable', 'published': m is not None and entry.source == 'published',
+                'source': entry.source, 'verified_manifest': m is not None,
                 'size_bytes': m.size_bytes if m else None, 'downloaded_bytes': 0,
                 'revision': m.revision if m else None, 'sha256': m.sha256 if m else None,
                 'license_id': m.license_id if m else None, 'license_url': m.license_url if m else None,
@@ -214,13 +215,15 @@ class ModelManager:
                 # Otherwise a fresh install can be accidentally coalesced into discovery.
                 await asyncio.to_thread(self._operate, entry.manifest, 'discover', threading.Event())
 
-    async def _launch(self, model_id, operation):
+    async def _launch(self, model_id, operation, source=None):
         entry = self._entry(model_id)
         with self._mutex:
             if self._closed:
                 raise ModelManagerError('closed', 'Model manager is shutting down.')
             if entry.manifest is None:
                 raise ModelManagerError('unpublished', 'This model has no verified published artifact.')
+            if operation == 'install' and entry.source == 'local' and source is None:
+                raise ModelManagerError('local_source_required', 'Choose the verified local ONNX file.')
             view = self._views[model_id]
             if view['in_use']:
                 raise ModelManagerError('in_use', 'Model is in use.')
@@ -233,11 +236,14 @@ class ModelManager:
             self._cancels[model_id] = cancel
             self._change(model_id, state='waiting', error=None)
             self._tasks[model_id] = asyncio.create_task(asyncio.to_thread(
-                self._operate, entry.manifest, operation, cancel))
+                self._operate, entry.manifest, operation, cancel, source))
         return self.list_models()
 
     async def install(self, model_id):
         return await self._launch(model_id, 'install')
+
+    async def install_local(self, model_id, source):
+        return await self._launch(model_id, 'install', Path(source))
 
     async def retry(self, model_id):
         return await self._launch(model_id, 'install')
@@ -257,7 +263,7 @@ class ModelManager:
                 self._change(model_id, state='cancelling')
         return self.list_models()
 
-    def _operate(self, manifest, operation, cancel):
+    def _operate(self, manifest, operation, cancel, source=None):
         model_id = manifest.model_id
         lock = None
         try:
@@ -267,7 +273,7 @@ class ModelManager:
                 return
             if not target.parent.exists():
                 if operation == 'delete':
-                    self._change(model_id, state='absent', downloaded_bytes=0, probe=None)
+                    self._change(model_id, state='absent', downloaded_bytes=0, stored_bytes=0, probe=None)
                     return
                 raise ModelManagerError('missing_model', 'Model is not installed.')
             lock = FileLock(target.with_name(f'.{target.name}.lock'))
@@ -284,7 +290,7 @@ class ModelManager:
                 self._change(model_id, state='deleting')
                 target.unlink(missing_ok=True)
                 self._signatures.pop(model_id, None)
-                self._change(model_id, state='absent', downloaded_bytes=0, probe=None)
+                self._change(model_id, state='absent', downloaded_bytes=0, stored_bytes=0, probe=None)
                 return
             self._change(model_id, state='verifying')
             try:
@@ -303,7 +309,19 @@ class ModelManager:
                         if not isinstance(count, int) or not 0 <= count <= manifest.size_bytes:
                             raise ModelManagerError('size_mismatch', 'Model exceeds its manifest size.')
                         self._change(model_id, downloaded_bytes=count)
-                    self._downloader(manifest, candidate, cancel, progress)
+                    if source is None:
+                        self._downloader(manifest, candidate, cancel, progress)
+                    else:
+                        # Local files pass the same pinned digest gate as downloaded bytes.
+                        self._verify(source, manifest, cancel)
+                        with source.open('rb') as incoming, candidate.open('xb') as outgoing:
+                            count = 0
+                            while chunk := incoming.read(CHUNK_BYTES):
+                                count += len(chunk)
+                                progress(count)
+                                outgoing.write(chunk)
+                            outgoing.flush()
+                            os.fsync(outgoing.fileno())
                     _check_cancel(cancel)
                     self._change(model_id, state='verifying')
                     self._verify(candidate, manifest, cancel)
@@ -314,15 +332,6 @@ class ModelManager:
             self._signatures[model_id] = signature
             self._change(model_id, downloaded_bytes=manifest.size_bytes, stored_bytes=manifest.size_bytes)
             _check_cancel(cancel)
-            # Startup discovery establishes artifact integrity only.  Loading an
-            # ONNX session here would make opening the app unexpectedly expensive
-            # and would turn a transient provider problem into an implicit action.
-            # A user-requested install or probe performs the runtime check.
-            if operation == 'discover':
-                self._change(model_id, state='installed', probe={
-                    'status': 'unmeasured', 'selected_provider': None,
-                    'providers': [], 'measured_at': None})
-                return
             if self._prober is None:
                 self._change(model_id, state='installed', probe={
                     'status': 'unmeasured', 'selected_provider': None, 'providers': [], 'measured_at': None})

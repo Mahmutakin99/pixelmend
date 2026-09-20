@@ -1,0 +1,70 @@
+{
+  "moved": [
+    {
+      "path": "engine/build",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/engine__build",
+      "bytes": 47323863
+    },
+    {
+      "path": "engine/dist",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/engine__dist",
+      "bytes": 251115243
+    },
+    {
+      "path": "engine/.pytest_cache",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/engine__.pytest_cache",
+      "bytes": 12066
+    },
+    {
+      "path": "engine/models_cache/export/realesrgan-x4plus-fp32.onnx",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/engine__models_cache__export__realesrgan-x4plus-fp32.onnx",
+      "bytes": 67051639
+    },
+    {
+      "path": ":memory:.ses",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/:memory:.ses",
+      "bytes": 51
+    },
+    {
+      "path": "apps/desktop/out.noindex",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/apps__desktop__out.noindex",
+      "bytes": 531335175
+    }
+  ],
+  "workspace_bytes_removed": 896838037,
+  "disk_space_freed": 0,
+  "note": "Trash retained; no history rewritten or dependencies removed.",
+  "temporary_files_moved": [
+    {
+      "path": "/var/folders/sg/wyg85htn25nb7qhnmk32wbm80000gn/T/pixelmend-editor-gj5rdV",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/pixelmend-editor-gj5rdV",
+      "bytes": 0
+    },
+    {
+      "path": "/var/folders/sg/wyg85htn25nb7qhnmk32wbm80000gn/T/pixelmend-editor-d9CrxI",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/pixelmend-editor-d9CrxI",
+      "bytes": 1793978
+    },
+    {
+      "path": "/var/folders/sg/wyg85htn25nb7qhnmk32wbm80000gn/T/pixelmend-editor-qaoxHh",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/pixelmend-editor-qaoxHh",
+      "bytes": 1793808
+    },
+    {
+      "path": "/var/folders/sg/wyg85htn25nb7qhnmk32wbm80000gn/T/pixelmend-editor-q4qiOD",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/pixelmend-editor-q4qiOD",
+      "bytes": 1792807
+    },
+    {
+      "path": "/var/folders/sg/wyg85htn25nb7qhnmk32wbm80000gn/T/pixelmend-model-acceptance-ozZMS7",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/pixelmend-model-acceptance-ozZMS7",
+      "bytes": 1792795
+    },
+    {
+      "path": "/var/folders/sg/wyg85htn25nb7qhnmk32wbm80000gn/T/pixelmend-model-acceptance-l8UHJj",
+      "trash": "/Users/gladius/.Trash/PixelMend-builds-20260920-195117/pixelmend-model-acceptance-l8UHJj",
+      "bytes": 276890079
+    }
+  ],
+  "temporary_bytes_removed": 284063467
+}

@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import statistics
 import time
+import threading
 
 import numpy as np
 import onnxruntime as ort
@@ -27,13 +28,29 @@ def load_fixture(path):
         return np.asarray(image.convert('RGB')).copy()
 
 
+def validate_fixture_set(fixtures):
+    if not isinstance(fixtures, list) or len(fixtures) != 12:
+        raise ValueError('exactly 12 photographs are required')
+    if len({row['id'] for row in fixtures}) != 12:
+        raise ValueError('photographs must be distinct')
+
+
 def measure(adapter, pixels, target):
     process = psutil.Process()
-    before = process.memory_info().rss
+    peak = [process.memory_info().rss]
+    stop = threading.Event()
+    def sample():
+        while not stop.wait(.01):
+            peak[0] = max(peak[0], process.memory_info().rss)
+    worker = threading.Thread(target=sample)
+    worker.start()
     started = time.monotonic()
-    result = adapter.run(pixels, target_size=target)
-    seconds = time.monotonic() - started
-    return result, seconds, max(before, process.memory_info().rss)
+    try:
+        result = adapter.run(pixels, target_size=target)
+        return result, time.monotonic() - started, max(peak[0], process.memory_info().rss)
+    finally:
+        stop.set()
+        worker.join()
 
 
 def main():
@@ -48,8 +65,10 @@ def main():
     parser.add_argument('--overlap', type=int, default=16)
     args = parser.parse_args()
     fixtures = json.loads(args.fixtures.read_text())
-    if not isinstance(fixtures, list) or not fixtures:
-        raise ValueError('fixtures must contain approved CC0 or public-domain entries')
+    validate_fixture_set(fixtures)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    images = args.out.parent / 'upscale-images'
+    images.mkdir(exist_ok=True)
     adapter = RealESRGANUpscale(args.model, providers=[args.provider], tile_size=args.tile_size,
                                 overlap=args.overlap)
     rows = []
@@ -67,17 +86,25 @@ def main():
         targets = {'2x': (pixels.shape[1] * 2, pixels.shape[0] * 2),
                    '4x': (pixels.shape[1] * 4, pixels.shape[0] * 4)}
         for name, target in targets.items():
+            # A fresh session makes each cold run independent; report load time separately.
+            loaded = time.monotonic()
+            adapter = RealESRGANUpscale(args.model, providers=[args.provider],
+                tile_size=args.tile_size, overlap=args.overlap)
+            load_seconds = time.monotonic() - loaded
             cold = measure(adapter, pixels, target)
             samples = [measure(adapter, pixels, target) for _ in range(args.runs)]
             result, _, peak = samples[-1]
-            rows.append({'fixture': fixture['id'], 'source_url': fixture['source_url'],
+            Image.fromarray(result).save(images / f"{fixture['id']}-{name}-ai.png")
+            Image.fromarray(pixels).resize(target, Image.Resampling.LANCZOS).save(images / f"{fixture['id']}-{name}-lanczos.png")
+            print(f"{fixture['id']} {name}: {cold[1]:.2f}s cold", flush=True)
+            rows.append({'session_load_seconds': load_seconds, 'fixture': fixture['id'], 'source_url': fixture['source_url'],
                          'license': fixture['license'], 'fixture_sha256': fixture['sha256'],
                          'target': name, 'width': target[0], 'height': target[1],
                          'raw_rgb_sha256': hashlib.sha256(result.tobytes()).hexdigest(),
                          'cold_seconds': round(cold[1], 6),
                          'warm_seconds': [round(sample[1], 6) for sample in samples],
                          'warm_median_seconds': statistics.median(sample[1] for sample in samples),
-                         'host_peak_rss_bytes': max(cold[2], peak), 'device_peak_bytes': None,
+                         'host_peak_rss_bytes': max(cold[2], *(sample[2] for sample in samples)), 'device_peak_bytes': None,
                          'tile_seam_check': 'manual_review_required',
                          'lanczos_comparison': 'manual_review_required'})
     report = {'created_at': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),

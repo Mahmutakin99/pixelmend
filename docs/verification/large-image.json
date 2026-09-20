@@ -1,0 +1,17 @@
+{
+  "source": "original-eagle.png",
+  "source_size": [
+    1826,
+    2019
+  ],
+  "output_size": [
+    7304,
+    8076
+  ],
+  "output_pixels": 58987104,
+  "algorithm": "lanczos",
+  "seconds": 0.3037394159910036,
+  "process_peak_rss_bytes": 974045184,
+  "oversize_rejection": "output_limit",
+  "note": "Real large output allocation, not a large AI throughput benchmark."
+}

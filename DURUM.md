@@ -1,21 +1,22 @@
 # DURUM — PixelMend
 
-Son güncelleme: 2026-09-15
+Son güncelleme: 2026-09-20
 
 ## Şu an neredeyiz
 
-**Faz 1 — Hafif/headless motor** başladı. Faz 0 M4 kurulumu tamamlandı; kullanıcı 2026-08-29 tarihinde açık kodlama onayı verdi. Repo üst lisansı Apache-2.0 olarak seçildi, HEIF/HEIC v1 kapsamından çıkarıldı.
+Bu Mac için LaMa ve yerel RealESRGAN entegrasyonları tamamlandı; CPU üzerinde gerçek modeller ve paketli uygulama doğrulandı. Silmede AI — LaMa varsayılan, Hızlı — OpenCV ayrı seçimdir. Model dosyaları sabit SHA-256/boyut ve gerçek probe ile doğrulanır; iş boyunca kullanım kilidi tutulur. RealESRGAN public yayın gerektirmeden sabit manifestli yerel ONNX olarak kurulabilir.
 
-Python motorunda normalize image I/O, model bütünlüğü, token korumalı asset/health/capabilities API, sıralı job kuyruğu, SSE replay, iptal, sonuç export ve sonuçtan asset oluşturma mevcut. OpenCV, LaMa CPU ve Lanczos adaptörleri eklendi. RealESRGAN_x4plus için model yaşam döngüsü, tiled ONNX adapter, 200 MP kaynak/çıktı politikası ve masaüstü Performans ayarları uygulandı. Public, immutable ONNX artefaktı ve lisanslı benchmark fixture seti henüz yayımlanmadığından AI seçeneği kullanılabilir değildir; Lanczos güvenli fallback olarak kalır.
+Güncel kanıt, kalite gözlemleri ve sınırlar: [Mac kabul raporu](docs/verification/mac-acceptance.md). Bu rapordan önceki aşağıdaki kayıtlar tarihseldir; public RealESRGAN yayını artık bu Mac tesliminin ön koşulu değildir.
 
-## Sıradaki işler — 2026-09-14 kararı
+## Bu teslimin doğrulaması
 
-1. **AI kalite artırma:** İlk ürün adayı RealESRGAN_x4plus'ın yerel altyapısı tamamlandı. Sıradaki dış kapılar public immutable ONNX yayını (revision, byte, SHA-256, lisans) ve CC0/public-domain 12 fotoğraflık M4 benchmarkıdır. Ayrıntılı araştırma: `docs/ai-upscale-arastirmasi-2026-09-14.md`.
-2. **Windows/Linux:** Platforma özgü engine ikilileri, paketleme ve gerçek makine inference doğrulaması olmadan paylaşılabilir paket ilan edilmeyecek.
-3. **Üretken doldurma:** SD 1.5 / SDXL ayrı ağır runtime olarak, lisans onayı ve bellek/iptal korumalarıyla ele alınacak.
-4. **İleri kalite adayları:** SwinIR ve HAT benchmark sonrası; SUPIR ticari lisans ve ağır bağımlılıklar nedeniyle v1 dışındadır.
+- 126 motor testi, gerçek modeller etkin ve atlanan test olmadan geçti.
+- 26 masaüstü testi, 3 paketleme kanıt testi ve production build geçti.
+- 12 lisanslı fotoğrafta RealESRGAN 2×/4× ölçümü; dört fotoğrafta LaMa/OpenCV görsel karşılaştırması yapıldı.
+- Temiz profille kurulum, kaynak kopyasının silinmesi, yeniden başlatma, gerçek AI işlemleri ve iptal paket üzerinde geçti.
+- Native pencere kapatmada kaydedilmemiş çalışma ve uygulanmamış önizleme koruması paket testinde geçti. Yeni uygulama `/Applications/PixelMend.app` konumuna kuruldu; kurulum sonrası editör, temiz depo/yeniden açılış, iki AI, iptal ve paket smoke testleri de geçti.
 
-Kolaydan zora, bağımlılık kapılarıyla sıralanmış nihai ürün yol haritası: `docs/superpowers/specs/2026-09-15-product-completion-roadmap-design.md`.
+Public release, Windows/Linux kabulü ve üretken doldurma bu teslim dışındadır. 200 MP politika tavanı, aynı boyutta tamamlanmış performans benchmarkı anlamına gelmez.
 
 ## Ortam
 
@@ -26,6 +27,15 @@ Kolaydan zora, bağımlılık kapılarıyla sıralanmış nihai ürün yol harit
 - Faz 0 araç doğrulaması tamamlandı. Sistem `python3` komutu macOS Python 3.9.6'yı gösterdiği için proje komutları `uv` üzerinden Python 3.12 kullanır.
 
 ## Yapılanlar (tarihli, en yeni üstte)
+
+### 2026-09-20 — Bu Mac için gerçek AI entegrasyonu ve kurulum
+
+- LaMa/OpenCV yöntem seçimi, ortak model lease, doğru sonuç metadata, yerel sabit manifestli RealESRGAN kurulumu ve CPU başlangıç probe'u tamamlandı.
+- Paket testinde ortaya çıkan AI geçici disk yolu hatası giderildi. Native kapatmada kaydedilmemiş belge ve önizleme kaybı önlendi.
+- 126 motor testi (0 skipped), 26 masaüstü testi, 3 paketleme kanıt testi ve gerçek paketli GUI kabulü geçti. Dört LaMa ve 12 RealESRGAN fotoğraf karşılaştırması, 58.99 MP Lanczos çıktısı kaydedildi.
+- `/Applications/PixelMend.app` güncellendi; kurulumdan ve yinelenen export silindikten sonra iki AI yeniden doğrulandı. Eski app ve yaklaşık 855.3 MiB proje çıktısı Çöp'e taşındı. Git geçmişi ve aktif modeller korundu.
+- Ayrıntı: `docs/verification/mac-acceptance.md`, `cleanup.json`, `install.json`. Geliştirme dalı `feat/mac-local-ai`; yalnız yerel commit, public yayın yok.
+
 
 ### 2026-09-20 — Ayarlar görünümü özet odaklı ve kaydırılabilir yapıldı
 

@@ -57,6 +57,7 @@ function App() {
     [pan, setPan] = useState({x: 0, y: 0}),
     [cursorPreview, setCursorPreview] = useState<CursorPreview | null>(null),
     [error, setError] = useState<UserError | null>(null),
+    [removeMethod, setRemoveMethod] = useState<"lama" | "opencv">("lama"),
     [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos");
   const paint = useRef<HTMLCanvasElement>(null),
     mask = useRef<HTMLCanvasElement>(null),
@@ -65,6 +66,8 @@ function App() {
     active = useRef<Active | null>(null),
     panGesture = useRef<PanGesture | null>(null),
     locked = useRef(false);
+  const closeIntent = useRef(false);
+  const closeRequest = useRef<() => void>(() => {});
   const p = doc?.history.present;
   const { models, capabilities, error: modelError, refresh } = useModels();
   const aiReady = models.some(
@@ -73,6 +76,7 @@ function App() {
       m.state === "ready" &&
       m.probe?.status === "passed",
   );
+  const lamaReady = models.some(m => m.id === "lama" && m.state === "ready" && m.probe?.status === "passed");
   const outputLimit = capabilities?.policy?.max_output_pixels ?? 200_000_000;
   const [starting, setStarting] = useState(false),
     busy = starting || !!job,
@@ -144,14 +148,20 @@ function App() {
     return window.pixelmend.onAction((a: string) => {
       if (a === "undo" && !busyRef.current) setDoc((d) => d && undo(d));
       if (a === "redo" && !busyRef.current) setDoc((d) => d && redo(d));
+      if (a === "request-close") closeRequest.current();
       if (a === "settings") setShowSettings(true);
     });
   }, []);
   useEffect(() => {
-    if (settings) {
-      document.documentElement.dataset.theme = settings.theme;
-      document.documentElement.lang = settings.language === "en" ? "en" : "tr";
-    }
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const update = () => {
+      document.documentElement.dataset.theme = settings?.theme === 'system' || !settings?.theme
+        ? (media.matches ? 'dark' : 'light') : settings.theme;
+      document.documentElement.lang = 'tr';
+    };
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
   }, [settings]);
   const open = async () => {
     const a = await window.pixelmend.openImage();
@@ -283,7 +293,7 @@ function App() {
           setJob(null);
           locked.current = false;
           setNotice(
-            `Sonuç hazır: ${next.width} × ${next.height}. Uygula veya Vazgeç.`,
+            `Sonuç hazır: ${next.width} × ${next.height} · ${s.result_details?.[0]?.algorithm ?? ""} · ${s.result_details?.[0]?.provider ?? "CPU"}. Uygula veya Vazgeç.`,
           );
         } else if (["failed", "cancelled"].includes(s.status)) {
           setJob(null);
@@ -337,6 +347,11 @@ function App() {
       );
       return;
     }
+    if (op === "remove" && removeMethod === "lama" && !lamaReady) {
+      setNotice("LaMa hazır değil. Ayarlar → Modeller bölümünden kurun veya sınayın.");
+      setShowSettings(true);
+      return;
+    }
     locked.current = true;
     setStarting(true);
     setNotice(
@@ -354,6 +369,7 @@ function App() {
         targetWidth: d?.width,
         targetHeight: d?.height,
         upscaleMethod,
+        removeMethod,
       });
       setJob({ ...created, op });
     } catch (error) {
@@ -405,6 +421,7 @@ function App() {
     setShowExit(false);
     setShowExitSave(false);
     setDoc(undefined);
+    if (closeIntent.current) void window.pixelmend.confirmClose();
   };
   const saveProject = async () => {
     const ok = await window.pixelmend.saveProject(doc, false);
@@ -414,6 +431,13 @@ function App() {
   const requestHome = () => {
     if (doc!.history.past.length || active.current) setShowExit(true);
     else leaveHome();
+  };
+  closeRequest.current = () => {
+    if (busy) { setNotice('Kapatmadan önce çalışan işlemi tamamlayın veya iptal edin.'); return; }
+    if (preview) { setNotice('Kapatmadan önce önizlemeyi Uygula veya Vazgeç ile tamamlayın.'); return; }
+    closeIntent.current = true;
+    if (doc && (doc.history.past.length || active.current || preview)) setShowExit(true);
+    else void window.pixelmend.confirmClose();
   };
   const updateTarget = (field: "width" | "height", raw: string) => {
     if (!p) return;
@@ -593,6 +617,8 @@ function App() {
           <section className="tool-group">
             <h2>Nesne Silgisi</h2>
             <p>Silinecek alanı işaretleyin.</p>
+            <label><input type="radio" name="remove-method" checked={removeMethod === "lama"} onChange={() => setRemoveMethod("lama")}/> AI — LaMa{!lamaReady && " (kurulum/sınama gerekli)"}</label>
+            <label><input type="radio" name="remove-method" checked={removeMethod === "opencv"} onChange={() => setRemoveMethod("opencv")}/> Hızlı — OpenCV</label>
             <button
               aria-pressed={tool === "select"}
               onClick={() => setTool("select")}
@@ -753,7 +779,7 @@ function App() {
       </section>
       {showExit && (
         <Exit
-          close={() => setShowExit(false)}
+          close={() => {closeIntent.current = false; setShowExit(false);}}
           discard={leaveHome}
           save={() => {
             setShowExit(false);
@@ -763,7 +789,7 @@ function App() {
       )}
       {showExitSave && (
         <SaveExit
-          close={() => setShowExitSave(false)}
+          close={() => {closeIntent.current = false; setShowExitSave(false);}}
           image={saveImage}
           project={saveProject}
           leave={leaveHome}

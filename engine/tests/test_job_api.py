@@ -100,3 +100,13 @@ def test_job_api_processes_mask_streams_results_and_exports():
         upscale = client.post('/jobs', data={'asset_id': asset['asset_id'],
             'algorithms': '["lanczos"]', 'scale': '2'})
         assert upscale.status_code == 201, upscale.text
+
+
+def test_unready_lama_preserves_model_error_code(tmp_path, monkeypatch):
+    monkeypatch.setenv('PIXELMEND_MODELS_DIR', str(tmp_path))
+    data = BytesIO(); Image.new('RGB', (16,16)).save(data,format='PNG')
+    with TestClient(create_app(session_token='a'*64), base_url='http://127.0.0.1',headers={'X-PixelMend-Token':'a'*64}) as client:
+        asset=client.post('/assets',files={'image':('x.png',data.getvalue())}).json()
+        response=client.post('/jobs',data={'asset_id':asset['asset_id'],'algorithms':'["lama"]','selection_strokes':json.dumps([{'mode':'draw','points':[{'x':8,'y':8}],'color':'#ff0000','opacity':1,'size':4,'hardness':1}])})
+        assert response.status_code == 409
+        assert response.json()['detail']['code'] == 'not_ready'

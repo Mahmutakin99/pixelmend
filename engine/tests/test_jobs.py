@@ -119,11 +119,63 @@ def test_missing_model_failure_is_explained_in_polling_snapshot():
         store = AssetStore()
         asset_id = source(store)
         async with JobQueue(store, processor=missing) as queue:
-            job = queue.submit(asset_id, ['lama'], np.full((9, 9), 255, np.uint8))
+            job = queue.submit(asset_id, ['opencv_telea'], np.full((9, 9), 255, np.uint8))
             await queue.join()
             state = job.snapshot()
             assert state['status'] == 'failed'
             assert state['error']['code'] == 'model_missing'
             assert 'LaMa' in state['error']['message']
             assert '/private' not in str(state)
+    asyncio.run(scenario())
+
+
+def test_lama_without_manager_is_rejected_before_queueing():
+    from pixelmend_engine.jobs import JobQueue
+    from pixelmend_engine.model_manager import ModelManagerError
+    async def scenario():
+        store = AssetStore()
+        asset_id = source(store)
+        async with JobQueue(store) as queue:
+            with pytest.raises(ModelManagerError, match='ready'):
+                queue.submit(asset_id, ['lama'], np.full((9, 9), 255, np.uint8))
+            assert not queue.jobs
+            store.delete(asset_id)
+    asyncio.run(scenario())
+
+
+def test_lama_lease_pins_selected_path_until_cancelled_native_call_finishes(tmp_path):
+    from dataclasses import replace
+    from pixelmend_engine.jobs import JobQueue
+    from pixelmend_engine.model_manager import ModelManager, ModelManagerError
+    from pixelmend_engine.model_catalog import ModelCatalogEntry
+    from test_model_manager import fixture_entry, download, probe, settle
+    original = fixture_entry()
+    entry = ModelCatalogEntry('lama','LaMa fixture',replace(original.manifest,model_id='lama'))
+    started, release = Event(), Event()
+    def slow(image, mask, algorithm, scale):
+        assert algorithm == 'lama'
+        started.set()
+        assert release.wait(5)
+        return image
+    async def scenario():
+        manager=ModelManager(tmp_path,catalog=[entry],downloader=download,prober=probe)
+        await manager.install('lama');assert await settle(manager)=='ready'
+        store=AssetStore();asset_id=source(store)
+        try:
+            async with JobQueue(store,processor=slow,model_manager=manager) as queue:
+                job=queue.submit(asset_id,['lama'],np.full((9,9),255,np.uint8))
+                assert job.model_path.parent.name==entry.manifest.revision
+                assert job.provider=='CPUExecutionProvider'
+                assert await asyncio.to_thread(started.wait,2)
+                queue.cancel(job.job_id)
+                with pytest.raises(ModelManagerError,match='in use'): await manager.delete('lama')
+                release.set();await queue.join()
+                assert job.status=='cancelled' and not job.results
+                assert manager.list_models()['models'][0]['in_use']==0
+                state=job.snapshot()
+                assert state['model_revision']==entry.manifest.revision
+                assert state['provider']=='CPUExecutionProvider'
+                assert job.events[0]['data']['algorithms']==['lama']
+        finally:
+            release.set();await manager.close()
     asyncio.run(scenario())

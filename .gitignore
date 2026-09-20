@@ -42,3 +42,6 @@ apps/desktop/test-results/
 apps/desktop/out/
 apps/desktop/out.noindex/
 :memory:.ses
+
+# Licensed benchmark pixels are local; provenance remains versioned.
+engine/bench/fixtures/

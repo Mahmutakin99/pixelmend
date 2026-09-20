@@ -10,13 +10,14 @@ if (process.env.PIXELMEND_CI_SMOKE === '1') {
   app.commandLine.appendSwitch('disable-gpu');
 }
 let modelEvents;
+let allowClose=false; let shutdownComplete=false; let shuttingDown=false;
 let engine; let token; let mainWindow; let projectFile; const sources = new Map();
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 const defaults = { language: 'tr', theme: 'system', maskColor: '#ff3b6b', maskOpacity: .42 };
 const readSettings = () => { try { return {...defaults, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8'))}; } catch { return defaults; } };
 const writeAtomic = (file, data) => { const tmp = `${file}.tmp`; fs.writeFileSync(tmp, data); fs.renameSync(tmp, file); };
 function request(route, options={}) { return fetch(`http://127.0.0.1:${engine.port}${route}`, { ...options, headers: {'X-PixelMend-Token': token, ...(options.headers || {})} }); }
-async function api(route, options={}) { const response = await request(route, options); if (!response.ok) { let detail = `Motor hatası (${response.status})`; try { detail = (await response.json()).detail || detail; } catch {} throw new Error(detail); } return response; }
+async function api(route, options={}) { const response = await request(route, options); if (!response.ok) { let detail = `Motor hatası (${response.status})`; try { detail = (await response.json()).detail || detail; } catch {} throw new Error(typeof detail === 'object' ? `${detail.code}: ${detail.message}` : detail); } return response; }
 async function startEngine() {
   token = crypto.randomBytes(32).toString('hex');
   const {executable, args} = engineCommand({isPackaged:app.isPackaged, resourcesPath:process.resourcesPath, dirname:__dirname});
@@ -54,7 +55,7 @@ async function runSmoke() {
   const exportResponse = await api(`/jobs/${job.job_id}/results/${state.result_ids[0]}?format=PNG`);
   if ((await exportResponse.arrayBuffer()).byteLength < 16) throw new Error('native PNG export was empty');
 }
-function createWindow() { const window = new BrowserWindow({width: 1320, height: 900, minWidth: 760, minHeight: 600, webPreferences: {preload:path.join(__dirname,'preload.cjs'), contextIsolation:true, sandbox:true, nodeIntegration:false}}); window.loadFile(path.join(__dirname,'../dist/index.html')); return window; }
+function createWindow() { const window = new BrowserWindow({width: 1320, height: 900, minWidth: 760, minHeight: 600, webPreferences: {preload:path.join(__dirname,'preload.cjs'), contextIsolation:true, sandbox:true, nodeIntegration:false}}); window.on('close', event => { if (!allowClose) { event.preventDefault(); window.webContents.send('pixelmend:action','request-close'); } }); window.loadFile(path.join(__dirname,'../dist/index.html')); return window; }
 app.whenReady().then(async () => { protocol.handle('pixelmend', async requestUrl => { const key = requestUrl.url.replace('pixelmend://',''); const value=sources.get(key); return new Response(value || '', {status:value ? 200 : 404, headers:{'Content-Type':'image/png'}}); }); await startEngine(); if (process.env.PIXELMEND_CI_SMOKE === '1') { let code=0; try { await runSmoke(); } catch (error) { console.error(error); code=1; } finally { try { await stopEngine(); } catch (error) { console.error(error); code=1; } } app.exit(code); return; } const window=mainWindow=createWindow();
  modelEvents = registerModelIpc(ipcMain, api, sender => sender === mainWindow?.webContents);
  window.webContents.on('did-start-loading', () => modelEvents.unsubscribe(window.webContents));
@@ -66,9 +67,26 @@ app.whenReady().then(async () => { protocol.handle('pixelmend', async requestUrl
  ipcMain.handle('pixelmend:save', async (_e,j,r,f='PNG') => { const save=await dialog.showSaveDialog(window,{defaultPath:`PixelMend.${f.toLowerCase()}`}); if(save.canceled)return null; const bytes=await (await api(`/jobs/${j}/results/${r}?format=${f}`)).arrayBuffer(); fs.writeFileSync(save.filePath,Buffer.from(bytes)); return save.filePath; });
  ipcMain.handle('pixelmend:save-image', async (_event, payload) => { if(!/^[a-f0-9]{32}$/.test(payload?.assetId)) throw new Error('Geçersiz görsel'); const save=await dialog.showSaveDialog(window,{defaultPath:'PixelMend.png'}); if(save.canceled)return false; const response=await api(`/assets/${payload.assetId}/export?format=PNG`);const {Readable}=require('node:stream');const {pipeline}=require('node:stream/promises');await pipeline(Readable.fromWeb(response.body),fs.createWriteStream(save.filePath));return true; });
  ipcMain.handle('pixelmend:render-asset', async (_e, payload) => { if(!payload || !/^[a-f0-9]{32}$/.test(payload.assetId) || !Array.isArray(payload.paintStrokes)) throw new Error('project_invalid'); const asset=await (await api(`/assets/${payload.assetId}/rendered`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paint_strokes:payload.paintStrokes})})).json();const preview=await (await api(`/assets/${asset.asset_id}/preview`)).arrayBuffer();sources.set(`asset/${asset.asset_id}`,preview);return {...asset,preview:`pixelmend://asset/${asset.asset_id}`}; });
+ ipcMain.handle('pixelmend:confirm-close',event=>{if(event.sender!==mainWindow.webContents)throw new Error('Geçersiz pencere');allowClose=true;app.quit();});
  ipcMain.handle('pixelmend:settings', () => readSettings()); ipcMain.handle('pixelmend:set-settings', (_e, value) => writeAtomic(settingsPath(), JSON.stringify({...defaults,...value})));
  ipcMain.handle('pixelmend:export-source', async (_e, id) => { if(typeof id!=='string'||!/^[a-f0-9]{32}$/.test(id)) throw new Error('Geçersiz görsel'); const bytes=await (await api(`/assets/${id}/export?format=PNG`)).arrayBuffer();return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`; });
  ipcMain.handle('pixelmend:save-project', async (_e, document, saveAs) => { if(!document || document.version !== 1) throw new Error('project_invalid'); if(saveAs || !projectFile) { const chosen=await dialog.showSaveDialog(window,{defaultPath:'PixelMend.pixelmend',filters:[{name:'PixelMend proje',extensions:['pixelmend']}]}); if(chosen.canceled) return false; projectFile=chosen.filePath; } const ids=[...new Set(JSON.stringify(document).match(/pixelmend:\/\/(?:asset|result)\/[^"\\]+/g)||[])]; const blobs={}; for(const uri of ids){const key=uri.replace('pixelmend://','');if(key.startsWith('asset/')){const id=key.slice(6);if(!/^[a-f0-9]{32}$/.test(id))throw new Error('project_invalid');blobs[uri]=Buffer.from(await (await api(`/assets/${id}/export?format=PNG`)).arrayBuffer()).toString('base64');}else if(sources.has(key)) blobs[uri]=Buffer.from(sources.get(key)).toString('base64');} writeAtomic(projectFile,JSON.stringify({format:'pixelmend',version:1,document,blobs})); return true; });
  ipcMain.handle('pixelmend:open-project', async () => { const chosen=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'PixelMend proje',extensions:['pixelmend']}]});if(chosen.canceled)return null;let saved;try{saved=JSON.parse(fs.readFileSync(chosen.filePaths[0],'utf8'))}catch{throw new Error('project_invalid')}if(saved?.format!=='pixelmend'||saved.version!==1||!saved.document||typeof saved.blobs!=='object')throw new Error('project_invalid');const document=structuredClone(saved.document), replacements=new Map();const capabilities=await (await api('/capabilities')).json();const projectBlobLimit=Math.ceil(Math.max(256*1024*1024,(capabilities.policy?.max_output_pixels??200000000)*4+16*1024*1024)/3)*4;const revive=async photo=>{if(!photo?.uri||replacements.has(photo.uri))return replacements.get(photo?.uri);const b64=saved.blobs[photo.uri];if(typeof b64!=='string'||b64.length>projectBlobLimit)throw new Error('project_invalid');const revived=await (async()=>{const form=new FormData();form.append('image',new Blob([Buffer.from(b64,'base64')]),'project.png');const asset=await (await api('/assets',{method:'POST',body:form})).json();const preview=await (await api(`/assets/${asset.asset_id}/preview`)).arrayBuffer();sources.set(`asset/${asset.asset_id}`,preview);return {id:asset.asset_id,uri:`pixelmend://asset/${asset.asset_id}`,width:asset.width,height:asset.height}})();replacements.set(photo.uri,revived);return revived};for(const snapshot of [...document.history.past,document.history.present,...document.history.future])snapshot.photo=await revive(snapshot.photo);document.original=await revive(document.original);projectFile=chosen.filePaths[0];return document; });
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'PixelMend',submenu:[{label:'Ayarlar',accelerator:'Cmd+,',click:()=>mainWindow.webContents.send('pixelmend:action','settings')},{role:'quit'}]},{label:'Düzen',submenu:[{label:'Geri al',accelerator:'Cmd+Z',click:()=>mainWindow.webContents.send('pixelmend:action','undo')},{label:'Yinele',accelerator:'Shift+Cmd+Z',click:()=>mainWindow.webContents.send('pixelmend:action','redo')}]}])); });
-app.on('window-all-closed',()=>app.quit()); app.on('before-quit',()=>{modelEvents?.close();engine?.kill('SIGTERM');});
+app.on('window-all-closed',()=>app.quit());
+// Do not stop the engine until the renderer has resolved unsaved changes.
+app.on('before-quit', event => {
+  if (!allowClose && mainWindow && !mainWindow.isDestroyed()) {
+    event.preventDefault();mainWindow.webContents.send('pixelmend:action','request-close');return;
+  }
+  if (!shutdownComplete) {
+    event.preventDefault();
+    if (shuttingDown) return;
+    shuttingDown=true;modelEvents?.close();
+    stopEngine().then(()=>{shutdownComplete=true;app.quit();}).catch(error=>{
+      console.error(error);shuttingDown=false;
+      // Native work may need longer than the initial grace period; never force-kill it.
+      engine?.once('exit',()=>{shutdownComplete=true;app.quit();});
+    });
+  }
+});

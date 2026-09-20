@@ -1,0 +1,218 @@
+[
+  {
+    "id": "camera",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/camera.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/camera.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "e28e99e90630a6ea38d2a96be75da23f0de9338c2a66a5310357f8321c1e4161",
+    "input_width": 192,
+    "input_height": 192,
+    "expected_use": "upscale",
+    "original_sha256": "b0793d2adda0fa6ae899c03989482bff9a42d3d5690fc7e3648f2795d730c23a",
+    "original_dimensions": [
+      512,
+      512
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "eagle",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/eagle.png",
+    "source_url": "https://gitlab.com/scikit-image/data/-/raw/1e4f62ac31ba4553d176d4473a5967ad1b076d62/eagle.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "95a062196c97eb724efe2271786130c39706d859e477d694cb7d6b75543aa8ad",
+    "input_width": 174,
+    "input_height": 192,
+    "expected_use": "upscale",
+    "original_sha256": "928f1bbe7403b533265f56db3a6b07c835dfa8e2513f5c5075ca2f1960f6179e",
+    "original_dimensions": [
+      1826,
+      2019
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "astronaut",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/astronaut.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/astronaut.png",
+    "license": "Public-Domain",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "1998f41015c1258f6ff375a146575644390ad607f0e59c446806857321b966e2",
+    "input_width": 192,
+    "input_height": 192,
+    "expected_use": "upscale",
+    "original_sha256": "88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5",
+    "original_dimensions": [
+      512,
+      512
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "brick",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/brick.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/brick.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "71368e51df9a5049f5215284aae3847612fc4d51c91f823e4abb6d89b12fa445",
+    "input_width": 192,
+    "input_height": 192,
+    "expected_use": "upscale",
+    "original_sha256": "7966caf324f6ba843118d98f7a07746d22f6a343430add0233eca5f6eaaa8fcf",
+    "original_dimensions": [
+      512,
+      512
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "grass",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/grass.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/grass.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "3fcd96b19f06d1b94a1094cdc30c22e6ecf07f7bf3161edea9bea6e8878bc4ba",
+    "input_width": 192,
+    "input_height": 192,
+    "expected_use": "upscale",
+    "original_sha256": "b6b6022426b38936c43a4ac09635cd78af074e90f42ffa8227ac8b7452d39f89",
+    "original_dimensions": [
+      512,
+      512
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "gravel",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/gravel.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/gravel.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "43f49b492ac9de2a4fedbf93933cb2f127ef1f8b01a9257bc459dfda125c00bd",
+    "input_width": 192,
+    "input_height": 192,
+    "expected_use": "upscale",
+    "original_sha256": "c48615b451bf1e606fbd72c0aa9f8cc0f068ab7111ef7d93bb9b0f2586440c12",
+    "original_dimensions": [
+      512,
+      512
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "chelsea",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/chelsea.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/chelsea.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "2150ddcc7db5cf3a0e0be8d8a9f70db1678141a4cb2f45297bb27a677edb525b",
+    "input_width": 192,
+    "input_height": 128,
+    "expected_use": "upscale",
+    "original_sha256": "596aa1e7cb875eb79f437e310381d26b338a81c2da23439704a73c4651e8c4bb",
+    "original_dimensions": [
+      451,
+      300
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "clock_motion",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/clock_motion.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/clock_motion.png",
+    "license": "Public-Domain",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "d3b20fc7b2c88675f686b1dbe2708455818e9d30b150b4f13ddaaa8fe1a46fb4",
+    "input_width": 192,
+    "input_height": 144,
+    "expected_use": "upscale",
+    "original_sha256": "f029226b28b642e80113d86622e9b215ee067a0966feaf5e60604a1e05733955",
+    "original_dimensions": [
+      400,
+      300
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "coffee",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/coffee.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/coffee.png",
+    "license": "CC0-1.0",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "46767aeaec1aafec754174cf96ddcbf8d064fd2f197325ea8e156d2b0b13064c",
+    "input_width": 192,
+    "input_height": 128,
+    "expected_use": "upscale",
+    "original_sha256": "cc02f8ca188b167c775a7101b5d767d1e71792cf762c33d6fa15a4599b5a8de7",
+    "original_dimensions": [
+      600,
+      400
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "hubble_deep_field",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/hubble_deep_field.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/hubble_deep_field.jpg",
+    "license": "Public-Domain",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "6e594bea7fe41e4217a66dbffcc9ca397654398222f03b9a0c353ce2cacdc8b4",
+    "input_width": 192,
+    "input_height": 167,
+    "expected_use": "upscale",
+    "original_sha256": "3a19c5dd8a927a9334bb1229a6d63711b1c0c767fb27e2286e7c84a3e2c2f5f4",
+    "original_dimensions": [
+      1000,
+      872
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "rocket",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/rocket.png",
+    "source_url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/rocket.jpg",
+    "license": "Public-Domain",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "77cf5e1bfd0bee6fddbfd5088fdb2b15276c04bca17f86c603799b57f481d87d",
+    "input_width": 192,
+    "input_height": 128,
+    "expected_use": "upscale",
+    "original_sha256": "c2dd0de7c538df8d111e479619b129464d0269d0ae5fd18ca91d33a7fdfea95c",
+    "original_dimensions": [
+      640,
+      427
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  },
+  {
+    "id": "skin",
+    "path": "/Users/gladius/Desktop/pixelmend/engine/bench/fixtures/skin.png",
+    "source_url": "https://gitlab.com/scikit-image/data/-/raw/2cdc5ce89b334d28f06a58c9f0ca21aa6992a5ba/Normal_Epidermis_and_Dermis_with_Intradermal_Nevus_10x.JPG",
+    "license": "Public-Domain",
+    "license_evidence": "https://scikit-image.org/docs/0.25.x/api/skimage.data.html",
+    "downloaded_at": "2026-09-20",
+    "sha256": "1a320787bba74559193b37ff56411ef5acc698275c58c4ec2c454432c1d9a7c4",
+    "input_width": 192,
+    "input_height": 144,
+    "expected_use": "upscale",
+    "original_sha256": "8759fe080509712163453f4b17106582b8513e73b0788d80160abf840e272075",
+    "original_dimensions": [
+      1280,
+      960
+    ],
+    "preparation": "sRGB RGB conversion and Lanczos thumbnail, max edge 192"
+  }
+]

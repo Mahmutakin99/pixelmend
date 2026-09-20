@@ -29,11 +29,11 @@ def prepare_roi(image, mask):
 
 
 class LamaInpaint:
-    def __init__(self, models_dir):
+    def __init__(self, models_dir=None, *, model_path=None, providers=None):
         """Verify provenance before loading native model code."""
-        path = verify_model_file(model_file_path(models_dir, LAMA_ONNX_MANIFEST), LAMA_ONNX_MANIFEST)
+        path = verify_model_file(model_path if model_path is not None else model_file_path(models_dir, LAMA_ONNX_MANIFEST), LAMA_ONNX_MANIFEST)
         ort.disable_telemetry_events()
-        self.session = ort.InferenceSession(str(path), providers=['CPUExecutionProvider'])
+        self.session = ort.InferenceSession(str(path), providers=providers or ['CPUExecutionProvider'])
         inputs = {i.name: i for i in self.session.get_inputs()}
         for name, channels in [('image', 3), ('mask', 1)]:
             if name not in inputs or inputs[name].shape[1:] != [channels, 512, 512] or inputs[name].type != 'tensor(float)':

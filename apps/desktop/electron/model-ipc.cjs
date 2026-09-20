@@ -1,5 +1,5 @@
 const MODEL_IDS = new Set(['lama', 'realesrgan-x4plus']);
-const ACTIONS = new Set(['install', 'cancel', 'retry', 'probe', 'delete']);
+const ACTIONS = new Set(['install-local', 'install', 'cancel', 'retry', 'probe', 'delete']);
 
 // Only the main process chooses routes and algorithms; no URL or path crosses the bridge.
 function modelRoute(id, action) {
@@ -13,9 +13,9 @@ function jobForm(payload, policy = {}) {
   if (!['ai','lanczos'].includes(method)) throw new Error('Geçersiz büyütme yöntemi');
   const form = new FormData();
   form.append('asset_id', payload.assetId);
-  // Object removal must work out of the box. OpenCV is bundled with the
-  // sidecar; LaMa is an optional downloaded model and must not be required.
-  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? 'realesrgan_x4plus' : 'lanczos' : 'opencv_telea']));
+  const removeMethod = payload.removeMethod ?? 'lama';
+  if (!['lama', 'opencv'].includes(removeMethod)) throw new Error('Geçersiz silme yöntemi');
+  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? 'realesrgan_x4plus' : 'lanczos' : removeMethod === 'lama' ? 'lama' : 'opencv_telea']));
   form.append('scale', upscale ? '2' : '1');
   if (upscale) {
     const {targetWidth:w, targetHeight:h} = payload;
@@ -86,7 +86,16 @@ function registerModelIpc(ipcMain, api, authorized) {
   const requireSender = event => { if (!authorized(event.sender)) throw new Error('Geçersiz pencere'); };
   ipcMain.handle('pixelmend:capabilities',async event=>{requireSender(event);return (await api('/capabilities')).json();});
   ipcMain.handle('pixelmend:models',async event=>{requireSender(event);return (await api('/models')).json();});
-  ipcMain.handle('pixelmend:model-action',async (event,id,action)=>{requireSender(event);const {route,method}=modelRoute(id,action);return (await api(route,{method})).json();});
+  ipcMain.handle('pixelmend:model-action',async (event,id,action)=>{
+    requireSender(event);const {route,method}=modelRoute(id,action);
+    if (action === 'install-local') {
+      const {dialog} = require('electron');
+      const selection = await dialog.showOpenDialog({title:'Doğrulanmış ONNX modelini seçin', properties:['openFile'], filters:[{name:'ONNX',extensions:['onnx']}]});
+      if (selection.canceled) return (await api('/models')).json();
+      return (await api(route,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({path:selection.filePaths[0]})})).json();
+    }
+    return (await api(route,{method})).json();
+  });
   ipcMain.on('pixelmend:models-subscribe',event=>{if(authorized(event.sender))events.subscribe(event.sender);});
   ipcMain.on('pixelmend:models-unsubscribe',event=>{if(authorized(event.sender))events.unsubscribe(event.sender);});
   return events;

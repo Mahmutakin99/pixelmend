@@ -4,6 +4,7 @@ ipcRenderer.on('pixelmend:models-event', (_event, snapshot) => {
   for (const callback of modelListeners) callback(snapshot);
 });
 contextBridge.exposeInMainWorld('pixelmend', {
+  confirmClose: () => ipcRenderer.invoke('pixelmend:confirm-close'),
   capabilities: () => ipcRenderer.invoke('pixelmend:capabilities'),
   models: () => ipcRenderer.invoke('pixelmend:models'),
   modelAction: (id, action) => ipcRenderer.invoke('pixelmend:model-action', id, action),
