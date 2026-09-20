@@ -17,7 +17,7 @@ from .jobs import JobQueue
 from .job_api import job_router
 from .model_api import model_router
 from .model_manager import ModelManager
-from .paths import get_models_dir, cleanup_stale_sessions, create_session_dir
+from .paths import get_models_dir, get_coreml_cache_dir, cleanup_stale_sessions, create_session_dir
 from .policy import POLICY
 
 
@@ -165,27 +165,39 @@ def _probe_model(manifest, path):
     from .models.lama_onnx import LamaInpaint
     from .models.realesrgan_onnx import RealESRGANUpscale
 
-    providers = list(ort.get_available_providers())
-    candidates = [p for p in ('CPUExecutionProvider',) if p in providers]
+    from .execution_profile import provider_candidates, runtime_providers, select_fastest, provider_is_active
+    candidates = provider_candidates(tuple(ort.get_available_providers()), get_coreml_cache_dir() / manifest.revision)
     timings = []
-    for provider in candidates:
+    for candidate in candidates:
+        provider = candidate[0] if isinstance(candidate, tuple) else candidate
         try:
-            started = time.monotonic()
             if manifest.model_id == 'realesrgan-x4plus':
-                adapter = RealESRGANUpscale(path, providers=[provider])
-                value = adapter.run(np.zeros((8, 9, 3), dtype=np.uint8))
-                if value.shape != (32, 36, 3):
+                adapter = RealESRGANUpscale(path, providers=runtime_providers(provider, get_coreml_cache_dir() / manifest.revision))
+                if not provider_is_active(adapter.session.get_providers(), provider):
+                    raise ValueError('requested provider was not activated')
+                probe_pixels = np.zeros((144, 144, 3), dtype=np.uint8)
+                value = adapter.run(probe_pixels)
+                if value.shape != (576, 576, 3):
                     raise ValueError('unexpected upscale output')
             elif manifest.model_id == 'lama':
-                adapter = LamaInpaint(model_path=path, providers=[provider])
+                adapter = LamaInpaint(model_path=path, providers=runtime_providers(provider, get_coreml_cache_dir() / manifest.revision))
+                if not provider_is_active(adapter.session.get_providers(), provider):
+                    raise ValueError('requested provider was not activated')
                 value = adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
                 if value.shape != (16, 16, 3):
                     raise ValueError('unexpected inpaint output')
             else:
                 continue
+            # Ignore compilation and graph capture cost when selecting a provider.
+            # The durable Core ML cache makes the first run a poor steady-state signal.
+            started = time.monotonic()
+            if manifest.model_id == 'realesrgan-x4plus':
+                adapter.run(probe_pixels)
+            else:
+                adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
             timings.append((time.monotonic() - started, provider))
         except Exception:
             continue
     if not timings:
         raise ValueError('no usable provider')
-    return {'selected_provider': min(timings)[1], 'providers': [p for _, p in timings]}
+    return {'selected_provider': select_fastest(timings), 'providers': [p for _, p in timings]}

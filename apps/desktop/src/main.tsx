@@ -20,6 +20,7 @@ import { useModels } from "./useModels";
 import "./bridge";
 import "./style.css";
 type Tool = "paint" | "paintErase" | "select" | "selectErase";
+type Inspector = "draw" | "remove" | "upscale" | "view";
 type Active = {
   pointerId: number;
   target: "paint" | "selection";
@@ -58,7 +59,8 @@ function App() {
     [cursorPreview, setCursorPreview] = useState<CursorPreview | null>(null),
     [error, setError] = useState<UserError | null>(null),
     [removeMethod, setRemoveMethod] = useState<"lama" | "opencv">("lama"),
-    [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos");
+    [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos"),
+    [inspector, setInspector] = useState<Inspector>("draw");
   const paint = useRef<HTMLCanvasElement>(null),
     mask = useRef<HTMLCanvasElement>(null),
     cursorLayer = useRef<HTMLCanvasElement>(null),
@@ -87,9 +89,8 @@ function App() {
     setError(userError(context, cause));
   };
   useEffect(() => {
-    if (aiReady) setUpscaleMethod("ai");
-    else if (upscaleMethod === "ai") setUpscaleMethod("lanczos");
-  }, [aiReady]);
+    if (!aiReady && upscaleMethod === "ai") setUpscaleMethod("lanczos");
+  }, [aiReady, upscaleMethod]);
   const redraw = () => {
     if (!p) return;
     const display = previewSize(p.photo.width, p.photo.height);
@@ -211,6 +212,10 @@ function App() {
         setPan(clampPan({x: gesture.startX + e.clientX - gesture.x, y: gesture.startY + e.clientY - gesture.y}));
       }
       if (e.type === 'pointerup' || e.type === 'pointercancel') panGesture.current = null;
+      return;
+    }
+    if (inspector !== "draw" && inspector !== "remove") {
+      setCursorPreview(null);
       return;
     }
     if (!p || busy || preview) return;
@@ -543,8 +548,14 @@ function App() {
         </div>
       </header>
       <section className="workspace">
-        <aside>
-          <section className="tool-group">
+        <nav className="tool-rail" aria-label="Düzenleme araçları">
+          <button aria-label="Çizim" aria-pressed={inspector === "draw"} onClick={() => { setInspector("draw"); setTool("paint"); }}>✎</button>
+          <button aria-label="Nesne silme" aria-pressed={inspector === "remove"} onClick={() => { setInspector("remove"); setTool("select"); }}>⌁</button>
+          <button aria-label="Büyütme" aria-pressed={inspector === "upscale"} onClick={() => setInspector("upscale")}>⤢</button>
+          <button aria-label="Görünüm" aria-pressed={inspector === "view"} onClick={() => setInspector("view")}>◉</button>
+        </nav>
+        <aside className="inspector">
+          {inspector === "draw" && <section className="tool-group">
             <h2>Çizim</h2>
             <p>Görselin üzerine renk ekleyin.</p>
             <button
@@ -613,8 +624,8 @@ function App() {
                 <span>px</span>
               </span>
             </label>
-          </section>
-          <section className="tool-group">
+          </section>}
+          {inspector === "remove" && <section className="tool-group">
             <h2>Nesne Silgisi</h2>
             <p>Silinecek alanı işaretleyin.</p>
             <label><input type="radio" name="remove-method" checked={removeMethod === "lama"} onChange={() => setRemoveMethod("lama")}/> AI — LaMa{!lamaReady && " (kurulum/sınama gerekli)"}</label>
@@ -631,18 +642,22 @@ function App() {
             >
               Seçimi Sil
             </button>
+            <label>
+              Seçim fırçası boyutu
+              <span className="value-input"><input type="range" min="2" max="160" value={size} onChange={(e) => setSize(+e.target.value)} /><input aria-label="Seçim fırçası boyutu piksel" type="number" min="2" max="160" value={size} onChange={(e) => setSize(Math.max(2, Math.min(160, +e.target.value || 2)))} /><span>px</span></span>
+            </label>
             <button
               disabled={busy || !!preview}
               onClick={() => process("remove")}
             >
               Nesneyi Sil
             </button>
-          </section>
-          <section className="tool-group">
+          </section>}
+          {inspector === "upscale" && <section className="tool-group">
             <h2>Büyütme</h2>
-            <p>{upscaleMethod === "ai" ? "AI Kalite ile ayrıntıları iyileştirin." : "Lanczos ile hedef piksel ölçüsüne getirin."}</p>
-            <label><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/> AI Kalite{!aiReady && " (model hazır değil)"}</label>
-            <label><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => setUpscaleMethod("lanczos")}/> Hızlı Lanczos</label>
+            <p>{upscaleMethod === "ai" ? "Ayrıntıları ve netliği iyileştirir; ince dokular değişebilir." : "Görünümü koruyarak boyutlandırır; AI ile ayrıntı üretmez."}</p>
+            <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => setUpscaleMethod("lanczos")}/><span><strong>Standart büyütme</strong><small>Lanczos · özgün görünüm öncelikli</small></span></label>
+            <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/><span><strong>AI ile iyileştir</strong><small>RealESRGAN · doğal ayrıntı öncelikli{!aiReady && " · model hazır değil"}</small></span></label>
             <div className="quick-actions">
               <button
                 disabled={busy || !!preview}
@@ -699,18 +714,18 @@ function App() {
               />{" "}
               Oranı koru
             </label>
-            <p className={valid ? "hint" : "hint error"}>{valid ? `${mp.toFixed(1)} MP çıktı` : `En fazla ${outputLimit / 1e6} MP ve pozitif tam sayılar girin.`}</p>
+            <p className={valid ? "hint" : "hint error"}>{valid ? `${mp.toFixed(1)} MP hedef · güvenli sınır işlem başında RAM ve diske göre doğrulanır` : `En fazla ${outputLimit / 1e6} MP ve pozitif tam sayılar girin.`}</p>
             <button
               disabled={busy || !!preview || !valid}
               onClick={() => process("upscale", target)}
             >
-              Özel ölçüyle büyüt
+              Önizleme oluştur
             </button>
-          </section>
+          </section>}
           <p className="status" role="status">
             {notice}
           </p>
-          <section className="tool-group" aria-label="Görünüm ayarları">
+          {inspector === "view" && <section className="tool-group" aria-label="Görünüm ayarları">
             <label>
               Yakınlaştırma hassasiyeti
               <input aria-label="Yakınlaştırma hassasiyeti" type="range" min="0.5" max="4" step="0.5" value={zoomSensitivity} onChange={e => setZoomSensitivity(Number(e.target.value))} />
@@ -718,7 +733,7 @@ function App() {
             </label>
             <p className="hint">⌘/Ctrl + tekerlek ile yakınlaştırın; tekerleğe basılı sürükleyerek görseli kaydırın.</p>
             <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }}>Görünümü sıfırla</button>
-          </section>
+          </section>}
           {preview && (
             <section className="tool-group preview-actions" aria-label="İşlem önizlemesi">
               <strong>İşlem önizlemesi hazır</strong>

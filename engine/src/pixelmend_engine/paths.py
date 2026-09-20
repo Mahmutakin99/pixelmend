@@ -23,6 +23,11 @@ def get_models_dir() -> Path:
     return Path(user_cache_path("PixelMend", appauthor=False)) / "models"
 
 
+def get_coreml_cache_dir() -> Path:
+    """Return the durable Core ML compilation cache, separate from model bytes."""
+    return get_models_dir().parent / 'coreml-cache'
+
+
 def get_sessions_dir() -> Path:
     """Return the private parent used solely for ephemeral sidecar sessions."""
     override = os.environ.get(SESSIONS_DIR_ENV)

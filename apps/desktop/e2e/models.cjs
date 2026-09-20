@@ -2,7 +2,7 @@ const {_electron:electron,expect}=require('@playwright/test');
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const temp=await fs.mkdtemp(path.join(os.tmpdir(),'pixelmend-model-acceptance-'));
- const executablePath=process.env.PIXELMEND_E2E_APP;
+ const executablePath=process.env.PIXELMEND_E2E_APP || path.resolve('out.noindex/mac-arm64/PixelMend.app/Contents/MacOS/PixelMend');
  const fresh=process.env.PIXELMEND_E2E_FRESH === '1';
  const launch=()=>electron.launch({executablePath,args:[`--user-data-dir=${temp}/profile`],env:{...process.env,...(fresh?{PIXELMEND_MODELS_DIR:path.join(temp,'models')}:{})},timeout:60000});
  let app=await launch();
@@ -38,11 +38,11 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
  const job=await page.evaluate(({asset,operation})=>window.pixelmend.startJob({assetId:asset.asset_id,operation,removeMethod:'lama',upscaleMethod:'ai',targetWidth:192,targetHeight:128,selectionStrokes:[{mode:'draw',points:[{x:48,y:32}],color:'#ff0000',opacity:1,size:10,hardness:1}]}),{asset,operation});
  let state;
  await expect.poll(async()=>{state=await page.evaluate(id=>window.pixelmend.job(id),job.job_id);return state.status;},{timeout:120000}).toBe('completed');
- console.log(JSON.stringify(state));assert.equal(state.result_details[0].algorithm,operation==='remove'?'lama':'realesrgan_x4plus');assert.equal(state.provider,'CPUExecutionProvider');assert(state.model_revision);
+ console.log(JSON.stringify(state));assert.equal(state.result_details[0].algorithm,operation==='remove'?'lama':'realesrgan_x4plus');assert.equal(state.provider,operation==='remove'?'CPUExecutionProvider':'CoreMLExecutionProvider');assert(state.model_revision);
  }
  const cancelJob=await page.evaluate(asset=>window.pixelmend.startJob({assetId:asset.asset_id,operation:'upscale',upscaleMethod:'ai',targetWidth:384,targetHeight:256}),asset);
  await page.evaluate(id=>window.pixelmend.cancel(id),cancelJob.job_id);
  await expect.poll(async()=> (await page.evaluate(id=>window.pixelmend.job(id),cancelJob.job_id)).status,{timeout:120000}).toBe('cancelled');
- console.log('PASS: packaged actual LaMa and RealESRGAN, metadata and CPU');
+ console.log('PASS: packaged actual LaMa CPU and RealESRGAN Core ML metadata');
  }finally{await app.close();await fs.rm(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

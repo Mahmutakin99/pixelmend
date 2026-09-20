@@ -39,6 +39,30 @@ def load_policy():
 POLICY = load_policy()
 
 
+def adaptive_output_limit(image, *, ai: bool, result_bytes=0, policy=POLICY,
+                          available_bytes=None, disk_free_bytes=None):
+    """Return the largest safe final pixel count for the current machine state.
+
+    The value is advisory for the UI. ``admit_image_job`` remains the final
+    admission gate because memory and disk can change between display and run.
+    """
+    available = psutil.virtual_memory().available if available_bytes is None else available_bytes
+    free = shutil.disk_usage(tempfile.gettempdir()).free if disk_free_bytes is None else disk_free_bytes
+    channels = 4 if getattr(image, 'alpha', None) is not None else 3
+    # Final RGB/alpha plus conversions, a 256 MiB system reserve and a 25% headroom.
+    per_output_pixel = channels * 4 * 1.25
+    ram_pixels = max(0, int((available - 256 * 1024**2 - result_bytes) / per_output_pixel))
+    if not ai:
+        return min(policy.max_output_pixels, ram_pixels)
+    # AI also needs a float output workspace and a disk-backed accumulation map.
+    ai_ram_pixels = max(0, int((available - 512 * 1024**2 - result_bytes) / (per_output_pixel + 24)))
+    # Disk-backed maps scale with the model's natural 4× source output, not
+    # with a smaller/larger final resample target.
+    workspace = image.width * image.height * 16 + 256 * 1024**2
+    disk_limit = policy.max_output_pixels if free >= workspace else 0
+    return min(policy.max_output_pixels, ram_pixels, ai_ram_pixels, disk_limit)
+
+
 def validate_dimensions(width, height, *, policy=POLICY):
     if (type(width) is not int or type(height) is not int or width < 1 or height < 1
             or width * height > policy.max_output_pixels):
@@ -66,3 +90,9 @@ def admit_image_job(image, target_size, *, ai=False, result_bytes=0, policy=POLI
         # RGB float accumulation + weight plane; mappings are session-owned.
         if free < natural_pixels * 16 + 256 * 1024**2:
             raise ResourceLimitError('disk_full', 'AI karo birleştirmesi için geçici disk alanı yetersiz.')
+    adaptive = adaptive_output_limit(image, ai=ai, result_bytes=result_bytes, policy=policy,
+                                     available_bytes=available_bytes, disk_free_bytes=disk_free_bytes)
+    if width * height > adaptive:
+        raise ResourceLimitError('adaptive_limit',
+            f'Bu işlem için kullanılabilir çıktı sınırı {adaptive / 1e6:.1f} MP. '
+            'Daha küçük bir ölçü seçin veya sistemde bellek ve disk alanı açın.')

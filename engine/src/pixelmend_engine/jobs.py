@@ -17,12 +17,15 @@ from .model_store import ModelFileMissingError, ModelStoreError
 from .model_manager import ModelManager, ModelManagerError
 from .models.realesrgan_onnx import InferenceCancelled, RealESRGANUpscale
 from .policy import POLICY, ResourceLimitError, admit_image_job
+from .execution_profile import runtime_providers, provider_is_active
+from .paths import get_coreml_cache_dir
+from .adapter_cache import AdapterCache
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
 
 
 def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
-            provider=None, cancel_event=None, progress=None):
+            provider=None, cancel_event=None, progress=None, adapter_cache=None):
     """Execute native inference in the queue's dedicated worker."""
     if algorithm == 'lanczos':
         size = target_size or (image.width * scale, image.height * scale)
@@ -33,9 +36,14 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
     if algorithm == 'realesrgan_x4plus':
         if model_path is None or provider is None:
             raise ModelManagerError('not_ready', 'AI kalite modeli hazır değil.')
-        adapter = RealESRGANUpscale(model_path, providers=[provider],
-                                    tile_size=POLICY.tile_size,
-                                    overlap=POLICY.tile_overlap)
+        provider_config = runtime_providers(provider, get_coreml_cache_dir() / model_path.parent.name)
+        key = ('realesrgan_x4plus', str(model_path), provider)
+        factory = lambda: RealESRGANUpscale(model_path, providers=provider_config,
+                                            tile_size=POLICY.tile_size,
+                                            overlap=POLICY.tile_overlap)
+        adapter = adapter_cache.get(key, factory) if adapter_cache else factory()
+        if not provider_is_active(adapter.session.get_providers(), provider):
+            raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
         rgb = adapter.run(image.rgb, target_size=target_size,
                           cancel_event=cancel_event, progress=progress)
         alpha = None if image.alpha is None else np.asarray(
@@ -45,7 +53,12 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
         from .models.lama_onnx import LamaInpaint
         if model_path is None or provider is None:
             raise ModelManagerError('not_ready', 'LaMa model is not ready.')
-        adapter = LamaInpaint(model_path=model_path, providers=[provider])
+        provider_config = runtime_providers(provider, get_coreml_cache_dir() / model_path.parent.name)
+        key = ('lama', str(model_path), provider)
+        factory = lambda: LamaInpaint(model_path=model_path, providers=provider_config)
+        adapter = adapter_cache.get(key, factory) if adapter_cache else factory()
+        if not provider_is_active(adapter.session.get_providers(), provider):
+            raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
     else:
         adapter = OpenCVInpaint({'opencv_telea': 'telea', 'opencv_ns': 'ns'}[algorithm])
     return replace(image, rgb=adapter.run(image.rgb, mask))
@@ -94,6 +107,7 @@ class JobQueue:
         self.max_jobs = max_jobs
         self.result_budget = result_budget
         self.model_manager = model_manager
+        self.adapter_cache = AdapterCache()
         self.jobs = {}
         self.pending = asyncio.Queue()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='inference')
@@ -111,6 +125,7 @@ class JobQueue:
         await self.pending.put(None)
         await self.worker
         self.executor.shutdown(wait=True)
+        self.adapter_cache.close()
         self.jobs.clear()
 
     def submit(self, asset_id, algorithms, mask=None, scale=1, target_width=None, target_height=None):
@@ -210,7 +225,8 @@ class JobQueue:
                                     image, job.mask, algorithm, job.scale, job.target_size,
                                     model_path=getattr(job, 'model_path', None),
                                     provider=getattr(job, 'provider', None),
-                                    cancel_event=job.cancel_event, progress=update_progress))
+                                    cancel_event=job.cancel_event, progress=update_progress,
+                                    adapter_cache=self.adapter_cache))
                         else:
                             result = await asyncio.get_running_loop().run_in_executor(
                                 self.executor, self.processor, image, job.mask, algorithm, job.scale)

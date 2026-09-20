@@ -16,6 +16,7 @@ import psutil
 from PIL import Image
 
 from pixelmend_engine.models.realesrgan_onnx import RealESRGANUpscale
+from pixelmend_engine.execution_profile import runtime_providers
 
 
 def digest(path):
@@ -63,13 +64,19 @@ def main():
     parser.add_argument('--provider', default='CPUExecutionProvider')
     parser.add_argument('--tile-size', type=int, default=128)
     parser.add_argument('--overlap', type=int, default=16)
+    parser.add_argument('--coreml-cache', type=Path,
+                        help='Required when --provider=CoreMLExecutionProvider')
     args = parser.parse_args()
     fixtures = json.loads(args.fixtures.read_text())
     validate_fixture_set(fixtures)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     images = args.out.parent / 'upscale-images'
     images.mkdir(exist_ok=True)
-    adapter = RealESRGANUpscale(args.model, providers=[args.provider], tile_size=args.tile_size,
+    if args.provider == 'CoreMLExecutionProvider' and args.coreml_cache is None:
+        parser.error('--coreml-cache is required for the Core ML provider')
+    provider_cache = args.coreml_cache or args.out.parent / 'cpu-no-cache'
+    providers = runtime_providers(args.provider, provider_cache)
+    adapter = RealESRGANUpscale(args.model, providers=providers, tile_size=args.tile_size,
                                 overlap=args.overlap)
     rows = []
     for fixture in fixtures:
@@ -88,7 +95,7 @@ def main():
         for name, target in targets.items():
             # A fresh session makes each cold run independent; report load time separately.
             loaded = time.monotonic()
-            adapter = RealESRGANUpscale(args.model, providers=[args.provider],
+            adapter = RealESRGANUpscale(args.model, providers=providers,
                 tile_size=args.tile_size, overlap=args.overlap)
             load_seconds = time.monotonic() - loaded
             cold = measure(adapter, pixels, target)

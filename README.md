@@ -3,16 +3,16 @@
 Bu Mac üzerinde fotoğrafları yerel olarak düzenleyen Electron uygulaması. Görseller dış servislere gönderilmez.
 
 - **Nesne silme:** varsayılan AI — LaMa veya açıkça seçilen Hızlı — OpenCV. LaMa hazır değilse Ayarlar → Modeller üzerinden kurulum/sınama gerekir; sessiz yöntem değişikliği yapılmaz.
-- **Büyütme:** RealESRGAN x4plus AI veya Lanczos; 2×, 4× ve özel ölçü. AI önce doğal 4× çıktı üretir. Sonuç önizlemesini uygulayabilir veya vazgeçebilirsiniz.
+- **Büyütme:** Standart büyütme (Lanczos) görünümü korur; AI ile iyileştir (RealESRGAN x4plus) ayrıntıyı yeniden yapılandırabilir. İkisi de 2×, 4× ve özel ölçüyü destekler; sonuç önizlemesini uygulayabilir veya vazgeçebilirsiniz.
 - **Düzenleme:** çizim, seçim ve silgiler, geri al/yinele, zoom, sonuçtan devam, PNG kaydı ve `.pixelmend` projesi.
-- **Modeller:** SHA-256 ve boyut doğrulanır; kullanım boyunca kilit tutulur. Bu teslimde CPU kullanılır. LaMa sabit yayımlanmış kaynaktan indirilir; RealESRGAN uygulamanın sabit manifestine uyan yerel ONNX dosyasından kurulur.
+- **Modeller:** SHA-256 ve boyut doğrulanır; kullanım boyunca kilit tutulur. LaMa CPU'da çalışır; RealESRGAN M4 üzerinde Core ML'i sınar ve yararlıysa seçer, aksi halde CPU'ya açıkça geçer. LaMa sabit yayımlanmış kaynaktan indirilir; RealESRGAN uygulamanın sabit manifestine uyan yerel ONNX dosyasından kurulur.
 
 Bu teslim yalnız macOS Apple Silicon üzerindeki mevcut Mac'i kapsar. Genel imzalı dağıtım, Windows/Linux kabulü ve üretken doldurma kapsam dışıdır. Güncel doğrulama ve sınırlar: [Mac kabul raporu](docs/verification/mac-acceptance.md), [durum](DURUM.md).
 
 ## Model deposu
 
 Varsayılan kalıcı konum `~/Library/Caches/PixelMend/models/<model>/<revision>/`.
-`PIXELMEND_MODELS_DIR` yalnız açık geliştirme/test override'ıdır. Her açılışta bütünlük ve gerçek CPU sınaması tekrar yapılır. Model dosyaları projeye veya Git'e eklenmez.
+`PIXELMEND_MODELS_DIR` yalnız açık geliştirme/test override'ıdır. Her açılışta bütünlük ve gerçek sağlayıcı sınaması tekrar yapılır. Model dosyaları projeye veya Git'e eklenmez.
 
 Yerel RealESRGAN export aracı `tools/model-export/export.py`; kaynak ağırlık, lisans, export ortamı ve PyTorch/ONNX eşdeğerliği [provenance kaydında](docs/verification/realesrgan-export.json). Ayarlar → Modeller → Yerel ONNX kur, dosyayı atomik olarak model deposuna kopyalar. Başka hash'e sahip ONNX dosyaları kabul edilmez.
 

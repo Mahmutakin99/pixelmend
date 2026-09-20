@@ -1,13 +1,19 @@
 # Bu Mac için doğrulama — 2026-09-20
 
-LaMa varsayılan nesne silme ve RealESRGAN x4plus yerel ONNX büyütme CPU üzerinde çalışır. OpenCV ve Lanczos ayrı seçimlerdir. AI işi başka algoritmaya sessizce dönmez.
+LaMa varsayılan nesne silme CPU üzerinde, RealESRGAN x4plus yerel ONNX büyütme ise doğrulanmış en hızlı sağlayıcıyla çalışır. Bu M4 Mac'te RealESRGAN için Core ML seçilir. OpenCV ve Lanczos ayrı seçimlerdir. AI işi başka algoritmaya sessizce dönmez.
+
+## Apple Silicon çalışma profili — 2026-09-21
+
+ONNX Runtime 1.30.0 Core ML sağlayıcısı M4 üzerinde gerçek model probe'u ile sınandı. LaMa, isınmış ölçümde CPU sağlayıcısını seçti. RealESRGAN x4plus Core ML sağlayıcısını seçti; desteklenmeyen alt grafikleri CPU yürütür. Core ML derleme önbelleği model revision'ına göre kalıcı depoda tutulur ve yazılamazsa model CPU'da kullanılmaya devam eder.
+
+12 lisansı kayıtlı 192 piksel kaynakta, bir soğuk ve bir sıcak ölçümle RealESRGAN CPU sıcak medyanı **4.939 sn**, Core ML sıcak medyanı **1.245 sn** oldu. Bu yaklaşık **%74.8 daha kısa süre**dir. Temsilî `camera` 2× karşılaştırmasında CPU/Core ML en yüksek kanal farkı 1/255, ortalama fark 0.000136 ve 2/255 üzerindeki kanal oranı %0 idi. Ham ONNX çıktı hash'leri farklı olduğundan yalnız hash eşitliği kalite kabulü değildir. Ölçümler `/private/tmp/pixelmend-{cpu,coreml}-upscale.json` altında bu makinede üretildi; geçici oldukları için depoya konulmadı.
 
 ## Kanıt ve kapsam
 
-- Motor: `PIXELMEND_REAL_MODELS=1 engine/.venv/bin/python -m pytest engine/tests -q` → **126 passed, 0 skipped**, tek Starlette TestClient bağımlılık uyarısı. Gerçek iki model kuyruğu, LaMa maskesiz piksel/alpha koruması, RealESRGAN alpha/boyut, lease ve sonuç/event metadata dahildir.
+- Motor: `PIXELMEND_REAL_MODELS=1 engine/.venv/bin/python -m pytest engine/tests -q` → **138 passed, 0 skipped**, tek Starlette TestClient bağımlılık uyarısı. Gerçek iki model kuyruğu, LaMa maskesiz piksel/alpha koruması, RealESRGAN alpha/boyut, lease ve sonuç/event metadata dahildir.
 - Masaüstü: **26 Vitest testi**, TypeScript/Vite production build ve **3 paketleme kanıt testi** geçti.
 - PyInstaller motoru ve Electron arm64 `.app` üretildi. Paketli editörde boya/seçim silgileri, undo/redo, LaMa önizleme/vazgeç, açık OpenCV seçimi, PNG export, RealESRGAN 96×64 → 192×128, Lanczos özel ölçü, sonuçtan devam ve zoom geçti.
-- Temiz model deposu ve temiz profil: iki model yerel dosya seçimiyle kuruldu, seçilen kaynak kopyaları silindi, uygulama yeniden açıldı; iki AI işlemi doğru algoritma/revision/CPU metadata ile tamamlandı. AI iptali geçti. Depo geçici export dizinine bağımlı değildir.
+- Temiz model deposu ve temiz profil: iki model yerel dosya seçimiyle kuruldu, seçilen kaynak kopyaları silindi, uygulama yeniden açıldı; iki AI işlemi doğru algoritma/revision/sağlayıcı metadata ile tamamlandı. AI iptali geçti. Depo geçici export dizinine bağımlı değildir.
 - Gerçek kartal fotoğrafı Lanczos ile 1826×2019 → 7304×8076 (**58.99 MP**) üretildi: 0.304 saniye, süreç tepe RSS 929 MiB; sınır üzerindeki AI isteği çıktı ayırmadan reddedildi. Bu büyük AI throughput testi değildir. [Ölçüm](large-image.json).
 - Kaynak sınırı testleri 200 MP üzerini, AI doğal 4× ara çıktısını, kullanılabilir RAM, disk ve sonuç bütçesini reddeder. 200 MP bir güvenlik tavanıdır; bu boyutta hız/kalite kabulü veya her dosyada çalışma garantisi değildir.
 

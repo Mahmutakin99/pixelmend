@@ -42,7 +42,8 @@ def test_real_models_queue_preserves_alpha_and_reports_actual_artifacts():
                     detail=job.snapshot()['result_details'][0]
                     assert detail['algorithm']==algorithm
                     assert detail['model_revision']==job.model_path.parent.name
-                    assert detail['provider']=='CPUExecutionProvider'
+                    assert detail['provider']==job.provider
+                    assert detail['provider'] in {'CPUExecutionProvider','CoreMLExecutionProvider'}
                     event=next(e for e in job.events if e['event']=='result')
                     assert event['data']['model_revision']==detail['model_revision']
         finally:
