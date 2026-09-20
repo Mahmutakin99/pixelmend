@@ -13,7 +13,9 @@ function jobForm(payload, policy = {}) {
   if (!['ai','lanczos'].includes(method)) throw new Error('Geçersiz büyütme yöntemi');
   const form = new FormData();
   form.append('asset_id', payload.assetId);
-  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? 'realesrgan_x4plus' : 'lanczos' : 'lama']));
+  // Object removal must work out of the box. OpenCV is bundled with the
+  // sidecar; LaMa is an optional downloaded model and must not be required.
+  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? 'realesrgan_x4plus' : 'lanczos' : 'opencv_telea']));
   form.append('scale', upscale ? '2' : '1');
   if (upscale) {
     const {targetWidth:w, targetHeight:h} = payload;

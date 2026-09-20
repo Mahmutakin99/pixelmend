@@ -20,6 +20,15 @@ describe('desktop model and job boundary', () => {
     expect(()=>jobForm({...payload,targetWidth:20001},{})).toThrow();
     expect(()=>jobForm({...payload,assetId:'../../etc/passwd'},{})).toThrow();
   });
+  it('uses the bundled OpenCV algorithm for ordinary object removal', () => {
+    const {jobForm} = require('../electron/model-ipc.cjs');
+    const form = jobForm({
+      assetId: 'a'.repeat(32),
+      operation: 'remove',
+      selectionStrokes: [{mode:'draw', points:[{x:4,y:4}], color:'#ff3b6b', opacity:1, size:20, hardness:1}],
+    });
+    expect(form.get('algorithms')).toBe('["opencv_telea"]');
+  });
   it('shares one SSE stream, handles split events and aborts after last subscriber', async () => {
     const {createModelEvents} = require('../electron/model-ipc.cjs');
     let controller: ReadableStreamDefaultController<Uint8Array>;
