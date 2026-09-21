@@ -1,6 +1,8 @@
 """Report observed host and inference backend capabilities without guesses."""
 
 import os
+import platform
+import subprocess
 from dataclasses import asdict, dataclass
 
 import psutil
@@ -40,16 +42,32 @@ def available_execution_providers() -> tuple[str, ...]:
     return tuple(onnxruntime.get_available_providers())
 
 
+def _mac_sysctl(key: str) -> str | None:
+    """Read a small, public macOS hardware fact without treating it as VRAM."""
+    try:
+        value = subprocess.run(['sysctl', '-n', key], check=True, capture_output=True,
+                               text=True, timeout=1).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return value or None
+
+
 def collect_capabilities() -> Capabilities:
     """Collect measurable host facts and preserve unavailable accelerator data."""
     memory = psutil.virtual_memory()
+    is_macos = platform.system() == 'Darwin'
+    machine = _mac_sysctl('hw.model') if is_macos else None
+    chip = _mac_sysctl('machdep.cpu.brand_string') if is_macos else None
+    identity = f'{chip} ({machine})' if chip and machine else chip or machine
     return Capabilities(
         host_ram_total_bytes=int(memory.total),
         host_ram_available_bytes=int(memory.available),
         cpu_count=os.cpu_count(),
         accelerator=AcceleratorCapabilities(
-            identity=None,
-            memory_kind="unknown",
+            identity=identity,
+            # Apple Silicon memory is shared. Its available amount is not a GPU-only
+            # allocation limit, so the budget remains intentionally unmeasured.
+            memory_kind="unified" if identity and is_macos else "unknown",
             device_budget_bytes=None,
             device_headroom_bytes=None,
         ),

@@ -11,6 +11,11 @@ class ModelCatalogEntry:
     name: str
     manifest: ModelManifest | None
     source: str = "published"
+    operation: str = ""
+    tier: str = ""
+    description: str = ""
+    minimum_memory_bytes: int | None = None
+    recommended_memory_bytes: int | None = None
 
 
 # Locally reproduced export, parity evidence in docs/verification. No public URL is claimed.
@@ -23,6 +28,19 @@ REALESRGAN_LOCAL_MANIFEST = ModelManifest(
     license_url='https://raw.githubusercontent.com/xinntao/Real-ESRGAN/a4abfb2979a7bbff3f69f58f58ae324608821e27/LICENSE',
 )
 DEFAULT_MODEL_CATALOG = (
-    ModelCatalogEntry('lama', 'LaMa', LAMA_ONNX_MANIFEST),
-    ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, 'local'),
+    # Only artifacts with a pinned manifest can be installed. The other tier
+    # entries make the intended product hierarchy visible without pretending an
+    # unmeasured download or licence review is a usable model.
+    ModelCatalogEntry('lama-regular', 'LaMa Regular', None, operation='remove', tier='fast',
+                      description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
+    ModelCatalogEntry('lama', 'LaMa', LAMA_ONNX_MANIFEST, operation='remove', tier='balanced',
+                      description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
+    ModelCatalogEntry('sdxl-inpainting', 'SDXL Inpainting', None, operation='remove', tier='advanced',
+                      description='Güçlü sistemler ve zor görseller için önerilir. Daha fazla bellek kullanabilir ve daha uzun sürebilir.'),
+    ModelCatalogEntry('realesrgan-general-x4v3', 'RealESRGAN General x4v3', None, operation='upscale', tier='fast',
+                      description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
+    ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, 'local', operation='upscale', tier='balanced',
+                      description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
+    ModelCatalogEntry('real-hat-gan-x4', 'Real HAT GAN x4', None, operation='upscale', tier='advanced',
+                      description='Güçlü sistemler ve zor görseller için önerilir. Daha fazla bellek kullanabilir ve daha uzun sürebilir.'),
 )

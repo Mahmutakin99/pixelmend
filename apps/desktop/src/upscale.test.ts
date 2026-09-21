@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {fitDimension, targetIsValid} from './upscale';
+import {fitDimension, preserveDimensions, targetIsValid} from './upscale';
 
 describe('upscale dimensions', () => {
   it('keeps aspect ratio while a dimension is edited', () => {
@@ -14,5 +14,9 @@ describe('upscale dimensions', () => {
     expect(targetIsValid(20001, 10000)).toBe(false);
     expect(targetIsValid(10000, 6000, 50_000_000)).toBe(false);
     expect(targetIsValid(10000, 6000, 80_000_000)).toBe(true);
+  });
+
+  it('keeps the exact source dimensions for AI enhancement without resizing', () => {
+    expect(preserveDimensions({width: 1600, height: 900})).toEqual({width: 1600, height: 900});
   });
 });

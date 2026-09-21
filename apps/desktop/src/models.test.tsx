@@ -17,22 +17,21 @@ describe('model availability and performance facts',()=>{
     expect(allowedActions({...model,published:true,state:'ready',in_use:true})).toEqual([]);
     expect(allowedActions({...model,published:true,state:'failed'})).toContain('retry');
   });
-  it('shows unknown hardware honestly and keeps unpublished installation disabled',()=>{
+  it('keeps technical capability data out of the default settings page',()=>{
     const html=renderToStaticMarkup(<Settings value={{language:'tr',theme:'system'}} close={()=>{}} set={()=>{}} models={[model]} capabilities={undefined} refresh={()=>{}} error=""/>);
-    expect(html).toContain('Performans');expect(html).toContain('Ölçülmedi');
-    expect(html).toContain('settings-body');expect(html).toContain('performance-facts');
-    expect(html).toContain('Henüz yayınlanmadı');
-    expect(html).toMatch(/disabled=""[^>]*>İndir/);
+    expect(html).toContain('Performans');
+    expect(html).toContain('AI modelleri');
+    expect(html).toContain('settings-page');
+    expect(html).not.toContain('Ölçülmedi');
   });
-  it('keeps settings summaries scannable and technical model metadata collapsed',()=>{
+  it('uses an Apple-style section navigation instead of a technical modal',()=>{
     const html=renderToStaticMarkup(<Settings value={{language:'tr',theme:'system'}} close={()=>{}} set={()=>{}} models={[model]} capabilities={undefined} refresh={()=>{}} error=""/>);
     expect(html).not.toContain('value="en"');
     expect(html).toContain('Genel');
     expect(html).toContain('Performans');
-    expect(html).toContain('Model boyutu');
-    expect(html).toContain('Depolanan boyut');
-    expect(html).toContain('<summary>Teknik ayrıntılar — revision, bütünlük ve sağlayıcı ölçümü</summary>');
-    expect(html).not.toContain('<details open=');
-    expect(html).toContain('settings-body');
+    expect(html).toContain('Tuval ve araçlar');
+    expect(html).toContain('settings-nav');
+    expect(html).toContain('settings-content');
+    expect(html).toContain('Bitti');
   });
 });

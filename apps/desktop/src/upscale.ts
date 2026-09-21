@@ -2,6 +2,10 @@ export const MAX_OUTPUT_PIXELS = 200_000_000;
 
 export type Dimensions = {width: number; height: number};
 
+export function preserveDimensions(source: Dimensions): Dimensions {
+  return {width: source.width, height: source.height};
+}
+
 export function fitDimension(source: Dimensions, edited: 'width' | 'height', value: number): Dimensions {
   const normalized = Math.max(1, Math.round(value));
   return edited === 'width'

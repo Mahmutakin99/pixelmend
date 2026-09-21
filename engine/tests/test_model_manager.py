@@ -67,6 +67,9 @@ def test_install_lease_delete_and_unpublished(tmp_path):
         assert ai['state'] == 'absent' and ai['published'] is False
         assert ai['source'] == 'local' and ai['verified_manifest']
         assert ai['sha256'] and ai['size_bytes'] and ai['revision']
+        tiers = {(item['operation'], item['tier']) for item in defaults.list_models()['models']}
+        assert tiers == {('remove', 'fast'), ('remove', 'balanced'), ('remove', 'advanced'),
+                         ('upscale', 'fast'), ('upscale', 'balanced'), ('upscale', 'advanced')}
         with pytest.raises(ModelManagerError):
             await defaults.install(ai['id'])
         await defaults.close()

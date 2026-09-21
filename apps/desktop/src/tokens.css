@@ -1,0 +1,8 @@
+.segmented-control{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:3px;border:1px solid #3a4654;border-radius:9px;background:#191c20}
+.segmented-control button{min-height:30px;border:0;background:transparent}
+.segmented-control button[aria-pressed=true]{background:#286ea8;border-radius:6px;color:#fff}
+
+.tool-rail button svg{display:block;margin:auto}
+.confirm-dialog{box-sizing:border-box;position:fixed;z-index:80;inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 40px));min-height:0;padding:24px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:14px;background:var(--dialog-surface,#24282f);box-shadow:0 24px 70px rgba(0,0,0,.45)}
+.confirm-dialog h2{margin:0 0 8px;font-size:17px;letter-spacing:-.01em}.confirm-dialog p{margin:0;color:#aeb8c5;line-height:1.45}.confirm-dialog .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:22px}.confirm-dialog .modal-actions button{flex:0 0 auto;min-width:auto;min-height:32px;padding:7px 12px}.confirm-dialog .modal-actions .primary{background:#0a84ff;border-color:#3b9cff;color:#fff}:root[data-theme=light] .confirm-dialog{--dialog-surface:#fff;color:#17191d;box-shadow:0 24px 70px rgba(26,39,54,.22)}:root[data-theme=light] .confirm-dialog p{color:#536171}@media(max-width:520px){.confirm-dialog .modal-actions{flex-wrap:wrap}}
+.settings-nav button.selected{color:#fff;background:#1d4e7d}:root[data-theme=light] .settings-nav button.selected{color:#102030;background:#d9ecff}

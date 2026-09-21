@@ -12,13 +12,16 @@ import {
 import { drawStroke, drawStrokeSegment, drawStrokeStart } from "./brush";
 import { imagePoint } from "./strokes";
 import { boundedPan, wheelZoom } from "./zoom";
-import { fitDimension, targetIsValid, type Dimensions } from "./upscale";
+import { fitDimension, preserveDimensions, targetIsValid, type Dimensions } from "./upscale";
 import { userError, type ErrorContext, type UserError } from "./errors";
-import { keepsErasePreview } from "./cursor-preview";
+import { canvasCursor } from "./cursor-visibility";
+import { documentFingerprint, isDocumentDirty } from "./document-state";
+import { normalizePreferences } from "./preferences";
 import { Settings as PerformanceSettings } from "./Settings";
 import { useModels } from "./useModels";
 import "./bridge";
 import "./style.css";
+import "./tokens.css";
 type Tool = "paint" | "paintErase" | "select" | "selectErase";
 type Inspector = "draw" | "remove" | "upscale" | "view";
 type Active = {
@@ -28,6 +31,13 @@ type Active = {
 };
 type CursorPreview = { target: "paint" | "selection"; x: number; y: number; erasing: boolean };
 type PanGesture = { pointerId: number; x: number; y: number; startX: number; startY: number };
+function ToolIcon({name}: {name: "draw" | "remove" | "upscale" | "view"}) {
+  const common = {width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true};
+  if (name === "draw") return <svg {...common}><path d="m14.5 4.5 5 5L8 21l-5 .8.8-5L14.5 4.5Z"/><path d="m13 6 5 5"/></svg>;
+  if (name === "remove") return <svg {...common}><path d="M5 19 19 5"/><path d="m7 5 12 12"/><path d="M4 12h16"/></svg>;
+  if (name === "upscale") return <svg {...common}><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4"/><path d="m9 15 6-6M10 9h5v5"/></svg>;
+  return <svg {...common}><circle cx="12" cy="12" r="7"/><path d="M12 8v8M8 12h8"/></svg>;
+}
 const PREVIEW_MAX_EDGE = 2048;
 function previewSize(width: number, height: number) {
   const scale = Math.min(1, PREVIEW_MAX_EDGE / Math.max(width, height));
@@ -60,6 +70,7 @@ function App() {
     [error, setError] = useState<UserError | null>(null),
     [removeMethod, setRemoveMethod] = useState<"lama" | "opencv">("lama"),
     [upscaleMethod, setUpscaleMethod] = useState<"ai" | "lanczos">("lanczos"),
+    [enhancementMode, setEnhancementMode] = useState<"resize" | "preserve">("resize"),
     [inspector, setInspector] = useState<Inspector>("draw");
   const paint = useRef<HTMLCanvasElement>(null),
     mask = useRef<HTMLCanvasElement>(null),
@@ -67,10 +78,13 @@ function App() {
     article = useRef<HTMLElement>(null),
     active = useRef<Active | null>(null),
     panGesture = useRef<PanGesture | null>(null),
-    locked = useRef(false);
+    locked = useRef(false),
+    documentRef = useRef<EditorDocument | undefined>(undefined),
+    savedFingerprint = useRef<string | null>(null);
   const closeIntent = useRef(false);
   const closeRequest = useRef<() => void>(() => {});
   const p = doc?.history.present;
+  useEffect(() => { documentRef.current = doc; }, [doc]);
   const { models, capabilities, error: modelError, refresh } = useModels();
   const aiReady = models.some(
     (m) =>
@@ -145,7 +159,11 @@ function App() {
     context.restore();
   }, [cursorPreview, doc, p, size, color]);
   useEffect(() => {
-    window.pixelmend.settings().then(setSettings);
+    window.pixelmend.settings().then(value => {
+      const next = normalizePreferences(value);
+      setSettings(next);
+      setZoomSensitivity(next.zoomSensitivity);
+    });
     return window.pixelmend.onAction((a: string) => {
       if (a === "undo" && !busyRef.current) setDoc((d) => d && undo(d));
       if (a === "redo" && !busyRef.current) setDoc((d) => d && redo(d));
@@ -167,14 +185,14 @@ function App() {
   const open = async () => {
     const a = await window.pixelmend.openImage();
     if (a) {
-      setDoc(
-        createDocument({
+      const opened = createDocument({
           id: a.asset_id,
           uri: a.preview,
           width: a.width,
           height: a.height,
-        }),
-      );
+        });
+      savedFingerprint.current = documentFingerprint(opened);
+      setDoc(opened);
       setPreview(null);
       setNotice(`${a.width} × ${a.height} görsel açıldı`);
     }
@@ -228,8 +246,7 @@ function App() {
     );
     if (e.type === "pointerdown") {
       if (e.button !== 0 || active.current) return;
-      if (keepsErasePreview(tool.endsWith('Erase') ? 'erase' : 'draw')) setCursorPreview(cursorAt(e));
-      else setCursorPreview(null);
+      setCursorPreview(cursorAt(e));
       const targetName = tool.startsWith("paint") ? "paint" : "selection",
         mode = tool.endsWith("Erase") ? "erase" : "draw",
         stroke: Stroke = {
@@ -265,7 +282,7 @@ function App() {
         {x: from.x * previewSize(p.photo.width, p.photo.height).scale, y: from.y * previewSize(p.photo.width, p.photo.height).scale},
         {x: to.x * previewSize(p.photo.width, p.photo.height).scale, y: to.y * previewSize(p.photo.width, p.photo.height).scale},
       );
-      if (keepsErasePreview(a.stroke.mode)) setCursorPreview(cursorAt(e));
+      setCursorPreview(cursorAt(e));
     } else if (e.type === 'pointermove') {
       setCursorPreview(cursorAt(e));
     } else if (
@@ -411,7 +428,9 @@ function App() {
         assetId = rendered.asset_id;
       }
       {
+        const saved = documentFingerprint(documentRef.current);
         const ok = await window.pixelmend.saveImage({ assetId });
+        if (ok && documentRef.current && documentFingerprint(documentRef.current) === saved) savedFingerprint.current = saved;
         setNotice(ok ? "PNG görsel kaydedildi; EXIF/GPS/XMP metadata temizlendi." : "Kaydetme iptal edildi.");
         return ok;
       }
@@ -429,19 +448,21 @@ function App() {
     if (closeIntent.current) void window.pixelmend.confirmClose();
   };
   const saveProject = async () => {
+    const saved = documentFingerprint(documentRef.current);
     const ok = await window.pixelmend.saveProject(doc, false);
+    if (ok && documentRef.current && documentFingerprint(documentRef.current) === saved) savedFingerprint.current = saved;
     setNotice(ok ? "Proje kaydedildi." : "Kaydetme iptal edildi.");
     return ok;
   };
   const requestHome = () => {
-    if (doc!.history.past.length || active.current) setShowExit(true);
+    if (isDocumentDirty(doc, savedFingerprint.current) || active.current) setShowExit(true);
     else leaveHome();
   };
   closeRequest.current = () => {
     if (busy) { setNotice('Kapatmadan önce çalışan işlemi tamamlayın veya iptal edin.'); return; }
     if (preview) { setNotice('Kapatmadan önce önizlemeyi Uygula veya Vazgeç ile tamamlayın.'); return; }
     closeIntent.current = true;
-    if (doc && (doc.history.past.length || active.current || preview)) setShowExit(true);
+    if (doc && (isDocumentDirty(doc, savedFingerprint.current) || active.current || preview)) setShowExit(true);
     else void window.pixelmend.confirmClose();
   };
   const updateTarget = (field: "width" | "height", raw: string) => {
@@ -476,7 +497,7 @@ function App() {
         <button
           onClick={async () => {
             const d = await window.pixelmend.openProject();
-            if (d) setDoc(d);
+            if (d) { savedFingerprint.current = documentFingerprint(d); setDoc(d); }
           }}
         >
           Proje Aç
@@ -491,6 +512,7 @@ function App() {
             capabilities={capabilities}
             refresh={refresh}
             error={modelError}
+            onZoomSensitivity={setZoomSensitivity}
           />
         )}
       </main>
@@ -516,6 +538,9 @@ function App() {
           disabled={busy || !!preview || !doc.history.future.length}
         >
           Yinele
+        </button>
+        <button aria-label="Ayarlar" title="Ayarlar" disabled={busy} onClick={() => setShowSettings(true)}>
+          Ayarlar
         </button>
         <div className="save-menu">
           <button
@@ -549,10 +574,10 @@ function App() {
       </header>
       <section className="workspace">
         <nav className="tool-rail" aria-label="Düzenleme araçları">
-          <button aria-label="Çizim" aria-pressed={inspector === "draw"} onClick={() => { setInspector("draw"); setTool("paint"); }}>✎</button>
-          <button aria-label="Nesne silme" aria-pressed={inspector === "remove"} onClick={() => { setInspector("remove"); setTool("select"); }}>⌁</button>
-          <button aria-label="Büyütme" aria-pressed={inspector === "upscale"} onClick={() => setInspector("upscale")}>⤢</button>
-          <button aria-label="Görünüm" aria-pressed={inspector === "view"} onClick={() => setInspector("view")}>◉</button>
+          <button aria-label="Çizim" title="Çizim" aria-pressed={inspector === "draw"} onClick={() => { setInspector("draw"); setTool("paint"); }}><ToolIcon name="draw" /></button>
+          <button aria-label="Nesne silme" title="Nesne silme" aria-pressed={inspector === "remove"} onClick={() => { setInspector("remove"); setTool("select"); }}><ToolIcon name="remove" /></button>
+          <button aria-label="Büyütme" title="Büyütme" aria-pressed={inspector === "upscale"} onClick={() => setInspector("upscale")}><ToolIcon name="upscale" /></button>
+          <button aria-label="Görünüm" title="Görünüm" aria-pressed={inspector === "view"} onClick={() => setInspector("view")}><ToolIcon name="view" /></button>
         </nav>
         <aside className="inspector">
           {inspector === "draw" && <section className="tool-group">
@@ -658,7 +683,11 @@ function App() {
             <p>{upscaleMethod === "ai" ? "Ayrıntıları ve netliği iyileştirir; ince dokular değişebilir." : "Görünümü koruyarak boyutlandırır; AI ile ayrıntı üretmez."}</p>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => setUpscaleMethod("lanczos")}/><span><strong>Standart büyütme</strong><small>Lanczos · özgün görünüm öncelikli</small></span></label>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/><span><strong>AI ile iyileştir</strong><small>RealESRGAN · doğal ayrıntı öncelikli{!aiReady && " · model hazır değil"}</small></span></label>
-            <div className="quick-actions">
+            <div className="segmented-control" role="group" aria-label="İyileştirme hedefi">
+              <button aria-pressed={enhancementMode === 'resize'} onClick={() => setEnhancementMode('resize')}>Büyüt</button>
+              <button aria-pressed={enhancementMode === 'preserve'} onClick={() => { setEnhancementMode('preserve'); setTarget(preserveDimensions(p!.photo)); }}>Boyutu koru</button>
+            </div>
+            {enhancementMode === 'preserve' ? <p className="hint">AI, görüntüyü doğal 4× ayrıntı yolundan geçirir ve sonucu aynı ölçülere getirir. İnce dokular değişebilir.</p> : <><div className="quick-actions">
               <button
                 disabled={busy || !!preview}
                 onClick={() => {
@@ -713,11 +742,11 @@ function App() {
                 onChange={(e) => setRatioLocked(e.target.checked)}
               />{" "}
               Oranı koru
-            </label>
+            </label></>}
             <p className={valid ? "hint" : "hint error"}>{valid ? `${mp.toFixed(1)} MP hedef · güvenli sınır işlem başında RAM ve diske göre doğrulanır` : `En fazla ${outputLimit / 1e6} MP ve pozitif tam sayılar girin.`}</p>
             <button
               disabled={busy || !!preview || !valid}
-              onClick={() => process("upscale", target)}
+              onClick={() => process("upscale", enhancementMode === 'preserve' ? preserveDimensions(p!.photo) : target)}
             >
               Önizleme oluştur
             </button>
@@ -726,13 +755,13 @@ function App() {
             {notice}
           </p>
           {inspector === "view" && <section className="tool-group" aria-label="Görünüm ayarları">
-            <label>
-              Yakınlaştırma hassasiyeti
-              <input aria-label="Yakınlaştırma hassasiyeti" type="range" min="0.5" max="4" step="0.5" value={zoomSensitivity} onChange={e => setZoomSensitivity(Number(e.target.value))} />
-              <span>{zoomSensitivity.toFixed(1)}×</span>
-            </label>
-            <p className="hint">⌘/Ctrl + tekerlek ile yakınlaştırın; tekerleğe basılı sürükleyerek görseli kaydırın.</p>
-            <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }}>Görünümü sıfırla</button>
+            <h2>Görünüm</h2>
+            <p className="hint">{Math.round(zoom * 100)}% · ⌘/Ctrl + tekerlek ile yakınlaştırın; tekerleğe basılı sürükleyerek görseli kaydırın.</p>
+            <div className="quick-actions">
+              <button onClick={() => setZoom(1)}>100%</button>
+              <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }}>Sıfırla</button>
+            </div>
+            <p className="hint">Tekerlek hassasiyetini Ayarlar › Tuval ve araçlar bölümünden değiştirebilirsiniz.</p>
           </section>}
           {preview && (
             <section className="tool-group preview-actions" aria-label="İşlem önizlemesi">
@@ -754,8 +783,8 @@ function App() {
               ref={paint}
             />
             <canvas
-              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined }}
               className="mask"
+              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined, cursor: canvasCursor({editing: inspector === 'draw' || inspector === 'remove', hasPreview: !!preview, busy}) }}
               ref={mask}
               onPointerDown={point}
               onPointerMove={point}
@@ -819,6 +848,7 @@ function App() {
           capabilities={capabilities}
           refresh={refresh}
           error={modelError}
+          onZoomSensitivity={setZoomSensitivity}
         />
       )}
       {error && <ErrorDialog value={error} close={() => setError(null)} />}
@@ -826,7 +856,7 @@ function App() {
   );
 }
 function ErrorDialog({value, close}: {value: UserError; close: () => void}) {
-  return <div className="modal error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-title">
+  return <div className="modal confirm-dialog error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-title">
     <h2 id="error-title">{value.title}</h2>
     <p>{value.message}</p>
     <div className="modal-actions"><button autoFocus onClick={close}>Tamam</button></div>
@@ -842,13 +872,13 @@ function Exit({
   save: () => void;
 }) {
   return (
-    <div className="modal" role="dialog">
-      <h2>Değişiklikler kaydedilsin mi?</h2>
+    <div className="modal confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="exit-title">
+      <h2 id="exit-title">Değişiklikler kaydedilsin mi?</h2>
       <p>Çizimler ve yapılan işlemler kaydedilmeden ana ekrana dönülecek.</p>
       <div className="modal-actions">
-        <button onClick={close}>Vazgeç</button>
+        <button autoFocus onClick={close}>Vazgeç</button>
         <button onClick={discard}>Kaydetmeden çık</button>
-        <button onClick={save}>Kaydet</button>
+        <button className="primary" onClick={save}>Kaydet</button>
       </div>
     </div>
   );
@@ -865,15 +895,15 @@ function SaveExit({
   leave: () => void;
 }) {
   return (
-    <div className="modal" role="dialog">
-      <h2>Nasıl kaydetmek istersiniz?</h2>
+    <div className="modal confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="save-title">
+      <h2 id="save-title">Kaydet ve çık</h2>
       <p>
         Görsel PNG olarak dışa aktarılır; proje düzenlemeye devam etmek için
         saklanır.
       </p>
       <div className="modal-actions">
-        <button onClick={close}>Vazgeç</button>
-        <button
+        <button autoFocus onClick={close}>Vazgeç</button>
+        <button className="primary"
           onClick={async () => {
             if (await image()) leave();
           }}

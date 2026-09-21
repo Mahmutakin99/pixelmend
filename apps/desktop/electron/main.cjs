@@ -13,7 +13,7 @@ let modelEvents;
 let allowClose=false; let shutdownComplete=false; let shuttingDown=false;
 let engine; let token; let mainWindow; let projectFile; const sources = new Map();
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
-const defaults = { language: 'tr', theme: 'system', maskColor: '#ff3b6b', maskOpacity: .42 };
+const defaults = { language: 'tr', theme: 'system', maskColor: '#ff3b6b', maskOpacity: .42, zoomSensitivity: 1.5, removeModelTier: 'balanced', upscaleModelTier: 'balanced', performanceMode: 'automatic' };
 const readSettings = () => { try { return {...defaults, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8'))}; } catch { return defaults; } };
 const writeAtomic = (file, data) => { const tmp = `${file}.tmp`; fs.writeFileSync(tmp, data); fs.renameSync(tmp, file); };
 function request(route, options={}) { return fetch(`http://127.0.0.1:${engine.port}${route}`, { ...options, headers: {'X-PixelMend-Token': token, ...(options.headers || {})} }); }

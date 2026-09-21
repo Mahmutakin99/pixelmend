@@ -130,6 +130,10 @@ class ModelManager:
                 'error': None, 'probe': None, 'in_use': 0,
                 'stored_bytes': 0, 'active_revision': m.revision if m else None,
                 'last_used_at': None, 'stale_revisions': [],
+                'operation': entry.operation, 'tier': entry.tier,
+                'description': entry.description,
+                'minimum_memory_bytes': entry.minimum_memory_bytes,
+                'recommended_memory_bytes': entry.recommended_memory_bytes,
             }
 
     def _entry(self, model_id):
