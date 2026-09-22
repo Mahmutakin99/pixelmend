@@ -20,12 +20,14 @@ from .policy import POLICY, ResourceLimitError, admit_image_job
 from .execution_profile import runtime_providers, provider_is_active
 from .paths import get_coreml_cache_dir
 from .adapter_cache import AdapterCache
+from .model_catalog import UPSCALE_MODELS, AI_MODELS
+from .fallback import may_retry_cpu, check_cpu_capacity
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
 
 
 def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
-            provider=None, cancel_event=None, progress=None, adapter_cache=None):
+            provider=None, cancel_event=None, progress=None, adapter_cache=None, execution_evidence=None):
     """Execute native inference in the queue's dedicated worker."""
     if algorithm == 'lanczos':
         size = target_size or (image.width * scale, image.height * scale)
@@ -33,11 +35,11 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
         alpha = None if image.alpha is None else np.asarray(
             Image.fromarray(image.alpha).resize(size, Image.Resampling.LANCZOS)).copy()
         return replace(image, rgb=rgb, alpha=alpha)
-    if algorithm == 'realesrgan_x4plus':
+    if algorithm in UPSCALE_MODELS:
         if model_path is None or provider is None:
             raise ModelManagerError('not_ready', 'AI kalite modeli hazır değil.')
         provider_config = runtime_providers(provider, get_coreml_cache_dir() / model_path.parent.name)
-        key = ('realesrgan_x4plus', str(model_path), provider)
+        key = (algorithm, str(model_path), provider)
         factory = lambda: RealESRGANUpscale(model_path, providers=provider_config,
                                             tile_size=POLICY.tile_size,
                                             overlap=POLICY.tile_overlap)
@@ -46,6 +48,8 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
             raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
         rgb = adapter.run(image.rgb, target_size=target_size,
                           cancel_event=cancel_event, progress=progress)
+        if execution_evidence is not None:
+            execution_evidence.update(adapter.evidence.value)
         alpha = None if image.alpha is None else np.asarray(
             Image.fromarray(image.alpha).resize(rgb.shape[1::-1], Image.Resampling.LANCZOS)).copy()
         return replace(image, rgb=rgb, alpha=alpha)
@@ -61,7 +65,10 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
             raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
     else:
         adapter = OpenCVInpaint({'opencv_telea': 'telea', 'opencv_ns': 'ns'}[algorithm])
-    return replace(image, rgb=adapter.run(image.rgb, mask))
+    rgb = adapter.run(image.rgb, mask)
+    if execution_evidence is not None and hasattr(adapter, 'evidence'):
+        execution_evidence.update(adapter.evidence.value)
+    return replace(image, rgb=rgb)
 
 
 @dataclass
@@ -81,6 +88,7 @@ class Job:
     model_lease: object | None = None
     model_revision: str | None = None
     provider: str | None = None
+    fallback_reason: str | None = None
     result_metadata: dict = field(default_factory=dict)
     cancel_event: Event = field(default_factory=Event)
 
@@ -93,6 +101,7 @@ class Job:
                 'result_ids': list(self.results), 'algorithms': self.algorithms,
                 'error': self.error,
                 'progress': self.progress, 'model_revision': self.model_revision, 'provider': self.provider,
+                'fallback_reason': self.fallback_reason,
                 'result_details': [{'result_id': key, 'width': image.width, 'height': image.height, **self.result_metadata[key]}
                                    for key, image in self.results.items()]}
 
@@ -134,11 +143,11 @@ class JobQueue:
             raise ValueError('job capacity unavailable')
         if not algorithms or len(algorithms) > 8 or len(set(algorithms)) != len(algorithms):
             raise ValueError('select unique algorithms')
-        if any(a not in {'opencv_telea', 'opencv_ns', 'lama', 'lanczos', 'realesrgan_x4plus'} for a in algorithms):
+        if any(a not in ({'opencv_telea', 'opencv_ns', 'lama', 'lanczos'} | set(UPSCALE_MODELS)) for a in algorithms):
             raise ValueError('algorithm unavailable')
         image = self.assets.get_image(asset_id)
         target_size = None
-        if any(a in {'lanczos', 'realesrgan_x4plus'} for a in algorithms):
+        if any(a in ({'lanczos'} | set(UPSCALE_MODELS)) for a in algorithms):
             if len(algorithms) != 1:
                 raise ValueError('upscale requires a separate job')
             has_target = target_width is not None or target_height is not None
@@ -149,7 +158,7 @@ class JobQueue:
             elif scale not in (2, 4):
                 raise ValueError('upscale requires scale 2 or 4, or a target size')
             target_size = target_size or (image.width * scale, image.height * scale)
-            admit_image_job(image, target_size, ai=algorithms == ['realesrgan_x4plus'],
+            admit_image_job(image, target_size, ai=algorithms[0] in UPSCALE_MODELS,
                             result_bytes=sum(j.result_bytes for j in self.jobs.values()))
         else:
             if scale != 1:
@@ -160,11 +169,11 @@ class JobQueue:
                 raise ValueError('mask must contain a binary selection')
         self.assets.acquire_for_job(asset_id)
         job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale, target_size)
-        if 'realesrgan_x4plus' in algorithms or 'lama' in algorithms:
+        if any(a in AI_MODELS for a in algorithms):
             if self.model_manager is None:
                 self.assets.release_from_job(asset_id)
                 raise ModelManagerError('not_ready', 'AI model is not ready.')
-            model_id = 'lama' if 'lama' in algorithms else 'realesrgan-x4plus'
+            model_id = AI_MODELS[next(a for a in algorithms if a in AI_MODELS)]
             try:
                 job.model_lease = self.model_manager.lease(model_id)
                 job.model_path = job.model_lease.__enter__()
@@ -203,6 +212,31 @@ class JobQueue:
     async def join(self):
         await self.pending.join()
 
+    async def _run_native(self, job, image, algorithm, update_progress, evidence):
+        for attempt in range(2):
+            try:
+                return await asyncio.get_running_loop().run_in_executor(
+                    self.executor, lambda: self.processor(
+                        image, job.mask, algorithm, job.scale, job.target_size,
+                        model_path=getattr(job, 'model_path', None), provider=job.provider,
+                        cancel_event=job.cancel_event, progress=update_progress,
+                        adapter_cache=self.adapter_cache, execution_evidence=evidence))
+            except Exception as error:
+                if attempt or algorithm not in AI_MODELS or not may_retry_cpu(error, job.provider, job.cancel_event.is_set()):
+                    raise
+            # Exit the exception scope first, releasing references to the failed
+            # native call before constructing a CPU session for the SAME model.
+            await asyncio.get_running_loop().run_in_executor(self.executor, self.adapter_cache.close)
+            if job.cancel_event.is_set():
+                raise InferenceCancelled()
+            check_cpu_capacity(image, job.target_size, upscale=algorithm in UPSCALE_MODELS,
+                               result_bytes=sum(j.result_bytes for j in self.jobs.values()))
+            evidence.clear()
+            job.fallback_reason = 'accelerator_execution_failed'
+            job.emit('fallback', from_provider=job.provider, to_provider='CPUExecutionProvider', reason=job.fallback_reason)
+            job.provider = 'CPUExecutionProvider'
+            job.progress = {'phase':'cpu_fallback'}
+
     async def _consume(self):
         """Await the whole native call before publishing results or releasing assets."""
         while True:
@@ -217,16 +251,11 @@ class JobQueue:
                     image = self.assets.get_image(job.asset_id)
                     for algorithm in job.algorithms:
                         started = monotonic()
+                        execution_evidence = {}
                         if self.processor is process:
                             def update_progress(done, total):
                                 job.progress = {'completed': done, 'total': total, 'phase': 'tiles'}
-                            result = await asyncio.get_running_loop().run_in_executor(
-                                self.executor, lambda: self.processor(
-                                    image, job.mask, algorithm, job.scale, job.target_size,
-                                    model_path=getattr(job, 'model_path', None),
-                                    provider=getattr(job, 'provider', None),
-                                    cancel_event=job.cancel_event, progress=update_progress,
-                                    adapter_cache=self.adapter_cache))
+                            result = await self._run_native(job, image, algorithm, update_progress, execution_evidence)
                         else:
                             result = await asyncio.get_running_loop().run_in_executor(
                                 self.executor, self.processor, image, job.mask, algorithm, job.scale)
@@ -237,9 +266,11 @@ class JobQueue:
                             raise MemoryError('result budget exceeded')
                         result_id = uuid4().hex
                         job.results[result_id] = result
-                        job.result_metadata[result_id] = {'algorithm': algorithm,
-                            'model_revision': job.model_revision if algorithm in {'lama', 'realesrgan_x4plus'} else None,
-                            'provider': job.provider if algorithm in {'lama', 'realesrgan_x4plus'} else 'CPU'}
+                        job.result_metadata[result_id] = {'algorithm': algorithm, 'execution_evidence': execution_evidence,
+                            'fallback_reason': job.fallback_reason,
+                            'model_id': AI_MODELS.get(algorithm),
+                            'model_revision': job.model_revision if algorithm in AI_MODELS else None,
+                            'provider': job.provider if algorithm in AI_MODELS else 'CPU'}
                         job.result_bytes += size
                         job.emit('result', result_id=result_id, **job.result_metadata[result_id],
                                  seconds=monotonic() - started, width=result.width, height=result.height)

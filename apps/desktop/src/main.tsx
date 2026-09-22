@@ -13,6 +13,7 @@ import { drawStroke, drawStrokeSegment, drawStrokeStart } from "./brush";
 import { imagePoint } from "./strokes";
 import { boundedPan, wheelZoom } from "./zoom";
 import { fitDimension, preserveDimensions, targetIsValid, type Dimensions } from "./upscale";
+import { resultNotice } from "./job-result";
 import { userError, type ErrorContext, type UserError } from "./errors";
 import { canvasCursor } from "./cursor-visibility";
 import { documentFingerprint, isDocumentDirty } from "./document-state";
@@ -86,9 +87,11 @@ function App() {
   const p = doc?.history.present;
   useEffect(() => { documentRef.current = doc; }, [doc]);
   const { models, capabilities, error: modelError, refresh } = useModels();
+  const selectedUpscaleId = normalizePreferences(settings || {}).upscaleModelTier === 'fast' ? 'realesrgan-general-x4v3'
+    : normalizePreferences(settings || {}).upscaleModelTier === 'advanced' ? 'real-hat-gan-x4' : 'realesrgan-x4plus';
   const aiReady = models.some(
     (m) =>
-      m.id === "realesrgan-x4plus" &&
+      m.id === selectedUpscaleId &&
       m.state === "ready" &&
       m.probe?.status === "passed",
   );
@@ -102,9 +105,6 @@ function App() {
     console.error(cause);
     setError(userError(context, cause));
   };
-  useEffect(() => {
-    if (!aiReady && upscaleMethod === "ai") setUpscaleMethod("lanczos");
-  }, [aiReady, upscaleMethod]);
   const redraw = () => {
     if (!p) return;
     const display = previewSize(p.photo.width, p.photo.height);
@@ -136,7 +136,7 @@ function App() {
     if (!canvas || !p) return;
     const context = canvas.getContext('2d')!;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    if (!cursorPreview) return;
+    if (!cursorPreview || busy || preview || !['draw','remove'].includes(inspector)) return;
     const source = cursorPreview.target === 'paint' ? paint.current : mask.current;
     const display = previewSize(p.photo.width, p.photo.height);
     const radius = size * display.scale / 2;
@@ -150,14 +150,17 @@ function App() {
       context.restore();
     }
     context.save();
-    context.strokeStyle = cursorPreview.erasing ? '#e8ecf0' : cursorPreview.target === 'selection' ? '#ff735c' : color;
-    context.lineWidth = Math.max(1, 2 * display.scale);
-    context.setLineDash(cursorPreview.target === 'selection' ? [5 * display.scale, 4 * display.scale] : []);
+    context.strokeStyle = '#000';
+    context.lineWidth = Math.max(2, 3 * display.scale);
+    context.setLineDash([5 * display.scale, 4 * display.scale]);
     context.beginPath();
     context.arc(cursorPreview.x, cursorPreview.y, radius, 0, Math.PI * 2);
     context.stroke();
+    context.strokeStyle = '#fff';
+    context.lineWidth = Math.max(.75, display.scale);
+    context.stroke();
     context.restore();
-  }, [cursorPreview, doc, p, size, color]);
+  }, [cursorPreview, doc, p, size, busy, preview, inspector]);
   useEffect(() => {
     window.pixelmend.settings().then(value => {
       const next = normalizePreferences(value);
@@ -314,9 +317,7 @@ function App() {
           setPreview({ uri: next.preview, asset: next, op: job.op });
           setJob(null);
           locked.current = false;
-          setNotice(
-            `Sonuç hazır: ${next.width} × ${next.height} · ${s.result_details?.[0]?.algorithm ?? ""} · ${s.result_details?.[0]?.provider ?? "CPU"}. Uygula veya Vazgeç.`,
-          );
+          setNotice(resultNotice(s.result_details?.[0], next.width, next.height));
         } else if (["failed", "cancelled"].includes(s.status)) {
           setJob(null);
           locked.current = false;
@@ -392,6 +393,8 @@ function App() {
         targetHeight: d?.height,
         upscaleMethod,
         removeMethod,
+        modelId: op === 'upscale' && upscaleMethod === 'ai' ? selectedUpscaleId : undefined,
+        intent: op === 'upscale' && enhancementMode === 'preserve' ? 'preserve_size' : 'resize',
       });
       setJob({ ...created, op });
     } catch (error) {
@@ -422,17 +425,19 @@ function App() {
   };
   const saveImage = async () => {
     try {
-      let assetId = p!.photo.id;
-      if (p!.paint.length) {
-        const rendered = await window.pixelmend.renderAsset({assetId, paintStrokes: p!.paint});
+      const snapshot = documentRef.current;
+      if (!snapshot) return false;
+      const saved = documentFingerprint(snapshot);
+      let assetId = snapshot.history.present.photo.id;
+      if (snapshot.history.present.paint.length) {
+        const rendered = await window.pixelmend.renderAsset({assetId, paintStrokes: snapshot.history.present.paint});
         assetId = rendered.asset_id;
       }
       {
-        const saved = documentFingerprint(documentRef.current);
         const ok = await window.pixelmend.saveImage({ assetId });
-        if (ok && documentRef.current && documentFingerprint(documentRef.current) === saved) savedFingerprint.current = saved;
+        if (ok && documentRef.current?.original.id === snapshot.original.id) savedFingerprint.current = saved;
         setNotice(ok ? "PNG görsel kaydedildi; EXIF/GPS/XMP metadata temizlendi." : "Kaydetme iptal edildi.");
-        return ok;
+        return ok && documentFingerprint(documentRef.current) === saved;
       }
     } catch (error) {
       reportError('save', error);
@@ -448,11 +453,13 @@ function App() {
     if (closeIntent.current) void window.pixelmend.confirmClose();
   };
   const saveProject = async () => {
-    const saved = documentFingerprint(documentRef.current);
-    const ok = await window.pixelmend.saveProject(doc, false);
-    if (ok && documentRef.current && documentFingerprint(documentRef.current) === saved) savedFingerprint.current = saved;
+    const snapshot = documentRef.current;
+    if (!snapshot) return false;
+    const saved = documentFingerprint(snapshot);
+    const ok = await window.pixelmend.saveProject(snapshot, false);
+    if (ok && documentRef.current?.original.id === snapshot.original.id) savedFingerprint.current = saved;
     setNotice(ok ? "Proje kaydedildi." : "Kaydetme iptal edildi.");
-    return ok;
+    return ok && documentFingerprint(documentRef.current) === saved;
   };
   const requestHome = () => {
     if (isDocumentDirty(doc, savedFingerprint.current) || active.current) setShowExit(true);
@@ -681,11 +688,17 @@ function App() {
           {inspector === "upscale" && <section className="tool-group">
             <h2>Büyütme</h2>
             <p>{upscaleMethod === "ai" ? "Ayrıntıları ve netliği iyileştirir; ince dokular değişebilir." : "Görünümü koruyarak boyutlandırır; AI ile ayrıntı üretmez."}</p>
-            <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => setUpscaleMethod("lanczos")}/><span><strong>Standart büyütme</strong><small>Lanczos · özgün görünüm öncelikli</small></span></label>
+            <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => { setUpscaleMethod("lanczos"); setEnhancementMode("resize"); }}/><span><strong>Standart büyütme</strong><small>Lanczos · özgün görünüm öncelikli</small></span></label>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/><span><strong>AI ile iyileştir</strong><small>RealESRGAN · doğal ayrıntı öncelikli{!aiReady && " · model hazır değil"}</small></span></label>
+            <label>AI modeli<select aria-label="İyileştirme modeli" value={selectedUpscaleId} disabled={busy || !!preview} onChange={async event=>{
+              const tier=event.target.value==='realesrgan-general-x4v3'?'fast':event.target.value==='real-hat-gan-x4'?'advanced':'balanced';
+              const next={...normalizePreferences(settings || {}),upscaleModelTier:tier as 'fast'|'balanced'|'advanced'};
+              try {await window.pixelmend.setSettings(next);setSettings(next);setUpscaleMethod('ai');}catch(error){reportError('upscale',error);}
+            }}>{models.filter(m=>m.operation==='upscale').map(m=><option key={m.id} value={m.id} disabled={!m.verified_manifest}>{m.tier==='fast'?'Hızlı':m.tier==='advanced'?'Gelişmiş':'Dengeli'} · {m.name}{m.state==='ready'?'':' · kurulum gerekli'}</option>)}</select></label>
+            {!aiReady && <button onClick={()=>setShowSettings(true)}>Modeli kur veya sına</button>}
             <div className="segmented-control" role="group" aria-label="İyileştirme hedefi">
               <button aria-pressed={enhancementMode === 'resize'} onClick={() => setEnhancementMode('resize')}>Büyüt</button>
-              <button aria-pressed={enhancementMode === 'preserve'} onClick={() => { setEnhancementMode('preserve'); setTarget(preserveDimensions(p!.photo)); }}>Boyutu koru</button>
+              <button aria-pressed={enhancementMode === 'preserve'} onClick={() => { setEnhancementMode('preserve'); setUpscaleMethod('ai'); setTarget(preserveDimensions(p!.photo)); }}>Boyutu koru</button>
             </div>
             {enhancementMode === 'preserve' ? <p className="hint">AI, görüntüyü doğal 4× ayrıntı yolundan geçirir ve sonucu aynı ölçülere getirir. İnce dokular değişebilir.</p> : <><div className="quick-actions">
               <button
@@ -758,8 +771,8 @@ function App() {
             <h2>Görünüm</h2>
             <p className="hint">{Math.round(zoom * 100)}% · ⌘/Ctrl + tekerlek ile yakınlaştırın; tekerleğe basılı sürükleyerek görseli kaydırın.</p>
             <div className="quick-actions">
-              <button onClick={() => setZoom(1)}>100%</button>
-              <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }}>Sıfırla</button>
+              <button onClick={() => { const rect=mask.current?.getBoundingClientRect(); if(rect?.width && p) { setZoom(p.photo.width / (rect.width / zoom)); setPan({x:0,y:0}); } }}>100%</button>
+              <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }}>Sığdır</button>
             </div>
             <p className="hint">Tekerlek hassasiyetini Ayarlar › Tuval ve araçlar bölümünden değiştirebilirsiniz.</p>
           </section>}
@@ -784,7 +797,7 @@ function App() {
             />
             <canvas
               className="mask"
-              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined, cursor: canvasCursor({editing: inspector === 'draw' || inspector === 'remove', hasPreview: !!preview, busy}) }}
+              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined, cursor: canvasCursor({editing: inspector === 'draw' || inspector === 'remove', hasPreview: !!preview, busy, hasRing: !!cursorPreview}) }}
               ref={mask}
               onPointerDown={point}
               onPointerMove={point}

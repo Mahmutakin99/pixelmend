@@ -1,4 +1,5 @@
-const MODEL_IDS = new Set(['lama', 'realesrgan-x4plus']);
+const MODEL_IDS = new Set(['lama', 'realesrgan-x4plus','realesrgan-general-x4v3']);
+const UPSCALE_MODELS = {'realesrgan-x4plus':'realesrgan_x4plus','realesrgan-general-x4v3':'realesrgan_general_x4v3'};
 const ACTIONS = new Set(['install-local', 'install', 'cancel', 'retry', 'probe', 'delete']);
 
 // Only the main process chooses routes and algorithms; no URL or path crosses the bridge.
@@ -15,7 +16,14 @@ function jobForm(payload, policy = {}) {
   form.append('asset_id', payload.assetId);
   const removeMethod = payload.removeMethod ?? 'lama';
   if (!['lama', 'opencv'].includes(removeMethod)) throw new Error('Geçersiz silme yöntemi');
-  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? 'realesrgan_x4plus' : 'lanczos' : removeMethod === 'lama' ? 'lama' : 'opencv_telea']));
+  const modelId=payload.modelId ?? (upscale ? 'realesrgan-x4plus' : 'lama');
+  if(upscale && method==='ai' && !Object.hasOwn(UPSCALE_MODELS,modelId) || !upscale && removeMethod==='lama' && modelId!=='lama')throw new Error('Geçersiz model seçimi');
+  const usesAI=upscale ? method==='ai' : removeMethod==='lama';
+  if(usesAI)form.append('model_id',modelId);
+  const intent=payload.intent ?? 'resize';
+  if(!['resize','preserve_size'].includes(intent) || intent==='preserve_size' && (!upscale || !usesAI))throw new Error('Geçersiz iyileştirme amacı');
+  form.append('intent',intent);
+  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? UPSCALE_MODELS[modelId] : 'lanczos' : removeMethod === 'lama' ? 'lama' : 'opencv_telea']));
   form.append('scale', upscale ? '2' : '1');
   if (upscale) {
     const {targetWidth:w, targetHeight:h} = payload;

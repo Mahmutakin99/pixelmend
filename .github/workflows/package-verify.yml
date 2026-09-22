@@ -161,6 +161,17 @@ jobs:
         run: |
           name="$(node ../../tools/ci/package-evidence.mjs stage --package '${{ steps.package.outputs.file }}' --format '${{ matrix.format }}' --os '${{ matrix.os }}' --arch '${{ matrix.arch }}' --manifest ci-evidence/build-manifest.json --node-sbom ci-evidence/sbom-node.cdx.json --python-sbom ci-evidence/sbom-python.cdx.json --output ci-artifacts)"
           echo "name=$name" >> "$GITHUB_OUTPUT"
+      - name: Build companion test kit
+        shell: bash
+        run: node ../../tools/ci/make-test-kit.mjs
+      - uses: actions/upload-artifact@v4
+        # The companion launchers use only the installed application and OS tools.
+        # They do not need Python, Node or Playwright on a tester's computer.
+        with:
+          name: test-kit-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.format }}
+          path: apps/desktop/out.noindex/test-kit
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}

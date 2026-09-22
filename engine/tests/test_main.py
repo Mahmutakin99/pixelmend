@@ -85,3 +85,15 @@ def test_health_and_capabilities_are_token_protected() -> None:
     assert health.json() == {"status": "ok"}
     assert capabilities.status_code == 200
     assert "host_ram_total_bytes" in capabilities.json()
+
+
+def test_shutdown_requires_auth_and_calls_the_server_hook():
+    from pixelmend_engine.main import create_app
+    app = create_app(session_token=TOKEN)
+    stopped = []
+    app.state.request_shutdown = lambda: stopped.append(True)
+    client = TestClient(app, base_url='http://127.0.0.1')
+    assert client.post('/shutdown').status_code == 401
+    assert not stopped
+    assert client.post('/shutdown', headers={'X-PixelMend-Token': TOKEN}).status_code == 200
+    assert stopped == [True]

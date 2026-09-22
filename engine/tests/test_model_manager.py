@@ -64,15 +64,41 @@ def test_install_lease_delete_and_unpublished(tmp_path):
 
         defaults = ModelManager(tmp_path)
         ai = next(v for v in defaults.list_models()['models'] if v['id'] == 'realesrgan-x4plus')
-        assert ai['state'] == 'absent' and ai['published'] is False
-        assert ai['source'] == 'local' and ai['verified_manifest']
+        assert ai['state'] == 'absent' and ai['published'] is True
+        assert ai['source'] == 'published' and ai['verified_manifest']
         assert ai['sha256'] and ai['size_bytes'] and ai['revision']
         tiers = {(item['operation'], item['tier']) for item in defaults.list_models()['models']}
         assert tiers == {('remove', 'fast'), ('remove', 'balanced'), ('remove', 'advanced'),
                          ('upscale', 'fast'), ('upscale', 'balanced'), ('upscale', 'advanced')}
-        with pytest.raises(ModelManagerError):
-            await defaults.install(ai['id'])
         await defaults.close()
+    asyncio.run(run())
+
+
+def test_published_release_model_installs_from_its_pinned_download_url(tmp_path):
+    """A release-backed model is installable without selecting a local file."""
+    manifest = ModelManifest(
+        'published-fixture', 'owner/repo', 'b' * 40, 'model.onnx', len(PAYLOAD),
+        hashlib.sha256(PAYLOAD).hexdigest(), 'BSD-3-Clause', 'https://example.org/license',
+        'https://github.com/owner/repo/releases/download/v1/model.onnx',
+    )
+    entry = ModelCatalogEntry('published-fixture', 'Published fixture', manifest)
+    seen = []
+
+    def release_download(model, destination, cancel, progress):
+        seen.append(model.download_url)
+        destination.write_bytes(PAYLOAD)
+        progress(len(PAYLOAD))
+
+    async def run():
+        manager = ModelManager(tmp_path, catalog=[entry], downloader=release_download, prober=probe)
+        await manager.install('published-fixture')
+        assert await settle(manager) == 'ready'
+        assert seen == ['https://github.com/owner/repo/releases/download/v1/model.onnx']
+        view = manager.list_models()['models'][0]
+        assert view['published'] is True
+        assert view['source'] == 'published'
+        await manager.close()
+
     asyncio.run(run())
 
 

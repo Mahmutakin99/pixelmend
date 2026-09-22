@@ -5,6 +5,7 @@ import numpy as np
 import onnxruntime as ort
 
 from ..model_store import LAMA_ONNX_MANIFEST, model_file_path, verify_model_file
+from ..inference_evidence import InferenceEvidence
 
 
 def prepare_roi(image, mask):
@@ -33,7 +34,10 @@ class LamaInpaint:
         """Verify provenance before loading native model code."""
         path = verify_model_file(model_path if model_path is not None else model_file_path(models_dir, LAMA_ONNX_MANIFEST), LAMA_ONNX_MANIFEST)
         ort.disable_telemetry_events()
-        self.session = ort.InferenceSession(str(path), providers=providers or ['CPUExecutionProvider'])
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = 4
+        self.evidence = InferenceEvidence(options, providers)
+        self.session = ort.InferenceSession(str(path), sess_options=options, providers=providers or ['CPUExecutionProvider'])
         inputs = {i.name: i for i in self.session.get_inputs()}
         for name, channels in [('image', 3), ('mask', 1)]:
             if name not in inputs or inputs[name].shape[1:] != [channels, 512, 512] or inputs[name].type != 'tensor(float)':
@@ -45,6 +49,7 @@ class LamaInpaint:
             raise ValueError('RGB uint8 required')
         data, selection, geometry = prepare_roi(image, mask)
         output = self.session.run(None, {'image': data, 'mask': selection})[0]
+        self.evidence.finish(self.session)
         if output.shape != (1, 3, 512, 512) or not np.isfinite(output).all():
             raise ValueError('invalid model output')
         x0, y0, x1, y1, width, height = geometry

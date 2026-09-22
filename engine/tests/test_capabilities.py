@@ -12,6 +12,7 @@ def test_capabilities_keep_unmeasured_accelerator_memory_unknown(monkeypatch) ->
     )
     monkeypatch.setattr(capabilities.os, "cpu_count", lambda: 10)
     monkeypatch.setattr(capabilities, "available_execution_providers", lambda: ("CPUExecutionProvider",))
+    monkeypatch.setattr(capabilities, '_mac_sysctl', lambda _key: None)
 
     report = capabilities.collect_capabilities()
 

@@ -9,6 +9,7 @@ import onnxruntime as ort
 from PIL import Image
 
 from ..policy import POLICY, ResourceLimitError, validate_dimensions
+from ..inference_evidence import InferenceEvidence
 
 
 class InferenceCancelled(Exception):
@@ -51,6 +52,7 @@ class RealESRGANUpscale:
         ort.disable_telemetry_events()
         options = ort.SessionOptions()
         options.intra_op_num_threads = 4
+        self.evidence = InferenceEvidence(options, providers, enabled=session is None)
         self.session = session if session is not None else ort.InferenceSession(
             str(model_path), sess_options=options, providers=providers or ['CPUExecutionProvider'])
         inputs, outputs = self.session.get_inputs(), self.session.get_outputs()
@@ -65,6 +67,7 @@ class RealESRGANUpscale:
     def tensor(self, data):
         """Validate outputs before a malformed graph can corrupt the tile buffer."""
         output = self.session.run(None, {self.input_name: data})[0]
+        self.evidence.finish(self.session)
         expected = (1, 3, data.shape[2] * 4, data.shape[3] * 4)
         if output.shape != expected or not np.isfinite(output).all():
             raise ValueError('invalid RealESRGAN output')

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'none'">
+<title>PixelMend · Bilgisayar testi</title><link rel="stylesheet" href="diagnostic.css"></head>
+<body><main>
+<header><span class="eyebrow">PIXELMEND · TANI VE TEST</span><h1>Bu bilgisayarda nasıl çalışıyor?</h1>
+<p>Uygulamayı ve AI modellerini örnek görsellerle sınayın. Sonuçları tek dosyada paylaşın.</p></header>
+<section aria-labelledby="device-title"><h2 id="device-title">Bilgisayarınız</h2><p id="device">Motor hazırlanıyor…</p></section>
+<section id="setup" aria-labelledby="scope-title"><h2 id="scope-title">Test kapsamı</h2>
+<fieldset><legend class="sr-only">Test türü</legend>
+<label class="choice"><input type="radio" name="mode" value="standard" checked><span><strong>Standart test</strong><small>Temel akışlar, kurulu modeller, ölçüler, alfa ve CPU yolu.</small></span></label>
+<label class="choice"><input type="radio" name="mode" value="comprehensive"><span><strong>Kapsamlı test</strong><small>Standart teste ek olarak fotoğraf karşılaştırmaları. CPU sistemlerde saatler sürebilir.</small></span></label></fieldset>
+<h3>AI modelleri</h3><ul id="models"></ul>
+<label class="choice" id="install-choice" hidden><input type="checkbox" id="install"><span><strong id="download-size">Eksik modelleri indir</strong><small>Yalnız bu sürümün doğrulanmış indirmeleri kurulur. İnternet ve ek disk alanı gerekir.</small></span></label>
+<p class="footnote">Kendi fotoğraflarınız kullanılmaz. Dosyalar otomatik gönderilmez. Eksik modeller tamamlanmış sayılmaz.</p></section>
+<section aria-label="Test ilerlemesi"><p id="status" role="status" aria-live="polite">Hazırlanıyor…</p><progress id="progress" hidden aria-label="Test sürüyor"></progress><ol id="results"></ol></section>
+<section id="notes-section" hidden><h2>Görüşünüz</h2><label for="notes">Görünüm, kullanım kolaylığı veya karşılaştığınız sorunlar (isteğe bağlı)</label>
+<textarea id="notes" rows="5" maxlength="8000" placeholder="Hangi ekranda, hangi işlemi yaparken? Beklediğiniz ve gerçekleşen neydi?"></textarea>
+<p class="footnote">Notları paylaşmadan önce kontrol edin; kişisel bilgi yazmayın. Teknik testler görsel kaliteyi tek başına doğrulamaz.</p></section>
+<footer><button id="cancel" hidden>Testi iptal et</button><button id="start" class="primary" disabled>Testi başlat</button><button id="finish" class="primary" hidden>Notları rapora ekle</button><button id="reveal" hidden>Raporu klasörde göster</button></footer>
+</main><script src="diagnostic-page.js"></script></body></html>

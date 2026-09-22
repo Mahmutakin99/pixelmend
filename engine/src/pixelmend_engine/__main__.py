@@ -12,13 +12,14 @@ from pixelmend_engine.main import create_app
 def main():
     """Keep the session secret in environment and report only the chosen port."""
     token = os.environ.pop('PIXELMEND_SESSION_TOKEN', '')
-    app = create_app(session_token=token)
+    app = create_app(session_token=token, diagnostics=os.environ.pop('PIXELMEND_DIAGNOSTICS', '') == '1')
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         listener.bind(('127.0.0.1', 0))
         listener.listen(128)
         listener.setblocking(False)
         print(json.dumps({'port': listener.getsockname()[1]}), flush=True)
         server = uvicorn.Server(uvicorn.Config(app, log_level='warning', access_log=False))
+        app.state.request_shutdown = lambda: setattr(server, 'should_exit', True)
         server.run(sockets=[listener])
 
 

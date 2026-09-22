@@ -5,6 +5,7 @@ from PyInstaller.utils.hooks import collect_submodules
 datas = []
 hiddenimports = []
 datas += collect_data_files('onnxruntime')
+datas += collect_data_files('pixelmend_engine', includes=['diagnostic_fixtures/*'])
 hiddenimports += collect_submodules('onnxruntime')
 
 

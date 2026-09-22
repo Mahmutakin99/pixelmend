@@ -8,7 +8,7 @@ from pixelmend_engine.main import create_app
 TOKEN = 'f' * 64
 
 
-def test_capabilities_expose_one_output_policy_and_ai_model_stays_unpublished():
+def test_capabilities_expose_one_output_policy_and_ai_model_has_a_published_manifest():
     with TestClient(create_app(session_token=TOKEN), base_url='http://127.0.0.1') as client:
         headers = {'X-PixelMend-Token': TOKEN}
         capabilities = client.get('/capabilities', headers=headers)
@@ -18,11 +18,8 @@ def test_capabilities_expose_one_output_policy_and_ai_model_stays_unpublished():
         assert models.status_code == 200
         ai = next(item for item in models.json()['models'] if item['id'] == 'realesrgan-x4plus')
         assert ai['state'] in {'absent', 'ready'}
-        assert ai['source'] == 'local' and ai['verified_manifest']
+        assert ai['source'] == 'published' and ai['verified_manifest']
         assert ai['revision'] and ai['sha256']
-        denied = client.post('/models/realesrgan-x4plus/install', headers=headers)
-        assert denied.status_code == 409
-        assert denied.json()['detail']['code'] == 'local_source_required'
 
 
 def test_asset_export_is_authenticated_and_returns_full_normalized_png():

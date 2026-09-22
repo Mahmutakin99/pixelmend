@@ -49,17 +49,22 @@ def _trusted_url(url: str):
     if (parsed.scheme != 'https' or parsed.username or parsed.password
             or parsed.port not in (None, 443)
             or not any(host == domain or host.endswith('.' + domain)
-                       for domain in ('huggingface.co', 'hf.co'))):
+                       for domain in ('huggingface.co', 'hf.co', 'github.com',
+                                      'objects.githubusercontent.com',
+                                      'release-assets.githubusercontent.com'))):
         raise ModelManagerError('transport_error', 'Model host is not trusted.')
 
 
-def stream_hugging_face_model(manifest: ModelManifest, destination: Path,
-                             cancel: threading.Event, progress: Callable[[int], None]):
-    """Fetch only pinned public coordinates without tokens, netrc or environment proxies."""
-    if not re.fullmatch(r'[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+', manifest.repo_id):
+def stream_pinned_model(manifest: ModelManifest, destination: Path,
+                        cancel: threading.Event, progress: Callable[[int], None]):
+    """Fetch one allowlisted HTTPS artifact and verify it before activation."""
+    if manifest.download_url:
+        url = manifest.download_url
+    elif re.fullmatch(r'[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+', manifest.repo_id):
+        url = (f'https://huggingface.co/{manifest.repo_id}/resolve/'
+               f'{manifest.revision}/{quote(manifest.filename, safe="")}')
+    else:
         raise ModelManagerError('invalid_manifest', 'Invalid model repository.')
-    url = (f'https://huggingface.co/{manifest.repo_id}/resolve/'
-           f'{manifest.revision}/{quote(manifest.filename, safe="")}')
     # Explicit redirect validation prevents signed-CDN redirects from escaping HTTPS hosts.
     with httpx.Client(trust_env=False, follow_redirects=False,
                       timeout=httpx.Timeout(5, connect=5), headers={'Accept-Encoding': 'identity'}) as client:
@@ -92,11 +97,15 @@ def stream_hugging_face_model(manifest: ModelManifest, destination: Path,
     raise ModelManagerError('transport_error', 'Too many model download redirects.')
 
 
+# Kept as an import-compatible name for callers that only use Hugging Face manifests.
+stream_hugging_face_model = stream_pinned_model
+
+
 class ModelManager:
     """Workers own blocking IO; state and leases are protected across loop/worker threads."""
 
     def __init__(self, models_dir: Path, *, catalog: Iterable[ModelCatalogEntry] = DEFAULT_MODEL_CATALOG,
-                 downloader=stream_hugging_face_model, prober=None):
+                 downloader=stream_pinned_model, prober=None):
         self.models_dir = Path(models_dir).absolute()
         entries = tuple(catalog)
         self._catalog = {entry.id: entry for entry in entries}
@@ -359,6 +368,7 @@ class ModelManager:
             _check_cancel(cancel)
             self._change(model_id, state='ready', probe={
                 'status': 'passed', 'selected_provider': selected, 'providers': providers,
+                'execution': result.get('execution'),
                 'measured_at': datetime.now(timezone.utc).isoformat()})
         except _Cancelled:
             self._change(model_id, state='cancelled', error=None)

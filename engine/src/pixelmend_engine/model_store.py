@@ -82,6 +82,7 @@ class ModelManifest:
     sha256: str
     license_id: str
     license_url: str
+    download_url: str | None = None
 
     def __post_init__(self) -> None:
         """Reject manifests that are mutable, incomplete, or path-shaped."""
@@ -127,6 +128,10 @@ class ModelManifest:
             raise InvalidModelManifestError(
                 "sha256 must be a lowercase 64-character hexadecimal digest"
             )
+
+        if self.download_url is not None:
+            if not isinstance(self.download_url, str) or not self.download_url.startswith('https://'):
+                raise InvalidModelManifestError("download_url must be an HTTPS URL")
 
 
 ModelDownloader = Callable[[ModelManifest, Path], None]

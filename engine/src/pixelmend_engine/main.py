@@ -21,7 +21,7 @@ from .paths import get_models_dir, get_coreml_cache_dir, cleanup_stale_sessions,
 from .policy import POLICY
 
 
-def create_app(*, session_token: str) -> FastAPI:
+def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
     """Create a production sidecar app with its private session asset store."""
     assets = AssetStore()
     manager = ModelManager(get_models_dir(), prober=_probe_model)
@@ -49,6 +49,9 @@ def create_app(*, session_token: str) -> FastAPI:
     token_dependency = require_session_token(session_token)
     app.include_router(job_router(queue, assets, token_dependency))
     app.include_router(model_router(manager, token_dependency))
+    if diagnostics:
+        from .diagnostics import diagnostic_router
+        app.include_router(diagnostic_router(queue, assets, token_dependency))
 
     @app.middleware('http')
     async def validate_request_boundary(request, call_next):
@@ -64,6 +67,14 @@ def create_app(*, session_token: str) -> FastAPI:
     def health(_: None = Depends(token_dependency)) -> dict[str, str]:
         """Confirm the authenticated sidecar is ready to accept requests."""
         return {"status": "ok"}
+
+    @app.post('/shutdown')
+    async def shutdown(_: None = Depends(token_dependency)):
+        callback = getattr(app.state, 'request_shutdown', None)
+        if callback is None:
+            raise HTTPException(503, 'Server shutdown hook unavailable')
+        callback()
+        return {'status': 'stopping'}
 
     @app.get("/capabilities")
     def capabilities(_: None = Depends(token_dependency)) -> dict[str, object]:
@@ -168,10 +179,11 @@ def _probe_model(manifest, path):
     from .execution_profile import provider_candidates, runtime_providers, select_fastest, provider_is_active
     candidates = provider_candidates(tuple(ort.get_available_providers()), get_coreml_cache_dir() / manifest.revision)
     timings = []
+    execution = {}
     for candidate in candidates:
         provider = candidate[0] if isinstance(candidate, tuple) else candidate
         try:
-            if manifest.model_id == 'realesrgan-x4plus':
+            if manifest.model_id in {'realesrgan-x4plus', 'realesrgan-general-x4v3'}:
                 adapter = RealESRGANUpscale(path, providers=runtime_providers(provider, get_coreml_cache_dir() / manifest.revision))
                 if not provider_is_active(adapter.session.get_providers(), provider):
                     raise ValueError('requested provider was not activated')
@@ -188,10 +200,14 @@ def _probe_model(manifest, path):
                     raise ValueError('unexpected inpaint output')
             else:
                 continue
+            evidence = adapter.evidence.value
+            if provider not in evidence.get('providers', {}):
+                raise ValueError('requested provider did not execute profiled nodes')
+            execution[provider] = evidence
             # Ignore compilation and graph capture cost when selecting a provider.
             # The durable Core ML cache makes the first run a poor steady-state signal.
             started = time.monotonic()
-            if manifest.model_id == 'realesrgan-x4plus':
+            if manifest.model_id in {'realesrgan-x4plus', 'realesrgan-general-x4v3'}:
                 adapter.run(probe_pixels)
             else:
                 adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
@@ -200,4 +216,4 @@ def _probe_model(manifest, path):
             continue
     if not timings:
         raise ValueError('no usable provider')
-    return {'selected_provider': select_fastest(timings), 'providers': [p for _, p in timings]}
+    return {'selected_provider': select_fastest(timings), 'providers': [p for _, p in timings], 'execution': execution}

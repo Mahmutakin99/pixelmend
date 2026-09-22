@@ -18,15 +18,28 @@ class ModelCatalogEntry:
     recommended_memory_bytes: int | None = None
 
 
-# Locally reproduced export, parity evidence in docs/verification. No public URL is claimed.
 REALESRGAN_LOCAL_MANIFEST = ModelManifest(
-    model_id='realesrgan-x4plus', repo_id='local/real-esrgan-x4plus',
-    revision='c4e5303b53044767c94bb78f49365cb710ee459e',
+    model_id='realesrgan-x4plus', repo_id='Mahmutakin99/pixelmend-models',
+    revision='1b35dd5d60b75067eec696cc7bce18f83ba94693',
     filename='realesrgan-x4plus-fp32.onnx', size_bytes=67051639,
     sha256='3d05f9cecd652841eeb408ceb02c360e48115eaba33c807894a06e6a00218fbc',
     license_id='BSD-3-Clause',
     license_url='https://raw.githubusercontent.com/xinntao/Real-ESRGAN/a4abfb2979a7bbff3f69f58f58ae324608821e27/LICENSE',
+    download_url='https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-09-21/realesrgan-x4plus-fp32.onnx',
 )
+REALESRGAN_GENERAL_MANIFEST = ModelManifest(
+    model_id='realesrgan-general-x4v3', repo_id='Mahmutakin99/pixelmend-models',
+    revision='1b35dd5d60b75067eec696cc7bce18f83ba94693',
+    filename='realesrgan-general-x4v3-fp32.onnx', size_bytes=4866417,
+    sha256='1d6af9380cc478cabbb59349e0be704c77245fea4fe4797c7437e87a6b326e23',
+    license_id='BSD-3-Clause', license_url=REALESRGAN_LOCAL_MANIFEST.license_url,
+    download_url='https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-09-21/realesrgan-general-x4v3-fp32.onnx',
+)
+
+UPSCALE_MODELS = {'realesrgan_x4plus': 'realesrgan-x4plus',
+                  'realesrgan_general_x4v3': 'realesrgan-general-x4v3'}
+AI_MODELS = {'lama': 'lama', **UPSCALE_MODELS}
+
 DEFAULT_MODEL_CATALOG = (
     # Only artifacts with a pinned manifest can be installed. The other tier
     # entries make the intended product hierarchy visible without pretending an
@@ -37,9 +50,9 @@ DEFAULT_MODEL_CATALOG = (
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
     ModelCatalogEntry('sdxl-inpainting', 'SDXL Inpainting', None, operation='remove', tier='advanced',
                       description='Güçlü sistemler ve zor görseller için önerilir. Daha fazla bellek kullanabilir ve daha uzun sürebilir.'),
-    ModelCatalogEntry('realesrgan-general-x4v3', 'RealESRGAN General x4v3', None, operation='upscale', tier='fast',
+    ModelCatalogEntry('realesrgan-general-x4v3', 'RealESRGAN General x4v3', REALESRGAN_GENERAL_MANIFEST, operation='upscale', tier='fast',
                       description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
-    ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, 'local', operation='upscale', tier='balanced',
+    ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, operation='upscale', tier='balanced',
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
     ModelCatalogEntry('real-hat-gan-x4', 'Real HAT GAN x4', None, operation='upscale', tier='advanced',
                       description='Güçlü sistemler ve zor görseller için önerilir. Daha fazla bellek kullanabilir ve daha uzun sürebilir.'),

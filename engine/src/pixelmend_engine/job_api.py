@@ -17,6 +17,7 @@ from .strokes import StrokeValidationError, rasterize_selection
 from .jobs import TERMINAL
 from .policy import ResourceLimitError
 from .model_manager import ModelManagerError
+from .model_catalog import AI_MODELS, UPSCALE_MODELS
 
 
 def job_router(queue, assets, auth):
@@ -37,13 +38,22 @@ def job_router(queue, assets, auth):
     @router.post('/jobs', status_code=201)
     async def submit(asset_id: str = Form(...), algorithms: str = Form(...),
                      mask: UploadFile | None = File(None), selection_strokes: str | None = Form(None), scale: int = Form(1),
-                     target_width: int | None = Form(None), target_height: int | None = Form(None)):
+                     target_width: int | None = Form(None), target_height: int | None = Form(None),
+                     model_id: str | None = Form(None), intent: str = Form('resize')):
         """Bound compressed mask input and decode against the canonical source size."""
         try:
             selected = json.loads(algorithms)
             if not isinstance(selected, list) or any(not isinstance(a, str) for a in selected):
                 raise ValueError('algorithms must be a string list')
             image = assets.get_image(asset_id)
+            if intent not in {'resize', 'preserve_size'}:
+                raise ValueError('invalid intent')
+            if model_id is not None and (len(selected) != 1 or AI_MODELS.get(selected[0]) != model_id):
+                raise ValueError('model does not match algorithm')
+            if intent == 'preserve_size':
+                if len(selected) != 1 or selected[0] not in UPSCALE_MODELS:
+                    raise ValueError('preserve size requires AI enhancement')
+                target_width, target_height = image.width, image.height
             if mask and selection_strokes:
                 raise ValueError('choose either a mask or selection strokes')
             raw = await mask.read(MAX_SOURCE_BYTES + 1) if mask else b''

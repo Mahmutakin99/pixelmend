@@ -12,11 +12,11 @@
   "packageManager": "pnpm@12.4.1",
   "scripts": {
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run",
+    "test": "node --test electron/*.check.cjs && vitest run",
     "start": "electron .",
     "test:e2e": "node e2e/editor.cjs",
     "build:engine": "uv --directory ../../engine run pyinstaller --clean --noconfirm --distpath dist --workpath build pixelmend-engine.spec",
-    "package": "corepack pnpm build:engine && corepack pnpm build && electron-builder --publish never",
+    "package": "node ../../tools/ci/make-test-kit.mjs && corepack pnpm build:engine && corepack pnpm build && electron-builder --publish never",
     "package:mac": "corepack pnpm package --mac dmg zip --arm64",
     "package:win": "corepack pnpm package --win nsis --x64",
     "package:linux": "corepack pnpm package --linux AppImage deb --x64",

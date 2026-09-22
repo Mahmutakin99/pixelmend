@@ -3,6 +3,14 @@ import {describe, expect, it} from 'vitest';
 const require = createRequire(import.meta.url);
 
 describe('desktop model and job boundary', () => {
+  it('routes the fast model explicitly and rejects models belonging to another tool', () => {
+    const {jobForm}=require('../electron/model-ipc.cjs');
+    const payload={assetId:'a'.repeat(32),operation:'upscale',upscaleMethod:'ai',targetWidth:100,targetHeight:80,modelId:'realesrgan-general-x4v3',intent:'preserve_size'};
+    expect(jobForm(payload).get('algorithms')).toBe('["realesrgan_general_x4v3"]');
+    expect(jobForm(payload).get('model_id')).toBe('realesrgan-general-x4v3');
+    expect(jobForm(payload).get('intent')).toBe('preserve_size');
+    expect(()=>jobForm({...payload,modelId:'lama'})).toThrow();
+  });
   it('allowlists model routes and refuses renderer URLs, paths and actions', async () => {
     const {modelRoute} = require('../electron/model-ipc.cjs');
     expect(modelRoute('realesrgan-x4plus', 'install')).toEqual({route:'/models/realesrgan-x4plus/install',method:'POST'});
