@@ -89,13 +89,17 @@ function App() {
   const { models, capabilities, error: modelError, refresh } = useModels();
   const selectedUpscaleId = normalizePreferences(settings || {}).upscaleModelTier === 'fast' ? 'realesrgan-general-x4v3'
     : normalizePreferences(settings || {}).upscaleModelTier === 'advanced' ? 'real-hat-gan-x4' : 'realesrgan-x4plus';
+  const selectedRemoveId = normalizePreferences(settings || {}).removeModelTier === 'fast' ? 'migan-512-places2'
+    : normalizePreferences(settings || {}).removeModelTier === 'advanced' ? 'sdxl-inpainting' : 'lama';
   const aiReady = models.some(
     (m) =>
       m.id === selectedUpscaleId &&
       m.state === "ready" &&
       m.probe?.status === "passed",
   );
-  const lamaReady = models.some(m => m.id === "lama" && m.state === "ready" && m.probe?.status === "passed");
+  const removeAIReady = models.some(
+    m => m.id === selectedRemoveId && m.state === "ready" && m.probe?.status === "passed",
+  );
   const outputLimit = capabilities?.policy?.max_output_pixels ?? 200_000_000;
   const [starting, setStarting] = useState(false),
     busy = starting || !!job,
@@ -370,8 +374,8 @@ function App() {
       );
       return;
     }
-    if (op === "remove" && removeMethod === "lama" && !lamaReady) {
-      setNotice("LaMa hazır değil. Ayarlar → Modeller bölümünden kurun veya sınayın.");
+    if (op === "remove" && removeMethod === "lama" && !removeAIReady) {
+      setNotice("Seçilen AI modeli hazır değil. Ayarlar → Modeller bölümünden kurun veya sınayın.");
       setShowSettings(true);
       return;
     }
@@ -393,7 +397,7 @@ function App() {
         targetHeight: d?.height,
         upscaleMethod,
         removeMethod,
-        modelId: op === 'upscale' && upscaleMethod === 'ai' ? selectedUpscaleId : undefined,
+        modelId: op === 'upscale' && upscaleMethod === 'ai' ? selectedUpscaleId : op === 'remove' && removeMethod === 'lama' ? selectedRemoveId : undefined,
         intent: op === 'upscale' && enhancementMode === 'preserve' ? 'preserve_size' : 'resize',
       });
       setJob({ ...created, op });
@@ -660,8 +664,14 @@ function App() {
           {inspector === "remove" && <section className="tool-group">
             <h2>Nesne Silgisi</h2>
             <p>Silinecek alanı işaretleyin.</p>
-            <label><input type="radio" name="remove-method" checked={removeMethod === "lama"} onChange={() => setRemoveMethod("lama")}/> AI — LaMa{!lamaReady && " (kurulum/sınama gerekli)"}</label>
+            <label><input type="radio" name="remove-method" checked={removeMethod === "lama"} onChange={() => setRemoveMethod("lama")}/> AI ile nesne sil{!removeAIReady && " (kurulum/sınama gerekli)"}</label>
             <label><input type="radio" name="remove-method" checked={removeMethod === "opencv"} onChange={() => setRemoveMethod("opencv")}/> Hızlı — OpenCV</label>
+            <label>AI modeli<select aria-label="Nesne silme modeli" value={selectedRemoveId} disabled={busy || !!preview} onChange={async event=>{
+              const tier=event.target.value==='migan-512-places2'?'fast':event.target.value==='sdxl-inpainting'?'advanced':'balanced';
+              const next={...normalizePreferences(settings || {}),removeModelTier:tier as 'fast'|'balanced'|'advanced'};
+              try {await window.pixelmend.setSettings(next);setSettings(next);setRemoveMethod('lama');}catch(error){reportError('remove',error);}
+            }}>{models.filter(m=>m.operation==='remove').map(m=><option key={m.id} value={m.id} disabled={!m.verified_manifest}>{m.tier==='fast'?'Hızlı':m.tier==='advanced'?'Gelişmiş':'Dengeli'} · {m.name}{m.state==='ready'?'':' · kurulum gerekli'}</option>)}</select></label>
+            {!removeAIReady && <button onClick={()=>setShowSettings(true)}>Modeli kur veya sına</button>}
             <button
               aria-pressed={tool === "select"}
               onClick={() => setTool("select")}

@@ -40,6 +40,12 @@ describe('desktop model and job boundary', () => {
     expect(jobForm({...payload,removeMethod:'opencv'}).get('algorithms')).toBe('["opencv_telea"]');
     expect(()=>jobForm({...payload,removeMethod:'unknown'})).toThrow();
   });
+  it('routes the fast MI-GAN removal model explicitly', () => {
+    const {jobForm} = require('../electron/model-ipc.cjs');
+    const form = jobForm({assetId:'a'.repeat(32),operation:'remove',removeMethod:'lama',modelId:'migan-512-places2',selectionStrokes:[]});
+    expect(form.get('algorithms')).toBe('["migan_512_places2"]');
+    expect(form.get('model_id')).toBe('migan-512-places2');
+  });
   it('shares one SSE stream, handles split events and aborts after last subscriber', async () => {
     const {createModelEvents} = require('../electron/model-ipc.cjs');
     let controller: ReadableStreamDefaultController<Uint8Array>;

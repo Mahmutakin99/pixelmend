@@ -35,17 +35,26 @@ REALESRGAN_GENERAL_MANIFEST = ModelManifest(
     license_id='BSD-3-Clause', license_url=REALESRGAN_LOCAL_MANIFEST.license_url,
     download_url='https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-09-21/realesrgan-general-x4v3-fp32.onnx',
 )
+MIGAN_MANIFEST = ModelManifest(
+    model_id='migan-512-places2', repo_id='andraniksargsyan/migan',
+    revision='406830d0fa60666da0071c342ad2fbc8f30c5c64',
+    filename='migan_pipeline_v2.onnx', size_bytes=28_079_181,
+    sha256='6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b',
+    license_id='MIT',
+    license_url='https://github.com/Picsart-AI-Research/MI-GAN/blob/main/LICENSE-WEIGHTS',
+)
 
 UPSCALE_MODELS = {'realesrgan_x4plus': 'realesrgan-x4plus',
                   'realesrgan_general_x4v3': 'realesrgan-general-x4v3'}
-AI_MODELS = {'lama': 'lama', **UPSCALE_MODELS}
+INPAINT_MODELS = {'lama': 'lama', 'migan_512_places2': 'migan-512-places2'}
+AI_MODELS = {**INPAINT_MODELS, **UPSCALE_MODELS}
 
 DEFAULT_MODEL_CATALOG = (
     # Only artifacts with a pinned manifest can be installed. The other tier
     # entries make the intended product hierarchy visible without pretending an
     # unmeasured download or licence review is a usable model.
-    ModelCatalogEntry('lama-regular', 'LaMa Regular', None, operation='remove', tier='fast',
-                      description='Daha düşük sistem gereksinimleri için tasarlanan ayrı model. Resmî ağırlık için doğrulanabilir dağıtım izni bulunana kadar kurulum sunulmuyor.'),
+    ModelCatalogEntry('migan-512-places2', 'MI-GAN 512 Places2', MIGAN_MANIFEST, operation='remove', tier='fast',
+                      description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
     ModelCatalogEntry('lama', 'LaMa', LAMA_ONNX_MANIFEST, operation='remove', tier='balanced',
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
     ModelCatalogEntry('sdxl-inpainting', 'SDXL Inpainting', None, operation='remove', tier='advanced',

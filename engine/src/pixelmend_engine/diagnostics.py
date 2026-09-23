@@ -24,7 +24,7 @@ from .policy import ResourceLimitError
 
 class DiagnosticJob(BaseModel):
     asset_id: str
-    algorithm: Literal['opencv_telea', 'lanczos', 'lama', 'realesrgan_x4plus', 'realesrgan_general_x4v3']
+    algorithm: Literal['opencv_telea', 'lanczos', 'lama', 'migan_512_places2', 'realesrgan_x4plus', 'realesrgan_general_x4v3']
     scale: Literal[1, 2, 4] = 1
     provider: Literal['automatic', 'CPUExecutionProvider'] = 'automatic'
     cancel_immediately: bool = False
@@ -108,7 +108,7 @@ def diagnostic_router(queue, assets, auth):
         if payload.asset_id not in fixtures:
             raise HTTPException(422, 'Only diagnostic fixtures are accepted')
         source = assets.get_image(payload.asset_id)
-        remove = payload.algorithm in {'opencv_telea', 'lama'}
+        remove = payload.algorithm in {'opencv_telea', 'lama', 'migan_512_places2'}
         mask = None
         if remove:
             mask = np.zeros(source.rgb.shape[:2], dtype=np.uint8)
@@ -145,7 +145,7 @@ def diagnostic_router(queue, assets, auth):
         dimensions = (result.width, result.height) == expected_size
         alpha = bool(np.array_equal(result.alpha, expected_alpha))
         outside = None
-        if job.algorithms[0] in {'opencv_telea', 'lama'}:
+        if job.algorithms[0] in {'opencv_telea', 'lama', 'migan_512_places2'}:
             # The queue releases its mask after native completion; reconstruct the
             # fixed fixture selection rather than depending on retained job memory.
             mask = np.zeros(source.rgb.shape[:2], dtype=bool)

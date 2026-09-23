@@ -174,6 +174,7 @@ def _probe_model(manifest, path):
     import numpy as np
     import onnxruntime as ort
     from .models.lama_onnx import LamaInpaint
+    from .models.migan_onnx import MIGANInpaint
     from .models.realesrgan_onnx import RealESRGANUpscale
 
     from .execution_profile import provider_candidates, runtime_providers, select_fastest, provider_is_active
@@ -198,6 +199,16 @@ def _probe_model(manifest, path):
                 value = adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
                 if value.shape != (16, 16, 3):
                     raise ValueError('unexpected inpaint output')
+            elif manifest.model_id == 'migan-512-places2':
+                adapter = MIGANInpaint(model_path=path, providers=runtime_providers(provider, get_coreml_cache_dir() / manifest.revision))
+                if not provider_is_active(adapter.session.get_providers(), provider):
+                    raise ValueError('requested provider was not activated')
+                probe_pixels = np.zeros((64, 64, 3), dtype=np.uint8)
+                probe_mask = np.zeros((64, 64), dtype=np.uint8)
+                probe_mask[24:40, 24:40] = 255
+                value = adapter.run(probe_pixels, probe_mask)
+                if value.shape != (64, 64, 3) or not np.array_equal(value[probe_mask == 0], probe_pixels[probe_mask == 0]):
+                    raise ValueError('unexpected MI-GAN output')
             else:
                 continue
             evidence = adapter.evidence.value
@@ -209,6 +220,8 @@ def _probe_model(manifest, path):
             started = time.monotonic()
             if manifest.model_id in {'realesrgan-x4plus', 'realesrgan-general-x4v3'}:
                 adapter.run(probe_pixels)
+            elif manifest.model_id == 'migan-512-places2':
+                adapter.run(probe_pixels, probe_mask)
             else:
                 adapter.run(np.zeros((16, 16, 3), dtype=np.uint8), np.pad(np.full((2, 2), 255, np.uint8), 7))
             timings.append((time.monotonic() - started, provider))

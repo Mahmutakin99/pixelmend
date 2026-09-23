@@ -13,8 +13,8 @@ async function runPhotographs({api,report,models,signal,onProgress}) {
     const cases=[];
     const variants=[{id:'lanczos',name:'Lanczos',algorithm:'lanczos',operation:'upscale'},
       {id:'opencv',name:'OpenCV',algorithm:'opencv_telea',operation:'remove'},
-      ...models.filter(m=>m.state==='ready'&&['lama','realesrgan-x4plus','realesrgan-general-x4v3'].includes(m.id))
-        .map(m=>({...m,algorithm:m.id==='lama'?'lama':m.id==='realesrgan-x4plus'?'realesrgan_x4plus':'realesrgan_general_x4v3'}))];
+      ...models.filter(m=>m.state==='ready'&&['lama','migan-512-places2','realesrgan-x4plus','realesrgan-general-x4v3'].includes(m.id))
+        .map(m=>({...m,algorithm:m.id==='lama'?'lama':m.id==='migan-512-places2'?'migan_512_places2':m.id==='realesrgan-x4plus'?'realesrgan_x4plus':'realesrgan_general_x4v3'}))];
     for(const model of variants){
       for(const scale of model.operation==='upscale'?[1,2,4]:[1]){
         for(let repeat=0;repeat<4;repeat++)cases.push({

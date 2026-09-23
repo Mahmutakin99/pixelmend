@@ -20,7 +20,7 @@ from .policy import POLICY, ResourceLimitError, admit_image_job, inference_setti
 from .execution_profile import runtime_providers, provider_is_active
 from .paths import get_coreml_cache_dir
 from .adapter_cache import AdapterCache
-from .model_catalog import UPSCALE_MODELS, AI_MODELS
+from .model_catalog import UPSCALE_MODELS, INPAINT_MODELS, AI_MODELS
 from .fallback import may_retry_cpu, check_cpu_capacity
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
@@ -64,6 +64,18 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
         key = ('lama', str(model_path), provider, resource_mode)
         factory = lambda: LamaInpaint(model_path=model_path, providers=provider_config,
                                       intra_op_threads=settings['intra_op_threads'])
+        adapter = adapter_cache.get(key, factory) if adapter_cache else factory()
+        if not provider_is_active(adapter.session.get_providers(), provider):
+            raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
+    elif algorithm == 'migan_512_places2':
+        from .models.migan_onnx import MIGANInpaint
+        if model_path is None or provider is None:
+            raise ModelManagerError('not_ready', 'MI-GAN modeli hazır değil.')
+        provider_config = runtime_providers(provider, get_coreml_cache_dir() / model_path.parent.name)
+        settings = inference_settings(resource_mode)
+        key = ('migan_512_places2', str(model_path), provider, resource_mode)
+        factory = lambda: MIGANInpaint(model_path=model_path, providers=provider_config,
+                                       intra_op_threads=settings['intra_op_threads'])
         adapter = adapter_cache.get(key, factory) if adapter_cache else factory()
         if not provider_is_active(adapter.session.get_providers(), provider):
             raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
@@ -150,7 +162,7 @@ class JobQueue:
         if not algorithms or len(algorithms) > 8 or len(set(algorithms)) != len(algorithms):
             raise ValueError('select unique algorithms')
         inference_settings(resource_mode)
-        if any(a not in ({'opencv_telea', 'opencv_ns', 'lama', 'lanczos'} | set(UPSCALE_MODELS)) for a in algorithms):
+        if any(a not in ({'opencv_telea', 'opencv_ns', 'lanczos'} | set(INPAINT_MODELS) | set(UPSCALE_MODELS)) for a in algorithms):
             raise ValueError('algorithm unavailable')
         image = self.assets.get_image(asset_id)
         target_size = None

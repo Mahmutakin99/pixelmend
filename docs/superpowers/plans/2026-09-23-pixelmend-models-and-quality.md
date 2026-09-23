@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Implement task by task with `superpowers:executing-plans`. Checkboxes track evidence, not intent.
 
-**Goal:** Deliver six distinct, verified AI models with honest availability, measured M4 behavior, and reproducible visual acceptance.
+**Goal:** Deliver six distinct, verified AI models with honest availability, measured M4 behavior, and reproducible visual acceptance. A blocked model is replaced only after a separately recorded source, licence and hardware gate.
 
 **Architecture:** Keep the current authenticated Electron → FastAPI → single job queue boundary. ONNX models use the existing verified manager and adapter lease; HAT/SDXL may use an isolated worker if ONNX is unsuitable. A model becomes `ready` only after file verification, actual inference and its acceptance gate.
 
@@ -27,26 +27,39 @@
 4. Cancellation during native inference → no result, no leaked lease, no automatic retry.
 5. Wide photo/4× output consumes excess RAM or disk → preflight refusal with an actionable error.
 
-## Task 1 — Real HAT GAN x4
+## Task 1 — Advanced upscale: Swin2SR Real-World x4
 
-**Files:** `tools/model-export/` new HAT exporter and provenance; `engine/src/pixelmend_engine/model_catalog.py`, `models/` HAT adapter, `jobs.py`, `main.py`; `engine/tests/test_real_models.py` and new adapter tests; `docs/verification/` HAT report.
+> 2026-09-23 decision: Real HAT GAN x4 remains technically verified but its
+> checkpoint distribution terms are not explicit enough for PixelMend. The user
+> authorized a comparable, clearly licensed replacement. Evaluate
+> `caidas/swin2SR-realworld-sr-x4-64-bsrgan-psnr` (Apache-2.0) as the advanced
+> model; do not retain the HAT product label.
 
-- [ ] Pin the official **normal** `Real_HAT_GAN_SRx4.pth` source and repository commit. Record download bytes/SHA-256, Apache-2.0 license and any separate weight terms. Refuse publication/activation if rights are unclear.
-- [ ] Compare PyTorch reference against exported ONNX on odd/even tiles and three image contents. Record tolerance, max/mean error, input range/layout and natural 4× output; fail on mismatched dimensions or unbounded error.
-- [ ] Add a distinct `real-hat-gan-x4` manifest and adapter. Give the ONNX path a bounded tile/overlap and resource preflight. If ONNX/Core ML fails this model, use an isolated pinned local worker; retain the same job/result contract.
+**Files:** `tools/model-export/export_swin2sr.py`; `engine/src/pixelmend_engine/models/swin2sr_onnx.py`; candidate report and adapter tests.
+
+- [x] Pin the Apache-2.0 Swin2SR source and weight hash. Export a local ONNX candidate, recording the contract and output equivalence in `swin2sr-realworld-x4-candidate-2026-09-23.md`.
+- [x] Compare PyTorch reference against exported ONNX on 64 × 64, 72 × 64 and 64 × 72. All passed below the recorded rtol/atol threshold.
+- [x] Run M4 CPU and Core ML trials. CPU works; Core ML fails its execution-plan build, so no product manifest or advanced-card activation is permitted.
 - [ ] Add lifecycle tests for missing, corrupt, cancelled, retry, restart and use-while-delete. Run `engine/.venv/bin/python -m pytest engine/tests/test_model_manager.py engine/tests/test_real_models.py -q`.
 - [ ] On the M4, record real node execution, CPU and Core ML cold/warm durations, peak memory, disk and 1×/2×/4× visual outputs. A speed or quality advantage must be observed on the chosen hard cases before the UI calls this tier “Gelişmiş”.
 
 **Gate:** Separate verified artifact, parity report, actual inference and M4 quality review; otherwise leave its catalog entry unavailable.
 
-## Task 2 — LaMa Regular Places
+## Task 2 — Fast removal: MI-GAN 512 Places2
 
-**Files:** `tools/model-export/` LaMa Regular converter; `model_catalog.py`, `models/lama_onnx.py`, `jobs.py`, `job_api.py`; model/queue tests and provenance report.
+> 2026-09-23 decision: the official LaMa Regular checkpoint is not presently
+> available with a verifiable redistribution grant. The user authorized a
+> comparable replacement. Evaluate
+> `mlx-community/MI-GAN-512-places2-fp16` (MIT) as the M4 fast on-device model;
+> retain an explicit platform availability boundary until a Windows/Linux path
+> is measured.
 
-- [ ] Find the official Regular/Places checkpoint and matching config; record immutable source, Apache-2.0 license, bytes and SHA-256. Check that its weight hash differs from the current balanced LaMa.
-- [ ] Export to ONNX, compare PyTorch/ONNX masked outputs and confirm RGB/selection convention. Adapt one removal job to select `lama-regular` explicitly, with no fallback to balanced LaMa.
-- [ ] Verify mask geometry, alpha and exact outside-mask RGB at the image edge and on texture/straight-line photos. Test install/corruption/cancel/restart/lease and run the affected Python and IPC tests.
-- [ ] Measure Regular and balanced LaMa at the same input/mask sizes on M4. The “Hızlı” label requires a measured time or memory benefit; if absent, keep it unavailable and document the finding.
+**Files:** `model_catalog.py`, `models/migan_onnx.py`, `jobs.py`, `main.py`; desktop IPC/UI tests and provenance report.
+
+- [x] Pin the official MI-GAN 512 Places2 ONNX pipeline, its MIT weight grant, size and SHA-256. It is separate from the balanced LaMa artifact.
+- [x] Adapt the model's known-pixel mask convention, force an exact selection-only composite, and add unit coverage for both. MI-GAN is selected explicitly by model ID; it never falls back to balanced LaMa.
+- [x] Verify actual M4 CPU inference and outside-mask equality. Core ML compilation fails, so the selected provider is honestly CPU.
+- [ ] Run install/corruption/cancel/restart/lease coverage and visual acceptance on flat, texture, structure, edge and wide-mask photos. Compare the same M4 sizes against balanced LaMa before treating the speed label as final acceptance.
 
 **Gate:** Distinct weights and measured advantage, plus mask and lifecycle tests.
 

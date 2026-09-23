@@ -1,5 +1,6 @@
-const MODEL_IDS = new Set(['lama', 'realesrgan-x4plus','realesrgan-general-x4v3']);
+const MODEL_IDS = new Set(['lama', 'migan-512-places2', 'realesrgan-x4plus','realesrgan-general-x4v3']);
 const UPSCALE_MODELS = {'realesrgan-x4plus':'realesrgan_x4plus','realesrgan-general-x4v3':'realesrgan_general_x4v3'};
+const REMOVE_MODELS = {'lama':'lama', 'migan-512-places2':'migan_512_places2'};
 const ACTIONS = new Set(['install-local', 'install', 'cancel', 'retry', 'probe', 'delete']);
 
 // Only the main process chooses routes and algorithms; no URL or path crosses the bridge.
@@ -17,7 +18,7 @@ function jobForm(payload, policy = {}, resourceMode = 'automatic') {
   const removeMethod = payload.removeMethod ?? 'lama';
   if (!['lama', 'opencv'].includes(removeMethod)) throw new Error('Geçersiz silme yöntemi');
   const modelId=payload.modelId ?? (upscale ? 'realesrgan-x4plus' : 'lama');
-  if(upscale && method==='ai' && !Object.hasOwn(UPSCALE_MODELS,modelId) || !upscale && removeMethod==='lama' && modelId!=='lama')throw new Error('Geçersiz model seçimi');
+  if(upscale && method==='ai' && !Object.hasOwn(UPSCALE_MODELS,modelId) || !upscale && removeMethod==='lama' && !Object.hasOwn(REMOVE_MODELS,modelId))throw new Error('Geçersiz model seçimi');
   const usesAI=upscale ? method==='ai' : removeMethod==='lama';
   if(usesAI)form.append('model_id',modelId);
   const intent=payload.intent ?? 'resize';
@@ -25,7 +26,7 @@ function jobForm(payload, policy = {}, resourceMode = 'automatic') {
   form.append('intent',intent);
   if (!['automatic', 'low-resource'].includes(resourceMode)) throw new Error('Geçersiz çalışma modu');
   form.append('resource_mode', resourceMode);
-  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? UPSCALE_MODELS[modelId] : 'lanczos' : removeMethod === 'lama' ? 'lama' : 'opencv_telea']));
+  form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? UPSCALE_MODELS[modelId] : 'lanczos' : removeMethod === 'lama' ? REMOVE_MODELS[modelId] : 'opencv_telea']));
   form.append('scale', upscale ? '2' : '1');
   if (upscale) {
     const {targetWidth:w, targetHeight:h} = payload;

@@ -1,5 +1,5 @@
 const {setTimeout: delay} = require('node:timers/promises');
-const algorithms = {'lama':'lama', 'realesrgan-x4plus':'realesrgan_x4plus','realesrgan-general-x4v3':'realesrgan_general_x4v3'};
+const algorithms = {'lama':'lama', 'migan-512-places2':'migan_512_places2', 'realesrgan-x4plus':'realesrgan_x4plus','realesrgan-general-x4v3':'realesrgan_general_x4v3'};
 function classifyError(error) {
   if (error.name === 'AbortError') return 'cancelled';
   if (error.name === 'TimeoutError') return 'timeout';
