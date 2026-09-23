@@ -2,6 +2,24 @@
 
 Son güncelleme: 2026-09-20
 
+## 2026-09-23 — Altı model planı: doğruluk kapıları
+
+- Real HAT GAN x4’ın resmî normal ağırlığıyla yerel ONNX eşdeğerliği doğrulandı;
+  ağırlığın açık yeniden dağıtım/ticari kullanım izni bulunmadığından uygulama
+  kartı etkinleştirilmedi veya yayımlanmadı.
+- LaMa Regular’ın ayrı Places mimarisi doğrulandı, ancak resmî güncel ağırlık
+  ve dağıtım izni bulunmadı. Aynı ağırlığı farklı adla sunmak yerine kart
+  kullanılabilir değil durumunda kaldı.
+- SDXL Inpainting’in Open RAIL++ çok dosyalı fp16 paketi için atomik doğrulama
+  altyapısı eklendi. Uygulamada lisans kabul akışı ve M4/16 GB temsilî MPS kabulü
+  tamamlanmadığı için model etkin değil.
+- “Düşük kaynak kullanımı” tercihi artık iş formuna geçer; 64 px / 8 px karo ve
+  iki ORT iş parçacığı kullanır. Otomatik mod 128 px / 16 px ve dört iş parçacığı
+  kullanmayı sürdürür.
+
+Bu nedenle altı model ve kalite kabulü **tamamlanmamıştır**. Ayrıntılı açık
+kapılar: [`docs/verification/final-delivery-next-steps.md`](docs/verification/final-delivery-next-steps.md).
+
 ## Şu an neredeyiz
 
 Bu Mac için LaMa ve yerel RealESRGAN entegrasyonları tamamlandı; CPU üzerinde gerçek modeller ve paketli uygulama doğrulandı. Silmede AI — LaMa varsayılan, Hızlı — OpenCV ayrı seçimdir. Model dosyaları sabit SHA-256/boyut ve gerçek probe ile doğrulanır; iş boyunca kullanım kilidi tutulur. RealESRGAN public yayın gerektirmeden sabit manifestli yerel ONNX olarak kurulabilir.

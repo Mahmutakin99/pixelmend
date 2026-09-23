@@ -8,9 +8,9 @@ devam et” dediğinde, engel yoksa ilk tamamlanmamış maddeden başlanır.
 1. [`Model ve kalite planı`](../superpowers/plans/2026-09-23-pixelmend-models-and-quality.md): üç eksik model, ortak çalışma yolu ve altı modelin M4 kabulü.
 2. [`Platform ve son teslim planı`](../superpowers/plans/2026-09-23-pixelmend-release-and-platforms.md): paketli üç platform, test kiti, UI kabulü ve Mac'e son kurulum.
 
-Başlangıç noktası birinci planın Real HAT GAN x4 görevidir. İkinci planın
-tanı kiti ve paketleme hazırlıkları ilk plan sürerken ilerleyebilir; nihai
-kurulum ve “altı model tamam” kararı ilk planın kabul kapısına bağlıdır.
+Birinci planın kaynak ve çalışma yolu incelendi. İkinci planın tanı kiti ve
+paketleme hazırlıkları ilk plan sürerken ilerleyebilir; nihai kurulum ve “altı
+model tamam” kararı ilk planın kabul kapısına bağlıdır.
 
 ## Tamamlanan temel kilometre taşları
 
@@ -23,27 +23,34 @@ kurulum ve “altı model tamam” kararı ilk planın kabul kapısına bağlıd
 - Kayıt durumu, fırça imleci, ayarlar sayfası, CPU geri dönüşü ve temel UI akışları
   için regresyonlar eklendi.
 
-## Sıradaki iş: gelişmiş büyütme modeli
+## Model planı — güncel kapılar
 
-1. Real HAT GAN x4 için resmî ağırlığı, lisansı ve ticari kullanım koşulunu
-   doğrula.
-2. Sabit SHA-256, boyut, kaynak revision'ı ve ONNX giriş/çıkış sözleşmesini
-   kaydet.
-3. PyTorch ile ONNX çıktısını birden çok örnekte karşılaştır; farklılık kabulünü
-   belgele.
-4. Atomik kurulum, model probe, M4/Core ML ve CPU çalıştırma yollarını ekle.
-5. Gerçek fotoğraflarda 1× netleştirme, 2×, 4×; karo, alfa, bellek ve süre
-   ölçümlerini yap. Kabulü geçmeden modeli “Hazır” olarak gösterme.
+- Real HAT GAN x4: resmî normal ağırlık, mimari ve ONNX eşdeğerliği yerelde
+  doğrulandı. Ağırlık için açık yeniden dağıtım/ticari kullanım izni olmadığı
+  için uygulamada etkin değil. Kanıt:
+  [`hat-normal-candidate-2026-09-23.md`](hat-normal-candidate-2026-09-23.md).
+- LaMa Regular: resmî kaynak ayrı modeli tanımlıyor ancak indirtilebilir,
+  lisanslı resmî ağırlık sunmuyor. Üçüncü taraf aynası da izin beyan etmiyor;
+  kart etkin değil. Kanıt:
+  [`lama-regular-source-review-2026-09-23.md`](lama-regular-source-review-2026-09-23.md).
+- SDXL Inpainting: sabit paket ve Open RAIL++ koşulları incelendi. Son kullanıcı
+  lisans akışı ile M4/16 GB üzerinde temsilî MPS kabulü eksik; kart etkin değil.
+  Kanıt:
+  [`sdxl-inpainting-source-review-2026-09-23.md`](sdxl-inpainting-source-review-2026-09-23.md).
+- Düşük kaynak modu artık gerçek karo ve CPU iş parçacığı ayarını seçer;
+  provider profilinin kalıcı önbelleği hâlâ açık iştir.
 
 ## Ardışık kalan işler
 
-1. LaMa Regular'ı ayrı, doğrulanmış hızlı nesne silme modeli olarak entegre et.
-2. SDXL Inpainting için yerel MPS/CPU worker, çok dosyalı atomik model paketi,
-   maske dışı piksel koruması ve kaynak kabulünü tamamla.
-3. Altı modelin 12 fotoğraflık kalite/performance kabulünü tamamla.
-4. Otomatik CPU/GPU sisteminde düşük kaynak modunu gerçek karo/iş parçacığı
-   ayarlarına bağla; profil önbelleği ve arayüzde CPU geri dönüş açıklamasını
-   tamamla.
+1. HAT ve LaMa Regular ağırlıkları için yazılı/ayrıntılı dağıtım izni al veya
+   açık lisanslı, farklı ve ölçülebilir alternatifleri seç.
+2. SDXL için Open RAIL++ koşullarını kullanıcıya ileten ve kabul ettiren lisans
+   akışını tasarla; sonra yerel MPS worker, maskesiz piksel koruması ve kaynak
+   kabulünü tamamla.
+3. Bu üç kapı açıldıktan sonra altı modelin 12 fotoğraflık kalite/performance
+   kabulünü tamamla.
+4. Otomatik CPU/GPU sisteminde profil önbelleğini ekle ve arayüzde CPU geri
+   dönüş açıklamasını gerçek ölçümden besle.
 5. Windows NVIDIA/CUDA, Windows DirectML ve Linux CUDA/CPU paket yollarını
    hazırla; gerçek cihaz kabulünü dış test raporlarıyla kaydet.
 6. Paketli macOS, Windows ve Linux uygulamalarını tanı kitiyle çalıştır; açık/koyu
