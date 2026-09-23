@@ -49,3 +49,10 @@ maskesiz piksel/alpha korunumu ve görsel inceleme tamamlanmadan SDXL bu cihazda
 Model kartı ayrıca yüzlerin ve metnin zor olabileceğini, VAE’nin kayıplı olduğunu
 belirtiyor. Sonuç, yalnız maskeli RGB bölgesine birleştirilip kaynak alfa ve
 maskesiz pikseller birebir korunmadan sunulamaz.
+
+`models/sdxl_worker.py` bu sözleşmeyi uygular: doğrulanmış paketi kontrol eder,
+seçim çevresindeki en fazla 1024 px bağlamı kare biçimde 512 px çalıştırma
+girdisine dönüştürür, seed/arka-plan tamamlama bilgisini döndürür ve sonucu
+yeniden yalnız seçili RGB piksellerine birleştirir. Diffusers/Torch runtime'ı
+henüz paketlenmediğinden worker şu an açık, güvenli `SDXL çalışma bileşeni bu
+uygulama paketinde kurulu değil` hatası verir; model kartı etkinleşmez.
