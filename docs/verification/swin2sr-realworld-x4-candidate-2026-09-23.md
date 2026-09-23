@@ -25,6 +25,13 @@ found Core ML subgraphs, but Core ML could not build a working execution plan
 for this dynamic graph (error code `-14`). The candidate is therefore **not**
 an accelerated advanced model on this M4 and is not activated or published.
 
+The photographed acceptance runner confirmed visibly sharper 4× detail than
+Lanczos for the `camera` fixture, but its CPU cost does not fit this product
+tier: the camera 2× cold run measured 7.19 seconds and the eagle 2× cold run
+10.66 seconds at the reviewed 192-pixel maximum-edge input. The eagle 4× case
+did not complete before the acceptance runner's one-minute command boundary.
+This is a failed performance gate, not a claim that the model is unreliable.
+
 It remains a documented, local candidate. A different advanced model or a
 verified conversion that passes actual Core ML execution and visual acceptance
 is required before the Gelişmiş card can become available.

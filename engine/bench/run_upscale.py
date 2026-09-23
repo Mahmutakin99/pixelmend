@@ -16,6 +16,7 @@ import psutil
 from PIL import Image
 
 from pixelmend_engine.models.realesrgan_onnx import RealESRGANUpscale
+from pixelmend_engine.models.swin2sr_onnx import Swin2SRUpscale
 from pixelmend_engine.execution_profile import runtime_providers
 
 
@@ -57,8 +58,11 @@ def measure(adapter, pixels, target):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model', type=Path, required=True)
+    parser.add_argument('--architecture', choices=('realesrgan', 'swin2sr'), default='realesrgan')
     parser.add_argument('--fixtures', type=Path, required=True,
                         help='JSON list: {id,path,source_url,license,sha256}; paths are local and ignored')
+    parser.add_argument('--only', help='Comma-separated fixture IDs for a resumable acceptance subset')
+    parser.add_argument('--targets', default='2x,4x', help='Comma-separated natural-scale targets: 2x,4x')
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--runs', type=int, default=3)
     parser.add_argument('--provider', default='CPUExecutionProvider')
@@ -69,6 +73,14 @@ def main():
     args = parser.parse_args()
     fixtures = json.loads(args.fixtures.read_text())
     validate_fixture_set(fixtures)
+    if args.only:
+        selected = {item for item in args.only.split(',') if item}
+        fixtures = [fixture for fixture in fixtures if fixture['id'] in selected]
+        if not fixtures or {fixture['id'] for fixture in fixtures} != selected:
+            raise ValueError('requested fixture subset is unavailable')
+    targets_requested = tuple(item for item in args.targets.split(',') if item)
+    if not targets_requested or set(targets_requested) - {'2x', '4x'}:
+        raise ValueError('targets must contain only 2x and/or 4x')
     args.out.parent.mkdir(parents=True, exist_ok=True)
     images = args.out.parent / 'upscale-images'
     images.mkdir(exist_ok=True)
@@ -76,8 +88,9 @@ def main():
         parser.error('--coreml-cache is required for the Core ML provider')
     provider_cache = args.coreml_cache or args.out.parent / 'cpu-no-cache'
     providers = runtime_providers(args.provider, provider_cache)
-    adapter = RealESRGANUpscale(args.model, providers=providers, tile_size=args.tile_size,
-                                overlap=args.overlap)
+    adapter_class = RealESRGANUpscale if args.architecture == 'realesrgan' else Swin2SRUpscale
+    adapter = adapter_class(args.model, providers=providers, tile_size=args.tile_size,
+                            overlap=args.overlap)
     rows = []
     for fixture in fixtures:
         required = {'id', 'path', 'source_url', 'license', 'downloaded_at', 'sha256',
@@ -92,10 +105,11 @@ def main():
             raise ValueError(f"fixture dimensions mismatch: {fixture['id']}")
         targets = {'2x': (pixels.shape[1] * 2, pixels.shape[0] * 2),
                    '4x': (pixels.shape[1] * 4, pixels.shape[0] * 4)}
-        for name, target in targets.items():
+        for name in targets_requested:
+            target = targets[name]
             # A fresh session makes each cold run independent; report load time separately.
             loaded = time.monotonic()
-            adapter = RealESRGANUpscale(args.model, providers=providers,
+            adapter = adapter_class(args.model, providers=providers,
                 tile_size=args.tile_size, overlap=args.overlap)
             load_seconds = time.monotonic() - loaded
             cold = measure(adapter, pixels, target)
@@ -116,7 +130,8 @@ def main():
                          'lanczos_comparison': 'manual_review_required'})
     report = {'created_at': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),
               'onnxruntime': ort.__version__, 'provider': args.provider,
-              'model': {'provider_identity': args.provider, 'path': args.model.name, 'sha256': digest(args.model)},
+              'model': {'provider_identity': args.provider, 'architecture': args.architecture,
+                        'path': args.model.name, 'sha256': digest(args.model)},
               'tile': {'size': args.tile_size, 'overlap': args.overlap}, 'results': rows}
     args.out.write_text(json.dumps(report, indent=2) + '\n')
 
