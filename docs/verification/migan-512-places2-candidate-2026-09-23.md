@@ -29,6 +29,20 @@ job layer and is preserved unchanged.
 
 ## Status
 
-The model is a verified, installable **Hızlı** removal choice. Its full visual
-acceptance across the five removal scenes and the 1600 × 900 / 2400 × 1350
-resource measurements remain Phase A acceptance work.
+The comparison runner evaluated MI-GAN, balanced LaMa and OpenCV on flat,
+texture, structure, edge and wide-selection scenes, including 1600 × 900 and
+2400 × 1350 rocket images. Every model result preserved the unselected RGB
+pixels exactly.
+
+MI-GAN completed the four smaller scenes in 0.168–0.191 s, while LaMa took
+1.251–1.391 s in the same process. At 1600 × 900 and 2400 × 1350 MI-GAN took
+0.182 s and 0.202 s; LaMa took 1.297 s and 1.289 s. These are warm in-process
+measurements, not cold-start claims. Peak process RSS includes both loaded
+models and reached about 1.90 GiB at 2400 × 1350.
+
+Visual review of the generated sheets found MI-GAN close to LaMa on the small
+flat and wood-texture removals. Its brick continuation is simpler than LaMa's,
+and its wide rocket selection leaves implausible structure. It is therefore a
+verified, installable **Hızlı** removal choice only: its card must retain the
+warning that fine detail and difficult selections can be more limited. The
+Dengeli and Gelişmiş choices are never silently substituted.

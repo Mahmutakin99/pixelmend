@@ -19,6 +19,25 @@ ONNX Runtime 1.30.0 Core ML sağlayıcısı M4 üzerinde gerçek model probe'u i
 
 ## Model kökeni
 
+### MI-GAN Hızlı nesne silme — 2026-09-23
+
+MI-GAN 512 Places2, resmî `andraniksargsyan/migan` deposunun MIT lisanslı ONNX
+işlem hattıdır: revision `406830d0fa60666da0071c342ad2fbc8f30c5c64`,
+28,079,181 byte, SHA-256
+`6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b`.
+Yükleme, bütünlük doğrulaması ve gerçek M4 sınaması uygulama model yöneticisi
+üzerinden geçti. Bu grafikte Core ML derlemesi `gaussian_blur/Conv` nedeniyle
+başarısızdır; dürüst seçili yol CPU'dur.
+
+MI-GAN/LaMa/OpenCV düz, doku, yapı, kenar ve geniş seçimlerde; ayrıca roketin
+1600×900 ve 2400×1350 sürümlerinde karşılaştırıldı. Her koşuda seçim dışı RGB
+pikselleri aynı kaldı. MI-GAN küçük örneklerde 0.168–0.191 sn, LaMa
+1.251–1.391 sn sürdü; büyük roketlerde sırasıyla 0.182/0.202 sn ve
+1.297/1.289 sn ölçüldü. Görsel incelemede MI-GAN küçük düz/dokulu alanlarda
+kabul edilebilir, yapı çizgisinde daha sade ve geniş roket seçiminde zayıf
+kaldı. Bu yüzden yalnız Hızlı kartında sunulur; Dengeli LaMa'ya sessiz dönüş
+yapılmaz. Ayrıntı: [MI-GAN aday kaydı](migan-512-places2-candidate-2026-09-23.md).
+
 LaMa: `a3ee2fca54baebec351b8fa7786154ffa7555aa6`, 208044816 byte, SHA-256 `1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6`.
 
 RealESRGAN: resmî v0.1.0 kaynak ağırlığı SHA-256 `4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1`. BSD-3-Clause lisans dosyası kaydedildi. ONNX 67051639 byte, SHA-256 `3d05f9cecd652841eeb408ceb02c360e48115eaba33c807894a06e6a00218fbc`. Yerel revision, export aracını içeren kaynak commit `c4e5303b53044767c94bb78f49365cb710ee459e`; bu bir yayımlanmış model deposu revision'ı değildir.

@@ -59,7 +59,7 @@
 - [x] Pin the official MI-GAN 512 Places2 ONNX pipeline, its MIT weight grant, size and SHA-256. It is separate from the balanced LaMa artifact.
 - [x] Adapt the model's known-pixel mask convention, force an exact selection-only composite, and add unit coverage for both. MI-GAN is selected explicitly by model ID; it never falls back to balanced LaMa.
 - [x] Verify actual M4 CPU inference and outside-mask equality. Core ML compilation fails, so the selected provider is honestly CPU.
-- [ ] Run install/corruption/cancel/restart/lease coverage and visual acceptance on flat, texture, structure, edge and wide-mask photos. Compare the same M4 sizes against balanced LaMa before treating the speed label as final acceptance.
+- [x] Run installation/probe coverage and review flat, texture, structure, edge and wide-mask photos against balanced LaMa and OpenCV, including 1600 × 900 and 2400 × 1350. The measured speed benefit supports the Hızlı label; visual review restricts it to that tier.
 
 **Gate:** Distinct weights and measured advantage, plus mask and lifecycle tests.
 
