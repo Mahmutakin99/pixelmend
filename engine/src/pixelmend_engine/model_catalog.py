@@ -55,5 +55,5 @@ DEFAULT_MODEL_CATALOG = (
     ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, operation='upscale', tier='balanced',
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
     ModelCatalogEntry('real-hat-gan-x4', 'Real HAT GAN x4', None, operation='upscale', tier='advanced',
-                      description='Güçlü sistemler ve zor görseller için önerilir. Daha fazla bellek kullanabilir ve daha uzun sürebilir.'),
+                      description='Güçlü sistemler ve zor görseller için önerilir. Resmî ağırlığın dağıtım koşulları doğrulanana kadar kurulum sunulmuyor.'),
 )

@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from pixelmend_engine.models.realesrgan_onnx import RealESRGANUpscale, InferenceCancelled
+from pixelmend_engine.models.hat_onnx import HATGANUpscale
 
 
 class NearestSession:
@@ -56,3 +57,28 @@ def test_nonfinite_inference_removes_intermediates(tmp_path):
     with pytest.raises(ValueError, match='invalid RealESRGAN output'):
         adapter.run(np.zeros((2, 2, 3), np.uint8))
     assert not list(tmp_path.iterdir())
+
+
+def test_hat_pads_windowed_edge_tiles_then_crops_to_the_requested_pixels(tmp_path):
+    class RecordingSession(NearestSession):
+        def __init__(self):
+            self.shapes = []
+
+        def run(self, names, inputs):
+            self.shapes.append(inputs['input'].shape)
+            return super().run(names, inputs)
+
+    session = RecordingSession()
+    image = np.random.default_rng(9).integers(0, 256, (17, 19, 3), dtype=np.uint8)
+    adapter = HATGANUpscale('unused', session=session, tile_size=48, overlap=16, temp_dir=tmp_path)
+
+    result = adapter.run(image)
+
+    np.testing.assert_array_equal(result, image.repeat(4, axis=0).repeat(4, axis=1))
+    assert session.shapes == [(1, 3, 32, 32)]
+
+
+@pytest.mark.parametrize('tile_size, overlap', [(257, 16), (64, 0), (64, 64)])
+def test_hat_uses_a_bounded_window_compatible_tile_contract(tile_size, overlap):
+    with pytest.raises(ValueError):
+        HATGANUpscale('unused', session=NearestSession(), tile_size=tile_size, overlap=overlap)
