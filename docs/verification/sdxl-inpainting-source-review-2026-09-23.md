@@ -21,6 +21,13 @@ Hugging Face LFS manifestinden alınmıştır:
 | `text_encoder/model.fp16.safetensors` | 246.144.867 | `fc83cf401d930147807e7c44021c164bcc5508c9d4cc0ff35f4e354685ca9cd0` |
 | `vae/diffusion_pytorch_model.fp16.safetensors` | 167.335.338 | `4ad62825e5c8b31eefb77355ba6693785619bf7d669d9b1a6fd9f19dec6d65b3` |
 
+23 Eylül'de resmî revision'dan küçük dosyalar da indirilip SHA-256 ile
+doğrulandı. `sdxl_package.py` içindeki manifest, dört ağırlığa ek olarak
+`model_index.json`, scheduler, iki text-encoder yapılandırması, iki tokenizer
+seti, UNet ve VAE yapılandırmalarını kapsar: toplam **18 dosya** ve
+**6.941.218.469 bayt**. Böylece bir tokenizer veya yapılandırma eksikken yalnız
+ağırlıkların bulunması modelin hazır sayılması için yeterli değildir.
+
 `model_package.py` bu tür çok dosyalı paketleri her dosya doğrulandıktan sonra
 tek atomik revision dizini olarak etkinleştirmek için eklendi. Eksik, bozuk veya
 bağlantı içeren bir paket hazır sayılamaz.
