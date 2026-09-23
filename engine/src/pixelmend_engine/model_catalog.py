@@ -45,7 +45,7 @@ DEFAULT_MODEL_CATALOG = (
     # entries make the intended product hierarchy visible without pretending an
     # unmeasured download or licence review is a usable model.
     ModelCatalogEntry('lama-regular', 'LaMa Regular', None, operation='remove', tier='fast',
-                      description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
+                      description='Daha düşük sistem gereksinimleri için tasarlanan ayrı model. Resmî ağırlık için doğrulanabilir dağıtım izni bulunana kadar kurulum sunulmuyor.'),
     ModelCatalogEntry('lama', 'LaMa', LAMA_ONNX_MANIFEST, operation='remove', tier='balanced',
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
     ModelCatalogEntry('sdxl-inpainting', 'SDXL Inpainting', None, operation='remove', tier='advanced',
