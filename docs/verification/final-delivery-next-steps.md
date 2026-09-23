@@ -3,6 +3,15 @@
 Bu belge, PixelMend'in nihai teslim sırasını korur. Kullanıcı “sıradaki adıma
 devam et” dediğinde, engel yoksa ilk tamamlanmamış maddeden başlanır.
 
+2026-09-23 itibarıyla kalan kapsam iki uygulanabilir plana ayrıldı:
+
+1. [`Model ve kalite planı`](../superpowers/plans/2026-09-23-pixelmend-models-and-quality.md): üç eksik model, ortak çalışma yolu ve altı modelin M4 kabulü.
+2. [`Platform ve son teslim planı`](../superpowers/plans/2026-09-23-pixelmend-release-and-platforms.md): paketli üç platform, test kiti, UI kabulü ve Mac'e son kurulum.
+
+Başlangıç noktası birinci planın Real HAT GAN x4 görevidir. İkinci planın
+tanı kiti ve paketleme hazırlıkları ilk plan sürerken ilerleyebilir; nihai
+kurulum ve “altı model tamam” kararı ilk planın kabul kapısına bağlıdır.
+
 ## Tamamlanan temel kilometre taşları
 
 - RealESRGAN General x4v3 ve x4plus, lisans/provenance/SHA-256 kayıtlarıyla
