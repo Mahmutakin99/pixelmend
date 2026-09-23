@@ -9,7 +9,7 @@ import pytest
 from filelock import FileLock
 
 from pixelmend_engine.model_catalog import ModelCatalogEntry
-from pixelmend_engine.model_manager import ModelManager, ModelManagerError
+from pixelmend_engine.model_manager import ModelManager, ModelManagerError, _trusted_url
 from pixelmend_engine.model_store import ModelManifest, model_file_path
 
 
@@ -100,6 +100,13 @@ def test_published_release_model_installs_from_its_pinned_download_url(tmp_path)
         await manager.close()
 
     asyncio.run(run())
+
+
+def test_pinned_hugging_face_download_may_follow_only_hugging_face_cdn_hosts():
+    _trusted_url('https://huggingface.co/owner/model/resolve/' + 'a' * 40 + '/model.onnx')
+    _trusted_url('https://us.aws.cdn.hf.co/xet-bridge-us/signed-model')
+    with pytest.raises(ModelManagerError, match='not trusted'):
+        _trusted_url('https://downloads.example.org/model.onnx')
 
 
 @pytest.mark.parametrize('payload,code', [(b'bad', 'size_mismatch'), (b'x' * len(PAYLOAD), 'hash_mismatch')])
