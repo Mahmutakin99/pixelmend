@@ -30,12 +30,14 @@ def prepare_roi(image, mask):
 
 
 class LamaInpaint:
-    def __init__(self, models_dir=None, *, model_path=None, providers=None):
+    def __init__(self, models_dir=None, *, model_path=None, providers=None, intra_op_threads=4):
         """Verify provenance before loading native model code."""
         path = verify_model_file(model_path if model_path is not None else model_file_path(models_dir, LAMA_ONNX_MANIFEST), LAMA_ONNX_MANIFEST)
         ort.disable_telemetry_events()
         options = ort.SessionOptions()
-        options.intra_op_num_threads = 4
+        if type(intra_op_threads) is not int or intra_op_threads < 1:
+            raise ValueError('intra_op_threads must be positive')
+        options.intra_op_num_threads = intra_op_threads
         self.evidence = InferenceEvidence(options, providers)
         self.session = ort.InferenceSession(str(path), sess_options=options, providers=providers or ['CPUExecutionProvider'])
         inputs = {i.name: i for i in self.session.get_inputs()}

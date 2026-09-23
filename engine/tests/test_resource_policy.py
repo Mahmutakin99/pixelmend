@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from pixelmend_engine.policy import ResourcePolicy, ResourceLimitError, admit_image_job, validate_dimensions
+from pixelmend_engine.policy import ResourcePolicy, ResourceLimitError, admit_image_job, inference_settings, validate_dimensions
 
 
 def test_200_mp_and_operator_override_dimensions():
@@ -33,3 +33,10 @@ def test_admission_checks_natural_output_ram_disk_and_existing_results():
 def test_ai_admission_uses_real_default_temporary_directory():
     image = SimpleNamespace(width=16, height=16, alpha=None)
     admit_image_job(image, (32, 32), ai=True, available_bytes=8 * 1024**3)
+
+
+def test_low_resource_mode_has_a_real_bounded_tile_and_cpu_effect():
+    assert inference_settings('automatic') == {'tile_size': 128, 'tile_overlap': 16, 'intra_op_threads': 4}
+    assert inference_settings('low-resource') == {'tile_size': 64, 'tile_overlap': 8, 'intra_op_threads': 2}
+    with pytest.raises(ValueError):
+        inference_settings('turbo')

@@ -110,3 +110,17 @@ def test_unready_lama_preserves_model_error_code(tmp_path, monkeypatch):
         response=client.post('/jobs',data={'asset_id':asset['asset_id'],'algorithms':'["lama"]','selection_strokes':json.dumps([{'mode':'draw','points':[{'x':8,'y':8}],'color':'#ff0000','opacity':1,'size':4,'hardness':1}])})
         assert response.status_code == 409
         assert response.json()['detail']['code'] == 'not_ready'
+
+
+def test_job_api_carries_the_validated_low_resource_mode_to_the_queue():
+    data = BytesIO(); Image.new('RGB', (16, 16), 'white').save(data, format='PNG')
+    strokes = json.dumps([{'mode': 'draw', 'points': [{'x': 8, 'y': 8}], 'color': '#ff0000',
+                          'opacity': 1, 'size': 4, 'hardness': 1}])
+    with TestClient(create_app(session_token='a' * 64), base_url='http://127.0.0.1',
+                    headers={'X-PixelMend-Token': 'a' * 64}) as client:
+        asset = client.post('/assets', files={'image': ('source.png', data.getvalue())}).json()
+        response = client.post('/jobs', data={'asset_id': asset['asset_id'],
+            'algorithms': '["opencv_telea"]', 'selection_strokes': strokes,
+            'resource_mode': 'low-resource'})
+        assert response.status_code == 201, response.text
+        assert client.get(f"/jobs/{response.json()['job_id']}").json()['resource_mode'] == 'low-resource'

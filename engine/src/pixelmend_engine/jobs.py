@@ -16,7 +16,7 @@ from .models.opencv_inpaint import OpenCVInpaint
 from .model_store import ModelFileMissingError, ModelStoreError
 from .model_manager import ModelManager, ModelManagerError
 from .models.realesrgan_onnx import InferenceCancelled, RealESRGANUpscale
-from .policy import POLICY, ResourceLimitError, admit_image_job
+from .policy import POLICY, ResourceLimitError, admit_image_job, inference_settings
 from .execution_profile import runtime_providers, provider_is_active
 from .paths import get_coreml_cache_dir
 from .adapter_cache import AdapterCache
@@ -27,7 +27,8 @@ TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
 
 
 def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
-            provider=None, cancel_event=None, progress=None, adapter_cache=None, execution_evidence=None):
+            provider=None, cancel_event=None, progress=None, adapter_cache=None, execution_evidence=None,
+            resource_mode='automatic'):
     """Execute native inference in the queue's dedicated worker."""
     if algorithm == 'lanczos':
         size = target_size or (image.width * scale, image.height * scale)
@@ -39,10 +40,11 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
         if model_path is None or provider is None:
             raise ModelManagerError('not_ready', 'AI kalite modeli hazır değil.')
         provider_config = runtime_providers(provider, get_coreml_cache_dir() / model_path.parent.name)
-        key = (algorithm, str(model_path), provider)
+        settings = inference_settings(resource_mode)
+        key = (algorithm, str(model_path), provider, resource_mode)
         factory = lambda: RealESRGANUpscale(model_path, providers=provider_config,
-                                            tile_size=POLICY.tile_size,
-                                            overlap=POLICY.tile_overlap)
+                                            tile_size=settings['tile_size'], overlap=settings['tile_overlap'],
+                                            intra_op_threads=settings['intra_op_threads'])
         adapter = adapter_cache.get(key, factory) if adapter_cache else factory()
         if not provider_is_active(adapter.session.get_providers(), provider):
             raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
@@ -58,8 +60,10 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
         if model_path is None or provider is None:
             raise ModelManagerError('not_ready', 'LaMa model is not ready.')
         provider_config = runtime_providers(provider, get_coreml_cache_dir() / model_path.parent.name)
-        key = ('lama', str(model_path), provider)
-        factory = lambda: LamaInpaint(model_path=model_path, providers=provider_config)
+        settings = inference_settings(resource_mode)
+        key = ('lama', str(model_path), provider, resource_mode)
+        factory = lambda: LamaInpaint(model_path=model_path, providers=provider_config,
+                                      intra_op_threads=settings['intra_op_threads'])
         adapter = adapter_cache.get(key, factory) if adapter_cache else factory()
         if not provider_is_active(adapter.session.get_providers(), provider):
             raise ModelManagerError('provider_unavailable', 'Seçilen hızlandırma sağlayıcısı etkin değil. Modeli yeniden sınayın.')
@@ -79,6 +83,7 @@ class Job:
     mask: np.ndarray | None
     scale: int
     target_size: tuple[int, int] | None = None
+    resource_mode: str = 'automatic'
     status: str = 'queued'
     results: dict[str, ImageAsset] = field(default_factory=dict)
     events: list[dict] = field(default_factory=list)
@@ -101,7 +106,7 @@ class Job:
                 'result_ids': list(self.results), 'algorithms': self.algorithms,
                 'error': self.error,
                 'progress': self.progress, 'model_revision': self.model_revision, 'provider': self.provider,
-                'fallback_reason': self.fallback_reason,
+                'fallback_reason': self.fallback_reason, 'resource_mode': self.resource_mode,
                 'result_details': [{'result_id': key, 'width': image.width, 'height': image.height, **self.result_metadata[key]}
                                    for key, image in self.results.items()]}
 
@@ -137,12 +142,14 @@ class JobQueue:
         self.adapter_cache.close()
         self.jobs.clear()
 
-    def submit(self, asset_id, algorithms, mask=None, scale=1, target_width=None, target_height=None):
+    def submit(self, asset_id, algorithms, mask=None, scale=1, target_width=None, target_height=None,
+               resource_mode='automatic'):
         """Validate and pin the source before exposing a queued job."""
         if not self.accepting or len(self.jobs) >= self.max_jobs:
             raise ValueError('job capacity unavailable')
         if not algorithms or len(algorithms) > 8 or len(set(algorithms)) != len(algorithms):
             raise ValueError('select unique algorithms')
+        inference_settings(resource_mode)
         if any(a not in ({'opencv_telea', 'opencv_ns', 'lama', 'lanczos'} | set(UPSCALE_MODELS)) for a in algorithms):
             raise ValueError('algorithm unavailable')
         image = self.assets.get_image(asset_id)
@@ -168,7 +175,8 @@ class JobQueue:
             if not np.all((mask == 0) | (mask == 255)) or not np.any(mask):
                 raise ValueError('mask must contain a binary selection')
         self.assets.acquire_for_job(asset_id)
-        job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale, target_size)
+        job = Job(uuid4().hex, asset_id, list(algorithms), None if mask is None else mask.copy(), scale, target_size,
+                  resource_mode)
         if any(a in AI_MODELS for a in algorithms):
             if self.model_manager is None:
                 self.assets.release_from_job(asset_id)
@@ -220,7 +228,8 @@ class JobQueue:
                         image, job.mask, algorithm, job.scale, job.target_size,
                         model_path=getattr(job, 'model_path', None), provider=job.provider,
                         cancel_event=job.cancel_event, progress=update_progress,
-                        adapter_cache=self.adapter_cache, execution_evidence=evidence))
+                        adapter_cache=self.adapter_cache, execution_evidence=evidence,
+                        resource_mode=job.resource_mode))
             except Exception as error:
                 if attempt or algorithm not in AI_MODELS or not may_retry_cpu(error, job.provider, job.cancel_event.is_set()):
                     raise

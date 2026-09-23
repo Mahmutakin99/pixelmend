@@ -7,7 +7,7 @@ function modelRoute(id, action) {
   if (!MODEL_IDS.has(id) || !ACTIONS.has(action)) throw new Error('Geçersiz model işlemi');
   return {route:`/models/${id}${action === 'delete' ? '' : `/${action}`}`, method:action === 'delete' ? 'DELETE' : 'POST'};
 }
-function jobForm(payload, policy = {}) {
+function jobForm(payload, policy = {}, resourceMode = 'automatic') {
   if (!payload || !['remove', 'upscale'].includes(payload.operation) || !/^[a-f0-9]{32}$/.test(payload.assetId)) throw new Error('Geçersiz işlem');
   const upscale = payload.operation === 'upscale';
   const method = payload.upscaleMethod ?? 'lanczos';
@@ -23,6 +23,8 @@ function jobForm(payload, policy = {}) {
   const intent=payload.intent ?? 'resize';
   if(!['resize','preserve_size'].includes(intent) || intent==='preserve_size' && (!upscale || !usesAI))throw new Error('Geçersiz iyileştirme amacı');
   form.append('intent',intent);
+  if (!['automatic', 'low-resource'].includes(resourceMode)) throw new Error('Geçersiz çalışma modu');
+  form.append('resource_mode', resourceMode);
   form.append('algorithms', JSON.stringify([upscale ? method === 'ai' ? UPSCALE_MODELS[modelId] : 'lanczos' : removeMethod === 'lama' ? 'lama' : 'opencv_telea']));
   form.append('scale', upscale ? '2' : '1');
   if (upscale) {

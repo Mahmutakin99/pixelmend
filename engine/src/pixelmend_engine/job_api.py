@@ -39,7 +39,8 @@ def job_router(queue, assets, auth):
     async def submit(asset_id: str = Form(...), algorithms: str = Form(...),
                      mask: UploadFile | None = File(None), selection_strokes: str | None = Form(None), scale: int = Form(1),
                      target_width: int | None = Form(None), target_height: int | None = Form(None),
-                     model_id: str | None = Form(None), intent: str = Form('resize')):
+                     model_id: str | None = Form(None), intent: str = Form('resize'),
+                     resource_mode: str = Form('automatic')):
         """Bound compressed mask input and decode against the canonical source size."""
         try:
             selected = json.loads(algorithms)
@@ -78,7 +79,7 @@ def job_router(queue, assets, auth):
             if selection_strokes is not None:
                 canonical = await run_in_threadpool(
                     rasterize_selection, json.loads(selection_strokes), image.width, image.height)
-            job = queue.submit(asset_id, selected, canonical, scale, target_width, target_height)
+            job = queue.submit(asset_id, selected, canonical, scale, target_width, target_height, resource_mode)
         except AssetNotFoundError:
             raise HTTPException(404, 'asset not found')
         except ModelManagerError as error:

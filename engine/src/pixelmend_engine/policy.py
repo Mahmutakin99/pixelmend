@@ -39,6 +39,17 @@ def load_policy():
 POLICY = load_policy()
 
 
+def inference_settings(resource_mode: str):
+    """Return the explicit bounded native settings for one user-selected mode."""
+    if resource_mode == 'automatic':
+        return {'tile_size': POLICY.tile_size, 'tile_overlap': POLICY.tile_overlap, 'intra_op_threads': 4}
+    if resource_mode == 'low-resource':
+        # Smaller tiles reduce peak native allocation; fewer ORT threads avoid
+        # fighting foreground UI and other processes for unified memory.
+        return {'tile_size': 64, 'tile_overlap': 8, 'intra_op_threads': 2}
+    raise ValueError('invalid resource mode')
+
+
 def adaptive_output_limit(image, *, ai: bool, result_bytes=0, policy=POLICY,
                           available_bytes=None, disk_free_bytes=None):
     """Return the largest safe final pixel count for the current machine state.

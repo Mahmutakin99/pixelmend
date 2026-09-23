@@ -44,14 +44,16 @@ def axis_weight(length, start, total, overlap):
 
 class RealESRGANUpscale:
     def __init__(self, model_path, *, providers=None, tile_size=128, overlap=16,
-                 temp_dir=None, session=None):
+                 temp_dir=None, session=None, intra_op_threads=4):
         """The caller must verify the immutable artifact before constructing this adapter."""
         if type(tile_size) is not int or type(overlap) is not int or not 0 < overlap < tile_size:
             raise ValueError('tile size must exceed a positive overlap')
         self.tile_size, self.overlap, self.temp_dir = tile_size, overlap, temp_dir
+        if type(intra_op_threads) is not int or intra_op_threads < 1:
+            raise ValueError('intra_op_threads must be positive')
         ort.disable_telemetry_events()
         options = ort.SessionOptions()
-        options.intra_op_num_threads = 4
+        options.intra_op_num_threads = intra_op_threads
         self.evidence = InferenceEvidence(options, providers, enabled=session is None)
         self.session = session if session is not None else ort.InferenceSession(
             str(model_path), sess_options=options, providers=providers or ['CPUExecutionProvider'])
