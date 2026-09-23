@@ -20,6 +20,7 @@ import { documentFingerprint, isDocumentDirty } from "./document-state";
 import { normalizePreferences } from "./preferences";
 import { Settings as PerformanceSettings } from "./Settings";
 import { useModels } from "./useModels";
+import { showsAiControls } from "./ai-controls";
 import "./bridge";
 import "./style.css";
 import "./tokens.css";
@@ -666,12 +667,12 @@ function App() {
             <p>Silinecek alanı işaretleyin.</p>
             <label><input type="radio" name="remove-method" checked={removeMethod === "lama"} onChange={() => setRemoveMethod("lama")}/> AI ile nesne sil{!removeAIReady && " (kurulum/sınama gerekli)"}</label>
             <label><input type="radio" name="remove-method" checked={removeMethod === "opencv"} onChange={() => setRemoveMethod("opencv")}/> Hızlı — OpenCV</label>
-            <label>AI modeli<select aria-label="Nesne silme modeli" value={selectedRemoveId} disabled={busy || !!preview} onChange={async event=>{
+            {showsAiControls('remove', removeMethod) ? <><label>AI modeli<select aria-label="Nesne silme modeli" value={selectedRemoveId} disabled={busy || !!preview} onChange={async event=>{
               const tier=event.target.value==='migan-512-places2'?'fast':event.target.value==='sdxl-inpainting'?'advanced':'balanced';
               const next={...normalizePreferences(settings || {}),removeModelTier:tier as 'fast'|'balanced'|'advanced'};
               try {await window.pixelmend.setSettings(next);setSettings(next);setRemoveMethod('lama');}catch(error){reportError('remove',error);}
             }}>{models.filter(m=>m.operation==='remove').map(m=><option key={m.id} value={m.id} disabled={!m.verified_manifest}>{m.tier==='fast'?'Hızlı':m.tier==='advanced'?'Gelişmiş':'Dengeli'} · {m.name}{m.state==='ready'?'':' · kurulum gerekli'}</option>)}</select></label>
-            {!removeAIReady && <button onClick={()=>setShowSettings(true)}>Modeli kur veya sına</button>}
+            {!removeAIReady ? <button onClick={()=>setShowSettings(true)}>Modeli kur veya sına</button> : null}</> : null}
             <button
               aria-pressed={tool === "select"}
               onClick={() => setTool("select")}
@@ -700,16 +701,16 @@ function App() {
             <p>{upscaleMethod === "ai" ? "Ayrıntıları ve netliği iyileştirir; ince dokular değişebilir." : "Görünümü koruyarak boyutlandırır; AI ile ayrıntı üretmez."}</p>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => { setUpscaleMethod("lanczos"); setEnhancementMode("resize"); }}/><span><strong>Standart büyütme</strong><small>Lanczos · özgün görünüm öncelikli</small></span></label>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/><span><strong>AI ile iyileştir</strong><small>RealESRGAN · doğal ayrıntı öncelikli{!aiReady && " · model hazır değil"}</small></span></label>
-            <label>AI modeli<select aria-label="İyileştirme modeli" value={selectedUpscaleId} disabled={busy || !!preview} onChange={async event=>{
+            {showsAiControls('upscale', upscaleMethod) ? <><label>AI modeli<select aria-label="İyileştirme modeli" value={selectedUpscaleId} disabled={busy || !!preview} onChange={async event=>{
               const tier=event.target.value==='realesrgan-general-x4v3'?'fast':event.target.value==='real-hat-gan-x4'?'advanced':'balanced';
               const next={...normalizePreferences(settings || {}),upscaleModelTier:tier as 'fast'|'balanced'|'advanced'};
               try {await window.pixelmend.setSettings(next);setSettings(next);setUpscaleMethod('ai');}catch(error){reportError('upscale',error);}
             }}>{models.filter(m=>m.operation==='upscale').map(m=><option key={m.id} value={m.id} disabled={!m.verified_manifest}>{m.tier==='fast'?'Hızlı':m.tier==='advanced'?'Gelişmiş':'Dengeli'} · {m.name}{m.state==='ready'?'':' · kurulum gerekli'}</option>)}</select></label>
-            {!aiReady && <button onClick={()=>setShowSettings(true)}>Modeli kur veya sına</button>}
+            {!aiReady ? <button onClick={()=>setShowSettings(true)}>Modeli kur veya sına</button> : null}
             <div className="segmented-control" role="group" aria-label="İyileştirme hedefi">
               <button aria-pressed={enhancementMode === 'resize'} onClick={() => setEnhancementMode('resize')}>Büyüt</button>
               <button aria-pressed={enhancementMode === 'preserve'} onClick={() => { setEnhancementMode('preserve'); setUpscaleMethod('ai'); setTarget(preserveDimensions(p!.photo)); }}>Boyutu koru</button>
-            </div>
+            </div></> : null}
             {enhancementMode === 'preserve' ? <p className="hint">AI, görüntüyü doğal 4× ayrıntı yolundan geçirir ve sonucu aynı ölçülere getirir. İnce dokular değişebilir.</p> : <><div className="quick-actions">
               <button
                 disabled={busy || !!preview}
