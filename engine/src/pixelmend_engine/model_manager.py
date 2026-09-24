@@ -184,7 +184,11 @@ class ModelManager:
 
     @staticmethod
     def _signature(info):
-        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        # Windows can report a different creation-time value through an open
+        # descriptor and a later path stat for the same untouched file. The
+        # creation time is not a content mutation signal; device, inode, size
+        # and modification time still detect replacement during verification.
+        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
 
     def _verify(self, path, manifest, cancel):
         """Hash a regular file in bounded chunks, allowing cancellation during verification."""

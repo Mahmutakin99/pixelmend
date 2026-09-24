@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from filelock import FileLock
@@ -232,6 +233,12 @@ def test_local_acquisition_verifies_copies_and_survives_source_removal(tmp_path)
         assert restarted.list_models()['models'][0]['source'] == 'local'
         await restarted.close()
     asyncio.run(run())
+
+
+def test_model_signature_ignores_windows_creation_time_representation():
+    first = SimpleNamespace(st_dev=1, st_ino=2, st_size=3, st_mtime_ns=4, st_ctime_ns=5)
+    second = SimpleNamespace(st_dev=1, st_ino=2, st_size=3, st_mtime_ns=4, st_ctime_ns=99)
+    assert ModelManager._signature(first) == ModelManager._signature(second)
 
 
 def test_local_corrupt_candidate_never_activates(tmp_path):

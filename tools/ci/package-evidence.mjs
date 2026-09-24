@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /** Deterministic, dependency-free release evidence for CI package artifacts. */
 import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
-import {basename, join, resolve} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 
 const root = resolve(import.meta.dirname, '../..');
 export const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('hex');
+export const jobPath = (file, cwd = process.cwd()) => resolve(cwd, file);
 const value = flag => { const index = process.argv.indexOf(flag); return index < 0 ? undefined : process.argv[index + 1]; };
 const command = (program, args) => { try { return execFileSync(program, args, {cwd:root, encoding:'utf8', stdio:['ignore', 'pipe', 'ignore']}).trim(); } catch { return 'unavailable'; } };
 export function artifactName({version, os, arch, format}) { return `pixelmend-${version}-${os}-${arch}-${format}`; }
@@ -27,14 +28,14 @@ export function buildManifest({os, arch}) {
 function main() {
   const action = process.argv[2];
   if (action === 'manifest') {
-    const output = value('--output'); const manifest = buildManifest({os:value('--os'), arch:value('--arch')});
-    mkdirSync(resolve(root, output, '..'), {recursive:true}); writeFileSync(resolve(root, output), `${JSON.stringify(manifest, null, 2)}\n`); return;
+    const output = jobPath(value('--output')); const manifest = buildManifest({os:value('--os'), arch:value('--arch')});
+    mkdirSync(dirname(output), {recursive:true}); writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`); return;
   }
   if (action === 'stage') {
-    const packageFile = resolve(root, value('--package')); const format = value('--format'); const os = value('--os'); const arch = value('--arch');
+    const packageFile = jobPath(value('--package')); const format = value('--format'); const os = value('--os'); const arch = value('--arch');
     const version = JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'))).version;
-    const name = artifactName({version, os, arch, format}); const output = resolve(root, value('--output'), name);
-    const manifest = resolve(root, value('--manifest')); const nodeSbom = resolve(root, value('--node-sbom')); const pythonSbom = resolve(root, value('--python-sbom'));
+    const name = artifactName({version, os, arch, format}); const output = join(jobPath(value('--output')), name);
+    const manifest = jobPath(value('--manifest')); const nodeSbom = jobPath(value('--node-sbom')); const pythonSbom = jobPath(value('--python-sbom'));
     if (![packageFile, manifest, nodeSbom, pythonSbom].every(existsSync)) throw new Error('package evidence input is missing');
     mkdirSync(output, {recursive:true}); copyFileSync(packageFile, join(output, basename(packageFile)));
     copyFileSync(manifest, join(output, 'build-manifest.json')); copyFileSync(nodeSbom, join(output, 'sbom-node.cdx.json')); copyFileSync(pythonSbom, join(output, 'sbom-python.cdx.json'));
