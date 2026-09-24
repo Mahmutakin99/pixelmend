@@ -1,7 +1,8 @@
 # PixelMend Windows ve Linux test yönergesi
 
-Bu metni test edecek kişiye olduğu gibi gönderin. Kişisel fotoğraf kullanmayın;
-uygulama kendi örnek görselleriyle test yapar.
+Bu metni test edecek kişiye olduğu gibi gönderin. Ayrıntılı, test-kit içine de
+kopyalanan sürüm: [`tools/diagnostics/README.md`](../tools/diagnostics/README.md).
+Kişisel fotoğraf kullanmayın; uygulama kendi örnek görselleriyle test yapar.
 
 ## Gönderilecek dosyalar
 

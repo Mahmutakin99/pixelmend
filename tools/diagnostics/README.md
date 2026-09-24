@@ -1,35 +1,53 @@
-# PixelMend test paketi
+# PixelMend bilgisayar testi — testçiye gönderilecek yönerge
 
-1. Bu test paketiyle aynı sürüm PixelMend'i kurun. Açık çalışmanızı kaydedip
-   PixelMend'i kapatın. Eski sürümler `--self-test` modunu desteklemez.
-2. Windows'ta **PixelMend-Test.cmd**, Mac'te **PixelMend-Test.command** dosyasını
-   açın. Linux'ta terminalden `sh PixelMend-Test.sh /tam/yol/PixelMend.AppImage`
-   çalıştırın. AppImage'in çalıştırma izni olmalıdır.
-3. Standart testi seçin. Eksik modellerin indirilmesi isteğe bağlıdır; boyut
-   pencerede gösterilir. Kapsamlı fotoğraf karşılaştırmaları uzun sürebilir.
-4. Testin sonunda isteğe bağlı görüşünüzü yazın, **Notları rapora ekle** ve
-   **Raporu klasörde göster** düğmelerini kullanın.
-5. Masaüstü'ndeki `PixelMend-Test-….zip` dosyasını testi isteyen kişiye iletin.
-   Dosya kendiliğinden internete gönderilmez.
+Bu klasör PixelMend uygulamasını test eder. **Önce PixelMend’i kurun**, sonra bu klasördeki test dosyasını çalıştırın. Kişisel fotoğraf açmayın; test kendi örnek görsellerini kullanır.
 
-ZIP üretilemez veya uygulama çökerse aynı zamandaki `PixelMend-Test-…` klasörünü
-ve varsa `PixelMend-Test-Baslangic-….txt` dosyasını paylaşın. Raporunuzun içinde
-kişisel bilgi olmadığını kontrol edin. Ekran görüntüleri yalnız test örneklerinin
-açıldığı uygulama penceresinden alınır; masaüstünüz görüntülenmez.
+## Windows
 
-macOS/Linux test dosyasını terminalden `sh /tam/yol/PixelMend-Test.command`
-ile de çalıştırabilirsiniz. İşletim sisteminin güvenlik ayarlarını topluca
-devre dışı bırakmanız gerekmez. Kurulum engelleniyorsa gördüğünüz uyarıyı bildirin.
+1. `PixelMend-...-Setup.exe` dosyasını çalıştırın ve kurulumu bitirin.
+2. Uygulama açıksa kapatın.
+3. Bu klasördeki **`PixelMend-Test.cmd`** dosyasına çift tıklayın.
+4. Uygulama bulunamazsa açılan pencereden kurduğunuz `PixelMend.exe` dosyasını seçin. Bu normaldir.
+5. Açılan **PixelMend · Bilgisayar testi** penceresinde:
+   - **Standart test** seçili kalsın.
+   - **Eksik modelleri indir** kutusunu işaretleyin.
+   - **Testi başlat** düğmesine basın.
+6. Test bitene kadar pencereyi kapatmayın. Bitince not alanına varsa hata, ekran kartı adı ve ne yaptığınızı yazın; **Notları rapora ekle** düğmesine basın. Sonra **Raporu klasörde göster** düğmesine basın.
+7. Test penceresini kapatın. Masaüstünde şu dosya oluşur: `PixelMend-Test-YYYY-AA-GG....zip`
+8. Bu ZIP dosyasını testi isteyen kişiye gönderin. WhatsApp, e-posta veya Drive bağlantısı kullanılabilir. Dosya büyükse Drive bağlantısı gönderin.
 
-Çıkış kodları: 0 = seçilen testler geçti, 1 = hata, 2 = eksik/iptal edilmiş
-doğrulama, 3 = başka PixelMend oturumu açık. Eksik modeller başarı sayılmaz.
+## Linux — AppImage
 
-## Arayüzü ayrıca değerlendirin
+1. `PixelMend-....AppImage` ve bu `test-kit` klasörünü aynı bilgisayara indirin.
+2. Terminal açın ve iki dosyanın bulunduğu klasöre gidin.
+3. Şunları çalıştırın:
 
-- Görsel açma, çizim, nesne seçimi, önizleme ve kaydetme anlaşılır mı?
-- Küçük pencerede ve açık/koyu temada taşan, kesilen veya okunmayan alan var mı?
-- Fare/fırça halkası görünüyor mu? Klavyeyle kontrollere erişilebiliyor mu?
-- Önce/sonra sonuçlarında doku, yüz, yazı, renk, kenar veya karo izi sorunu var mı?
+```sh
+chmod +x PixelMend-*.AppImage test-kit/PixelMend-Test.sh
+sh test-kit/PixelMend-Test.sh "$(pwd)"/PixelMend-*.AppImage
+```
 
-Hangi adımı yaptığınızı, ne beklediğinizi ve ne olduğunu notlara yazın.
-Otomatik teknik testler insanın görsel kalite değerlendirmesinin yerine geçmez.
+4. Açılan test penceresinde Windows bölümündeki 5–8. adımları uygulayın. Rapor Masaüstünde `PixelMend-Test-....zip` adıyla oluşur.
+
+## Linux — DEB
+
+1. `PixelMend-....deb` dosyasını dağıtımınızın paket yükleyicisiyle kurun.
+2. Terminalde `test-kit` klasörüne gidin ve çalıştırın:
+
+```sh
+sh PixelMend-Test.sh
+```
+
+3. Uygulama bulunamazsa betik PixelMend çalıştırılabilir dosyasının tam yolunu ister. Sonra yukarıdaki test adımlarını izleyin.
+
+## ZIP oluşmadıysa veya test hata verirse
+
+Masaüstünde aynı tarih-saatli şu öğeleri bulun ve **üçünü birlikte** gönderin:
+
+1. `PixelMend-Test-....zip` varsa onu,
+2. `PixelMend-Test-....` klasörünü,
+3. `PixelMend-Test-Baslangic-....txt` dosyasını.
+
+Ayrıca kısa bir mesajla işletim sistemi sürümünü, RAM miktarını, ekran kartı adını ve görülen hata ekranının görüntüsünü gönderin. Güçlü modellerin “yakında/desteklenmiyor” görünmesi bu sürüm için beklenen durumdur; rapor kullanılabilir temel modellerin gerçekten çalışıp çalışmadığını gösterir.
+
+Rapor kendiliğinden internete gönderilmez. ZIP, test görsellerini ve teknik sonuçları içerir; kişisel fotoğraf veya tam dosya yolu içermez.
