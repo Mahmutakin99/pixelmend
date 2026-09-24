@@ -12,7 +12,7 @@
 
 ## Global constraints
 
-- Six distinct models: upscale General x4v3 / x4plus / Real HAT GAN x4; remove LaMa Regular / LaMa / SDXL Inpainting. Classic Lanczos/OpenCV remain separate.
+- Six distinct models after the documented source/licence substitutions: upscale General x4v3 / x4plus / Swin2SR Real-World x4; remove MI-GAN 512 Places2 / LaMa / SDXL Inpainting. Classic Lanczos/OpenCV remain separate.
 - Default tier is balanced; selected tier never silently changes. `preserve_size` returns exact source dimensions.
 - AI outputs preserve source alpha; inpainting preserves every unselected RGB pixel exactly.
 - M4/16 GB acceptance is measured, not inferred from provider availability. Windows/Linux GPU measurements belong to phase B.
@@ -39,7 +39,7 @@
 
 - [x] Pin the Apache-2.0 Swin2SR source and weight hash. Export a local ONNX candidate, recording the contract and output equivalence in `swin2sr-realworld-x4-candidate-2026-09-23.md`.
 - [x] Compare PyTorch reference against exported ONNX on 64 × 64, 72 × 64 and 64 × 72. All passed below the recorded rtol/atol threshold.
-- [x] Run M4 CPU and Core ML trials. CPU works; Core ML fails its execution-plan build, so no product manifest or advanced-card activation is permitted.
+- [x] Run M4 CPU, Core ML and native MPS tile trials. Dynamic Core ML fails; fixed 64px runs but has mixed CPU placement and marginal gain; fixed 128px slows severely. MPS is faster on small tiles. None of these trials activates the card.
 - [ ] Add lifecycle tests for missing, corrupt, cancelled, retry, restart and use-while-delete. Run `engine/.venv/bin/python -m pytest engine/tests/test_model_manager.py engine/tests/test_real_models.py -q`.
 - [ ] On the M4, record real node execution, CPU and Core ML cold/warm durations, peak memory, disk and 1×/2×/4× visual outputs. A speed or quality advantage must be observed on the chosen hard cases before the UI calls this tier “Gelişmiş”.
 
@@ -79,7 +79,7 @@
 
 **Files:** `execution_profile.py`, `adapter_cache.py`, `fallback.py`, `policy.py`, `jobs.py`, `model_catalog.py`; `apps/desktop/src/Settings.tsx`, `main.tsx`, `models.ts`, `preferences.ts`; corresponding tests.
 
-- [ ] Evict an unused adapter before allocating the next heavy session; verify switch order and lease safety. Keep at most one heavy native job active.
+- [x] Evict an unused adapter before allocating the next heavy session; verify switch order and lease safety. Keep at most one heavy native job active.
 - [ ] Implement low-resource mode through a validated IPC/job field: smaller ONNX tiles and limited CPU threads. Prove output dimensions and permitted quality tolerance match automatic mode; do not promise GPU temperature or utilization limits.
 - [ ] Cache provider probe results by model hash, runtime, OS/device and driver identity. A short health check must precede reuse; invalidated profiles remeasure. Store only provider and timing summary, never raw trace paths.
 - [ ] Expose selected model/revision, actual executed providers and CPU retry reason in job and UI. A GPU failure retries the **same** model once on CPU only if capacity permits; cancellation never retries.

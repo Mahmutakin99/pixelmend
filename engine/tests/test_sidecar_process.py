@@ -9,9 +9,11 @@ import threading
 import urllib.request
 
 
-def test_real_loopback_sidecar_startup_health_and_shutdown():
+def test_real_loopback_sidecar_startup_health_and_shutdown(tmp_path):
     token = secrets.token_hex(32)
-    env = dict(os.environ, PIXELMEND_SESSION_TOKEN=token)
+    env = dict(os.environ, PIXELMEND_SESSION_TOKEN=token,
+               PIXELMEND_MODELS_DIR=str(tmp_path / 'models'),
+               PIXELMEND_SESSIONS_DIR=str(tmp_path / 'sessions'))
     process = subprocess.Popen([sys.executable, '-m', 'pixelmend_engine'], env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:

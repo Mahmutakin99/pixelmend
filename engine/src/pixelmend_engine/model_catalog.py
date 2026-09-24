@@ -63,6 +63,6 @@ DEFAULT_MODEL_CATALOG = (
                       description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
     ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, operation='upscale', tier='balanced',
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
-    ModelCatalogEntry('real-hat-gan-x4', 'Real HAT GAN x4', None, operation='upscale', tier='advanced',
-                      description='Güçlü sistemler ve zor görseller için önerilir. Resmî ağırlığın dağıtım koşulları doğrulanana kadar kurulum sunulmuyor.'),
+    ModelCatalogEntry('swin2sr-realworld-x4', 'Swin2SR Real-World x4', None, operation='upscale', tier='advanced',
+                      description='Güçlü sistemler ve zor görseller için değerlendiriliyor. Tam fotoğraf performans ve kalite kabulü bitmeden kurulum sunulmuyor.'),
 )

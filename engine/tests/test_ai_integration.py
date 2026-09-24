@@ -8,7 +8,9 @@ from pixelmend_engine.main import create_app
 TOKEN = 'f' * 64
 
 
-def test_capabilities_expose_one_output_policy_and_ai_model_has_a_published_manifest():
+def test_capabilities_expose_one_output_policy_and_ai_model_has_a_published_manifest(tmp_path, monkeypatch):
+    monkeypatch.setenv('PIXELMEND_MODELS_DIR', str(tmp_path / 'models'))
+    monkeypatch.setenv('PIXELMEND_SESSIONS_DIR', str(tmp_path / 'sessions'))
     with TestClient(create_app(session_token=TOKEN), base_url='http://127.0.0.1') as client:
         headers = {'X-PixelMend-Token': TOKEN}
         capabilities = client.get('/capabilities', headers=headers)
@@ -22,7 +24,9 @@ def test_capabilities_expose_one_output_policy_and_ai_model_has_a_published_mani
         assert ai['revision'] and ai['sha256']
 
 
-def test_asset_export_is_authenticated_and_returns_full_normalized_png():
+def test_asset_export_is_authenticated_and_returns_full_normalized_png(tmp_path, monkeypatch):
+    monkeypatch.setenv('PIXELMEND_MODELS_DIR', str(tmp_path / 'models'))
+    monkeypatch.setenv('PIXELMEND_SESSIONS_DIR', str(tmp_path / 'sessions'))
     from io import BytesIO
     from PIL import Image
 

@@ -1,6 +1,27 @@
 # DURUM — PixelMend
 
-Son güncelleme: 2026-09-20
+Son güncelleme: 2026-09-24
+
+## 2026-09-24 — İleri modellerin M4 kabul denemesi
+
+- Swin2SR Real-World x4 için sabit 64/128 px ONNX Core ML ve PyTorch MPS
+  ölçümleri yapıldı. MPS küçük karolarda CPU'dan hızlıydı; tam fotoğraf,
+  paketleme ve görsel kalite kabulü henüz yok. Model etkinleştirilmedi.
+- SDXL Inpainting'in sabit 18 dosyası SHA-256 ile doğrulandı. M4 MPS'de gerçek
+  iş çalıştı ve maske dışı pikseller korundu; gerçek kahve fotoğrafında seçilen
+  fincan güvenilir biçimde silinemedi. Bu kalite başarısızlığı nedeniyle model
+  hâlâ kullanılamaz. Ayrıntı: [SDXL incelemesi](docs/verification/sdxl-inpainting-source-review-2026-09-23.md).
+- Model oturum önbelleği yeni modeli yüklemeden eski oturumu bırakıyor;
+  çok dosyalı paket için iptal, bozuk kurulum ve yeniden deneme regresyonları
+  eklendi. Bunlar altı modelin tamamlandığı anlamına gelmez.
+- Bu dilimde tam motor suite'i izinli loopback ortamında **176 geçti, 2 atlandı**;
+  atlanan gerçek model testleri ayrıca çalıştırıldı (**3 geçti**). Masaüstü
+  tarafında 7 Electron ve 37 Vitest testi ile production build geçti. Gerçek
+  kabul yalnız kurulu dört modele aittir; iki ileri model için test atlaması
+  veya küçük karo benchmarkı kabul sayılmadı.
+
+İleri iki model açık kabul engelidir. Windows/Linux native paket ve GPU kabulü,
+son M4 kurulumu ve bütün ekranların görsel incelemesi de tamamlanmamıştır.
 
 ## 2026-09-23 — Altı model planı: doğruluk kapıları
 

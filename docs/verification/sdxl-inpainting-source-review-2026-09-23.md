@@ -1,7 +1,7 @@
 # SDXL Inpainting 0.1 — kaynak ve cihaz kabul incelemesi
 
 Tarih: 23 Eylül 2026  
-Durum: **Uygulamada etkin değil — lisans akışı ve gerçek cihaz kabulü bekleniyor**
+Durum: **Uygulamada etkin değil — görsel kalite kabulü başarısız, lisans akışı ve paketleme açık**
 
 ## Sabit resmî paket
 
@@ -56,3 +56,28 @@ girdisine dönüştürür, seed/arka-plan tamamlama bilgisini döndürür ve son
 yeniden yalnız seçili RGB piksellerine birleştirir. Diffusers/Torch runtime'ı
 henüz paketlenmediğinden worker şu an açık, güvenli `SDXL çalışma bileşeni bu
 uygulama paketinde kurulu değil` hatası verir; model kartı etkinleşmez.
+
+## 24 Eylül M4 ölçümü ve kalite kararı
+
+Resmî revision'ın 18 dosyası yerel geçici depoya indirildi; `verify_package`
+boyut ve SHA-256 ile hepsini doğruladı. PyTorch 2.7.1 ve Diffusers 0.35.2
+ayrı export ortamında kullanıldı; bu bağımlılıklar uygulama paketinde değildir.
+Apple M4/16 GB üzerinde fp16 MPS yüklemesi ve 512×512 iş çalıştı. MPS çalışma
+belleği payını 0,55 ve 0,70 ile sınırlayan denemeler sırasıyla model yüklemesinde
+ve VAE aşamasında yetersiz bellek hatası verdi. 0,82 pay, VAE tiling ve attention
+slicing ile ilk adımda NaN latent ve tamamen siyah sonuç verdi. Attention slicing
+kaldırılınca sekiz adımda sonlu çıktı oluştu; worker artık her adımda NaN
+denetimi yapıyor ve hatalı sonucu yayımlamıyor.
+
+Otuz adımlı gerçek `run_sdxl_inpaint` çağrısı 64×64 sentetik örnekte 40,37 sn,
+192×128 `coffee.png` örneğinde 40,53 sn sürdü. Maske dışındaki RGB pikseller
+birebir korundu. Fakat sentetik kırmızı nesne ikna edici biçimde kaldırılmadı;
+kahve fotoğrafında fincan, hem dar hem geniş seçimin ardından görünür kaldı ve
+geniş seçimde yapay izler oluştu. Bu örnekler zor fotoğraf benchmarkının yerini
+tutmaz; mevcut kalite kapısının **başarısız** olduğunu göstermek için yeterlidir.
+Modelin indirilmesi veya MPS üzerinde bitmesi ürün kabulü sayılmayacaktır.
+
+Bu cihazda SDXL için henüz güvenilir minimum bellek eşiği, CPU kabulü, 1600×900
+ve 2400×1350 kalite ölçümü veya paketli uygulama testi yoktur. Model kartı
+kurulabilir/hazır olmayacak. İleri silme için ayrı kaynak ve kalite kapısı olan
+bir alternatif değerlendirilebilir; aynı ağırlık başka etiketle sunulamaz.

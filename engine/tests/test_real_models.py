@@ -18,7 +18,12 @@ def test_real_models_queue_preserves_alpha_and_reports_actual_artifacts():
     async def scenario():
         manager=ModelManager(get_models_dir(),prober=_probe_model)
         await manager.start()
-        assert all(m['state']=='ready' for m in manager.list_models()['models'])
+        states = {model['id']: model['state'] for model in manager.list_models()['models']}
+        assert {model_id for model_id, state in states.items() if state == 'ready'} == {
+            'lama', 'migan-512-places2', 'realesrgan-x4plus', 'realesrgan-general-x4v3',
+        }, states
+        assert states['sdxl-inpainting'] == 'unavailable'
+        assert states['swin2sr-realworld-x4'] == 'unavailable'
         rgba=np.zeros((16,24,4),np.uint8)
         rgba[:,:,:3]=np.random.default_rng(42).integers(0,255,(16,24,3),dtype=np.uint8)
         rgba[:,:,3]=np.arange(24,dtype=np.uint8)[None,:]*10

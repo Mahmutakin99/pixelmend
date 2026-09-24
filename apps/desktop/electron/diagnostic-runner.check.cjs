@@ -4,10 +4,10 @@ const {modelCases, runCases, classifyError} = require('./diagnostic-runner.cjs')
 
 test('every catalog model receives a case, including unverified artifacts', () => {
   const cases = modelCases([{id:'lama',name:'LaMa',state:'ready',operation:'remove'},
-    {id:'real-hat-gan-x4',name:'HAT',state:'unavailable',operation:'upscale'},
+    {id:'swin2sr-realworld-x4',name:'Swin2SR',state:'unavailable',operation:'upscale'},
     {id:'realesrgan-x4plus',name:'ESRGAN',state:'absent',operation:'upscale'}]);
   assert(cases.some(c=>c.modelId==='lama' && c.provider==='CPUExecutionProvider'));
-  assert(cases.some(c=>c.modelId==='real-hat-gan-x4' && c.status==='unsupported'));
+  assert(cases.some(c=>c.modelId==='swin2sr-realworld-x4' && c.status==='unsupported'));
   assert(cases.some(c=>c.modelId==='realesrgan-x4plus' && c.status==='not_installed'));
 });
 

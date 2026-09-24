@@ -1,5 +1,6 @@
 import hashlib
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -78,6 +79,52 @@ def test_package_install_is_atomic_and_reuses_a_verified_restart_cache(tmp_path)
 
     reused = install_package(tmp_path, manifest, lambda *_: pytest.fail('must not download'))
     assert reused == installed
+
+
+def test_cancelled_package_install_leaves_no_ready_revision_and_can_retry(tmp_path):
+    manifest = package_manifest()
+    stopped = Event()
+    payloads = {'unet/weights.bin': b'one', 'tokenizer/config.json': b'two'}
+
+    def interrupted(file, destination, cancel, progress):
+        destination.write_bytes(payloads[file.path])
+        stopped.set()
+
+    with pytest.raises(InterruptedError, match='cancelled'):
+        install_package(tmp_path, manifest, interrupted, cancel=stopped)
+
+    target = tmp_path / manifest.model_id / manifest.revision
+    assert not target.exists()
+
+    def retry(file, destination, cancel, progress):
+        destination.write_bytes(payloads[file.path])
+
+    installed = install_package(tmp_path, manifest, retry)
+    assert verify_package(installed, manifest) == target
+
+
+def test_corrupt_revision_is_replaced_only_after_complete_verification(tmp_path):
+    manifest = package_manifest()
+    target = tmp_path / manifest.model_id / manifest.revision
+    (target / 'unet').mkdir(parents=True)
+    (target / 'unet' / 'weights.bin').write_bytes(b'bad')
+    (target / 'tokenizer').mkdir()
+    (target / 'tokenizer' / 'config.json').write_bytes(b'two')
+
+    def failed_repair(file, destination, cancel, progress):
+        assert (target / 'unet' / 'weights.bin').read_bytes() == b'bad'
+        raise RuntimeError('network failure')
+
+    with pytest.raises(RuntimeError, match='network failure'):
+        install_package(tmp_path, manifest, failed_repair)
+    assert (target / 'unet' / 'weights.bin').read_bytes() == b'bad'
+
+    def repair(file, destination, cancel, progress):
+        destination.write_bytes(b'one' if file.path.startswith('unet/') else b'two')
+
+    assert install_package(tmp_path, manifest, repair) == target
+    assert verify_package(target, manifest) == target
+    assert not list(target.parent.glob(f'.{manifest.revision}.invalid-*'))
 
 
 @pytest.mark.parametrize('path', ['../weights.bin', '/weights.bin', 'unet/../../weights.bin', ''])
