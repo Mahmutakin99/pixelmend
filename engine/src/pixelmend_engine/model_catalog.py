@@ -58,7 +58,7 @@ DEFAULT_MODEL_CATALOG = (
     ModelCatalogEntry('lama', 'LaMa', LAMA_ONNX_MANIFEST, operation='remove', tier='balanced',
                       description='Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'),
     ModelCatalogEntry('sdxl-inpainting', 'SDXL Inpainting', None, operation='remove', tier='advanced',
-                      description='Güçlü sistemler ve zor görseller için önerilir. Daha fazla bellek kullanabilir ve daha uzun sürebilir.'),
+                      description='Nesne silme kalite denemesini geçmedi; kurulum ve kullanım kapalı. Yeni aday değerlendiriliyor.'),
     ModelCatalogEntry('realesrgan-general-x4v3', 'RealESRGAN General x4v3', REALESRGAN_GENERAL_MANIFEST, operation='upscale', tier='fast',
                       description='Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir. İnce ayrıntılarda daha sınırlı sonuç verebilir.'),
     ModelCatalogEntry('realesrgan-x4plus', 'RealESRGAN x4plus', REALESRGAN_LOCAL_MANIFEST, operation='upscale', tier='balanced',

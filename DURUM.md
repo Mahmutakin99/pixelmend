@@ -2,6 +2,15 @@
 
 Son güncelleme: 2026-09-24
 
+## 2026-09-24 — İş öncesi model durumu ve sonuç sözleşmesi
+
+- Kimlik doğrulamalı `GET /jobs/preflight`, seçilen fotoğraf/model/amaç/ölçü için yayımlanma, kurulum, probe ve büyütme kaynak kapısını bildiriyor. İş başlangıcındaki bağımsız kontroller korunuyor. Yayımlanmamış model artık kurulabilir diye raporlanmıyor.
+- Silme işleminin yayın sınırı model çıktısını doğrulayıp yalnız maskeli RGB piksellerini alıyor; kaynak alfa aynen korunuyor. Sonuç anlık görüntüsü model kimliği/revision/backend yanında giriş ve çıkış ölçülerini, CPU dönüş nedenini ve süreyi taşıyor.
+- [PowerPaint v2-1 aday incelemesi](docs/verification/powerpaint-v2-1-source-review-2026-09-24.md) başlatıldı. Alt bileşen lisansı/hash'i ve M4 kalite/bellek kabulü eksik; model etkinleştirilmedi. SDXL kartı kalite engelini açıkça belirtiyor.
+- İlgili motor testleri, masaüstü testleri, production build ve CI araç testleri geçti. Tam motor koşusunda sandbox içindeki gerçek loopback testi soket yetkisi yüzünden düştü; aynı test izinli ortamda geçti. İzinli tam koşu, uzun gerçek model testleri sırasında durduruldu; bu yüzden bu değişiklik için tam motor suite'i geçti iddiası yok. Mevcut Starlette/httpx üçüncü taraf deprecation uyarısı açık.
+
+İleri modellerin kurulumu, altı model kabulü, üç platformun native paketli testi ve son uygulama güncellemesi henüz yapılmadı; teslim nihai değildir.
+
 ## 2026-09-24 — İleri modellerin M4 kabul denemesi
 
 - Swin2SR Real-World x4 için sabit 64/128 px ONNX Core ML ve PyTorch MPS

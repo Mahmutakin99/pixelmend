@@ -82,6 +82,11 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
     else:
         adapter = OpenCVInpaint({'opencv_telea': 'telea', 'opencv_ns': 'ns'}[algorithm])
     rgb = adapter.run(image.rgb, mask)
+    if not isinstance(rgb, np.ndarray) or rgb.shape != image.rgb.shape or rgb.dtype != np.uint8:
+        raise ValueError('invalid inpaint output')
+    # The model may change contextual pixels internally. Only the selected
+    # pixels are eligible for publication, regardless of adapter behavior.
+    rgb = np.where(mask[:, :, None] == 255, rgb, image.rgb)
     if execution_evidence is not None and hasattr(adapter, 'evidence'):
         execution_evidence.update(adapter.evidence.value)
     return replace(image, rgb=rgb)
@@ -287,14 +292,17 @@ class JobQueue:
                             raise MemoryError('result budget exceeded')
                         result_id = uuid4().hex
                         job.results[result_id] = result
+                        elapsed = monotonic() - started
                         job.result_metadata[result_id] = {'algorithm': algorithm, 'execution_evidence': execution_evidence,
                             'fallback_reason': job.fallback_reason,
                             'model_id': AI_MODELS.get(algorithm),
                             'model_revision': job.model_revision if algorithm in AI_MODELS else None,
-                            'provider': job.provider if algorithm in AI_MODELS else 'CPU'}
+                            'provider': job.provider if algorithm in AI_MODELS else 'CPU',
+                            'input_width': image.width, 'input_height': image.height,
+                            'seconds': elapsed}
                         job.result_bytes += size
                         job.emit('result', result_id=result_id, **job.result_metadata[result_id],
-                                 seconds=monotonic() - started, width=result.width, height=result.height)
+                                 width=result.width, height=result.height)
                 job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
             except (InferenceCancelled, asyncio.CancelledError):
                 job.status = 'cancelled'

@@ -15,13 +15,61 @@ from .assets import AssetNotFoundError, AssetCapacityError
 from .imageio import MAX_SOURCE_BYTES, encode_export, encode_preview_png
 from .strokes import StrokeValidationError, rasterize_selection
 from .jobs import TERMINAL
-from .policy import ResourceLimitError
+from .policy import ResourceLimitError, admit_image_job, inference_settings
 from .model_manager import ModelManagerError
-from .model_catalog import AI_MODELS, UPSCALE_MODELS
+from .model_catalog import AI_MODELS, UPSCALE_MODELS, DEFAULT_MODEL_CATALOG
 
 
 def job_router(queue, assets, auth):
     router = APIRouter(dependencies=[Depends(auth)])
+
+    @router.get('/jobs/preflight')
+    async def preflight(asset_id: str, model_id: str, intent: str = 'resize',
+                        target_width: int | None = None, target_height: int | None = None,
+                        resource_mode: str = 'automatic'):
+        """Advisory admission; submit repeats all mutable checks before work starts."""
+        try:
+            image = assets.get_image(asset_id)
+        except AssetNotFoundError:
+            raise HTTPException(404, 'asset not found') from None
+        entry = next((item for item in DEFAULT_MODEL_CATALOG if item.id == model_id), None)
+        if entry is None:
+            raise HTTPException(404, 'model not found')
+        if intent not in {'resize', 'preserve_size'} or resource_mode not in {'automatic', 'low-resource'}:
+            raise HTTPException(422, 'invalid job intent or resource mode')
+        if entry.operation == 'remove':
+            if intent != 'resize' or target_width is not None or target_height is not None:
+                raise HTTPException(422, 'removal uses source dimensions')
+            target = (image.width, image.height)
+        elif intent == 'preserve_size':
+            target = (image.width, image.height)
+        else:
+            if target_width is None or target_height is None:
+                raise HTTPException(422, 'target dimensions required')
+            target = (target_width, target_height)
+        inference_settings(resource_mode)
+        view = next(item for item in queue.model_manager.list_models()['models'] if item['id'] == model_id)
+        reason = None
+        if not view['published']:
+            reason = {'code': 'unpublished', 'message': 'Model kalite ve kaynak kabulünü henüz geçmedi.'}
+        elif view['state'] == 'absent':
+            reason = {'code': 'model_absent', 'message': 'Model kurulmalı ve gerçek işlemle sınanmalı.'}
+        elif view['state'] != 'ready':
+            reason = view['error'] or {'code': 'model_not_ready', 'message': f"Model durumu: {view['state']}"}
+        resource_reason = None
+        try:
+            if entry.operation == 'upscale':
+                admit_image_job(image, target, ai=True,
+                    result_bytes=sum(job.result_bytes for job in queue.jobs.values()))
+        except ResourceLimitError as error:
+            resource_reason = {'code': error.code, 'message': str(error)}
+            reason = reason or resource_reason
+        return {'model_id': model_id, 'revision': view['revision'], 'ready': reason is None,
+                'reason': reason, 'resource_reason': resource_reason,
+                'installation_available': view['published'],
+                'state': view['state'], 'provider': (view['probe'] or {}).get('selected_provider'),
+                'input_width': image.width, 'input_height': image.height,
+                'output_width': target[0], 'output_height': target[1]}
 
     def lookup(job_id):
         try:

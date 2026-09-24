@@ -9,6 +9,29 @@ import pytest
 from pixelmend_engine.assets import AssetStore, AssetInUseError
 
 
+def test_inpaint_boundary_restores_unselected_rgb_and_preserves_alpha(monkeypatch):
+    from pixelmend_engine.imageio import ImageAsset
+    from pixelmend_engine.jobs import process
+    import pixelmend_engine.jobs as jobs
+
+    class DirtyAdapter:
+        def __init__(self, method):
+            pass
+
+        def run(self, rgb, mask):
+            return np.full_like(rgb, 17)
+
+    monkeypatch.setattr(jobs, 'OpenCVInpaint', DirtyAdapter)
+    rgb = np.arange(6 * 7 * 3, dtype=np.uint8).reshape(6, 7, 3)
+    alpha = np.arange(6 * 7, dtype=np.uint8).reshape(6, 7)
+    mask = np.zeros((6, 7), np.uint8); mask[0, 0] = 255
+    image = ImageAsset(rgb, alpha, None, ())
+    output = process(image, mask, 'opencv_telea', 1)
+    np.testing.assert_array_equal(output.rgb[mask == 0], rgb[mask == 0])
+    np.testing.assert_array_equal(output.alpha, alpha)
+    assert output.rgb[0, 0].tolist() == [17, 17, 17]
+
+
 def source(store):
     data = BytesIO()
     Image.new('RGB', (9, 9), 'white').save(data, format='PNG')

@@ -86,6 +86,9 @@ def test_job_api_processes_mask_streams_results_and_exports():
                 break
             time.sleep(.01)
         assert status['status'] == 'completed'
+        assert status['result_details'][0]['input_width'] == 8
+        assert status['result_details'][0]['input_height'] == 8
+        assert status['result_details'][0]['seconds'] >= 0
         stream = client.get(f'/jobs/{job_id}/events')
         assert 'event: completed' in stream.text
         result_id = status['result_ids'][0]
@@ -124,3 +127,27 @@ def test_job_api_carries_the_validated_low_resource_mode_to_the_queue():
             'resource_mode': 'low-resource'})
         assert response.status_code == 201, response.text
         assert client.get(f"/jobs/{response.json()['job_id']}").json()['resource_mode'] == 'low-resource'
+
+
+def test_preflight_reports_real_model_block_and_never_calls_it_installable(tmp_path, monkeypatch):
+    monkeypatch.setenv('PIXELMEND_MODELS_DIR', str(tmp_path))
+    data = BytesIO(); Image.new('RGB', (16, 16), 'white').save(data, format='PNG')
+    with TestClient(create_app(session_token='a' * 64), base_url='http://127.0.0.1',
+                    headers={'X-PixelMend-Token': 'a' * 64}) as client:
+        asset = client.post('/assets', files={'image': ('source.png', data.getvalue())}).json()
+        blocked = client.get('/jobs/preflight', params={'asset_id': asset['asset_id'],
+            'model_id': 'swin2sr-realworld-x4', 'intent': 'resize',
+            'target_width': 32, 'target_height': 32})
+        assert blocked.status_code == 200
+        assert blocked.json()['ready'] is False
+        assert blocked.json()['reason']['code'] == 'unpublished'
+        assert blocked.json()['installation_available'] is False
+        oversized = client.get('/jobs/preflight', params={'asset_id': asset['asset_id'],
+            'model_id': 'swin2sr-realworld-x4', 'target_width': 50000, 'target_height': 50000})
+        assert oversized.json()['reason']['code'] == 'unpublished'
+        assert oversized.json()['resource_reason']['code'] == 'output_limit'
+        missing = client.get('/jobs/preflight', params={'asset_id': asset['asset_id'],
+            'model_id': 'realesrgan-x4plus', 'intent': 'resize',
+            'target_width': 32, 'target_height': 32})
+        assert missing.json()['reason']['code'] == 'model_absent'
+        assert missing.json()['installation_available'] is True
