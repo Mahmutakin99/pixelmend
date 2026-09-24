@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {resolve} from 'node:path';
 import {artifactName, buildManifest, jobPath, sha256} from './package-evidence.mjs';
 
 test('artifact names are stable and include every target dimension', () => {
@@ -19,6 +20,6 @@ test('checksum output is SHA-256 and stable', () => {
 test('package job paths resolve from the package working directory', () => {
   assert.equal(
     jobPath('out.noindex/PixelMend.dmg', '/workspace/apps/desktop'),
-    '/workspace/apps/desktop/out.noindex/PixelMend.dmg',
+    resolve('/workspace/apps/desktop', 'out.noindex/PixelMend.dmg'),
   );
 });
