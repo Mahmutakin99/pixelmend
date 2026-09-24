@@ -5,7 +5,7 @@ from pixelmend_engine.execution_profile import provider_candidates, provider_spe
 
 def test_coreml_candidates_precede_cpu_and_use_a_model_cache(tmp_path: Path):
     candidates = provider_candidates(
-        ('CoreMLExecutionProvider', 'CPUExecutionProvider'), tmp_path,
+        ('CoreMLExecutionProvider', 'CPUExecutionProvider'), tmp_path, platform_name='darwin',
     )
     assert candidates[1] == 'CPUExecutionProvider'
     coreml = candidates[0][1]
@@ -28,7 +28,7 @@ def test_coreml_is_skipped_when_its_cache_cannot_be_created(monkeypatch, tmp_pat
     def denied(*args, **kwargs):
         raise PermissionError('sandbox')
     monkeypatch.setattr(Path, 'mkdir', denied)
-    assert provider_candidates(('CoreMLExecutionProvider', 'CPUExecutionProvider'), tmp_path) == [
+    assert provider_candidates(('CoreMLExecutionProvider', 'CPUExecutionProvider'), tmp_path, platform_name='darwin') == [
         'CPUExecutionProvider'
     ]
 
