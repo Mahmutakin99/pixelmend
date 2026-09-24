@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {Settings} from './Settings';
-import {aiReady, allowedActions, type ModelView} from './models';
+import {aiReady, allowedActions, selectableModels, type ModelView} from './models';
 
 const model:ModelView={id:'realesrgan-x4plus',name:'RealESRGAN x4plus',state:'unavailable',published:false,size_bytes:null,downloaded_bytes:0,revision:null,sha256:null,license_id:null,license_url:null,error:null,probe:null,in_use:false,stored_bytes:0,active_revision:null,last_used_at:null,stale_revisions:[]};
 describe('model availability and performance facts',()=>{
@@ -16,6 +16,11 @@ describe('model availability and performance facts',()=>{
     expect(allowedActions({...model,published:true,state:'installed'})).toEqual(['probe','delete']);
     expect(allowedActions({...model,published:true,state:'ready',in_use:true})).toEqual([]);
     expect(allowedActions({...model,published:true,state:'failed'})).toContain('retry');
+  });
+  it('offers only fast and balanced models while advanced candidates are coming soon',()=>{
+    const advanced = {...model, id:'sdxl-inpainting', tier:'advanced' as const};
+    const balanced = {...model, id:'lama', tier:'balanced' as const};
+    expect(selectableModels([advanced, balanced])).toEqual([balanced]);
   });
   it('keeps technical capability data out of the default settings page',()=>{
     const html=renderToStaticMarkup(<Settings value={{language:'tr',theme:'system'}} close={()=>{}} set={()=>{}} models={[model]} capabilities={undefined} refresh={()=>{}} error=""/>);

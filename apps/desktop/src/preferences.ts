@@ -20,8 +20,8 @@ export function normalizePreferences(value: Partial<PixelMendPreferences>): Pixe
     ...defaults,
     ...value,
     zoomSensitivity: Number.isFinite(zoom) ? Math.max(.5, Math.min(4, zoom)) : defaults.zoomSensitivity,
-    removeModelTier: ['fast', 'balanced', 'advanced'].includes(value.removeModelTier || '') ? value.removeModelTier! : defaults.removeModelTier,
-    upscaleModelTier: ['fast', 'balanced', 'advanced'].includes(value.upscaleModelTier || '') ? value.upscaleModelTier! : defaults.upscaleModelTier,
+    removeModelTier: ['fast', 'balanced'].includes(value.removeModelTier || '') ? value.removeModelTier! : defaults.removeModelTier,
+    upscaleModelTier: ['fast', 'balanced'].includes(value.upscaleModelTier || '') ? value.upscaleModelTier! : defaults.upscaleModelTier,
     performanceMode: value.performanceMode === 'low-resource' ? 'low-resource' : defaults.performanceMode,
   };
 }

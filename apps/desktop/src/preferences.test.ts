@@ -10,4 +10,9 @@ describe('preferences', () => {
   it('uses balanced models and automatic performance by default', () => {
     expect(normalizePreferences({})).toMatchObject({removeModelTier: 'balanced', upscaleModelTier: 'balanced', performanceMode: 'automatic'});
   });
+
+  it('moves retired advanced selections to the balanced model', () => {
+    expect(normalizePreferences({removeModelTier: 'advanced'}).removeModelTier).toBe('balanced');
+    expect(normalizePreferences({upscaleModelTier: 'advanced'}).upscaleModelTier).toBe('balanced');
+  });
 });

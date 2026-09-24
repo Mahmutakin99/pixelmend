@@ -17,6 +17,7 @@ export type Capabilities = {
 };
 export type ModelSnapshot = {models:ModelView[]};
 export type UpscaleMethod = 'ai'|'lanczos';
+export const selectableModels = (models: ModelView[]) => models.filter(model => model.tier !== 'advanced');
 // Availability is determined by an actual model probe, never by host RAM or provider presence.
 export const aiReady = (model:ModelView|undefined) => model?.state === 'ready' && model.probe?.status === 'passed';
 export function allowedActions(model:ModelView):ModelAction[] {
