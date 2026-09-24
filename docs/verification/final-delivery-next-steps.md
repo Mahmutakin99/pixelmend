@@ -1,7 +1,7 @@
 # Nihai teslim — sıradaki işler
 
-Bu belge, PixelMend'in nihai teslim sırasını korur. Kullanıcı “sıradaki adıma
-devam et” dediğinde, engel yoksa ilk tamamlanmamış maddeden başlanır.
+Bu belge, PixelMend'in nihai teslim sırasını korur. Güncel kararlar için
+[`DURUM.md`](../../DURUM.md) ve 2026-09-24 teslim planı esas alınır.
 
 2026-09-23 itibarıyla kalan kapsam iki uygulanabilir plana ayrıldı:
 
@@ -33,21 +33,22 @@ model tamam” kararı ilk planın kabul kapısına bağlıdır.
   lisanslı resmî ağırlık sunmuyor. Üçüncü taraf aynası da izin beyan etmiyor;
   kart etkin değil. Kanıt:
   [`lama-regular-source-review-2026-09-23.md`](lama-regular-source-review-2026-09-23.md).
-- SDXL Inpainting: sabit paket ve Open RAIL++ koşulları incelendi. Son kullanıcı
-  lisans akışı ile M4/16 GB üzerinde temsilî MPS kabulü eksik; kart etkin değil.
+- SDXL Inpainting: M4 üzerinde çalıştı ancak nesne silme görsel kalite kapısını
+  geçemedi; kart etkin değil. PowerPaint v2-1 ilk yeni adaydır; alt bileşen
+  lisans/hash incelemesi ve M4 kalite/bellek kabulü henüz tamamlanmadı.
   Kanıt:
-  [`sdxl-inpainting-source-review-2026-09-23.md`](sdxl-inpainting-source-review-2026-09-23.md).
+  [`sdxl-inpainting-source-review-2026-09-23.md`](sdxl-inpainting-source-review-2026-09-23.md),
+  [`powerpaint-v2-1-source-review-2026-09-24.md`](powerpaint-v2-1-source-review-2026-09-24.md).
 - Düşük kaynak modu artık gerçek karo ve CPU iş parçacığı ayarını seçer;
   provider profilinin kalıcı önbelleği hâlâ açık iştir.
 
 ## Ardışık kalan işler
 
-1. HAT ve LaMa Regular ağırlıkları için yazılı/ayrıntılı dağıtım izni al veya
-   açık lisanslı, farklı ve ölçülebilir alternatifleri seç.
-2. SDXL için Open RAIL++ koşullarını kullanıcıya ileten ve kabul ettiren lisans
-   akışını tasarla; sonra yerel MPS worker, maskesiz piksel koruması ve kaynak
-   kabulünü tamamla.
-3. Bu üç kapı açıldıktan sonra altı modelin 12 fotoğraflık kalite/performance
+1. Swin2SR'nin sabit PyTorch MPS yolunu tam fotoğraf işine, isteğe bağlı
+   doğrulanmış runtime kurulumuna ve CPU yoluna bağla.
+2. PowerPaint v2-1 alt bileşenlerini kaynak/lisans/hash açısından doğrula;
+   M4 ve kalite kapısı geçmezse ZITS++ 512'yi aynı yöntemle incele.
+3. İki ileri model kapısı açıldıktan sonra altı modelin 12 fotoğraflık kalite/performance
    kabulünü tamamla.
 4. Otomatik CPU/GPU sisteminde profil önbelleğini ekle ve arayüzde CPU geri
    dönüş açıklamasını gerçek ölçümden besle.
