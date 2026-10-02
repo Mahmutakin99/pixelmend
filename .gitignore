@@ -44,5 +44,11 @@ apps/desktop/out/
 apps/desktop/out.noindex/
 :memory:.ses
 
+# Generated release installers stay local; source and test kits remain versioned.
+/release/**/*.zip
+/release/**/*.AppImage
+/release/**/*.deb
+/release/**/*.exe
+
 # Licensed benchmark pixels are local; provenance remains versioned.
 engine/bench/fixtures/

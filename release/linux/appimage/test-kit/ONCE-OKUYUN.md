@@ -9,15 +9,12 @@ Bu klasör PixelMend uygulamasını test eder. **Önce PixelMend’i kurun**, so
 3. Bu klasördeki **`PixelMend-Test.cmd`** dosyasına çift tıklayın.
 4. Uygulama bulunamazsa açılan pencereden kurduğunuz `PixelMend.exe` dosyasını seçin. Bu normaldir.
 5. Açılan **PixelMend · Bilgisayar testi** penceresinde:
-   - İlk hızlı kontrol için **Standart test** seçili kalsın. Windows kabulü için
-     ayrıca, bilgisayar boşta iken **Kapsamlı test**i ayrı çalıştırın; bu çalışma
-     12 lisanslı fotoğraf, 1×/2×/4× karşılaştırmaları ve büyük işleri içerdiği
-     için saatler sürebilir.
+   - **Standart test** seçili kalsın.
    - **Eksik modelleri indir** kutusunu işaretleyin.
    - **Testi başlat** düğmesine basın.
 6. Test bitene kadar pencereyi kapatmayın. Bitince not alanına varsa hata, ekran kartı adı ve ne yaptığınızı yazın; **Notları rapora ekle** düğmesine basın. Sonra **Raporu klasörde göster** düğmesine basın.
 7. Test penceresini kapatın. Masaüstünde şu dosya oluşur: `PixelMend-Test-YYYY-AA-GG....zip`
-8. Her koşunun ZIP dosyasını testi isteyen kişiye gönderin. WhatsApp, e-posta veya Drive bağlantısı kullanılabilir. Dosya büyükse Drive bağlantısı gönderin. Kapsamlı koşunun görselleri insan incelemesi olmadan kalite kabulü sayılmaz.
+8. Bu ZIP dosyasını testi isteyen kişiye gönderin. WhatsApp, e-posta veya Drive bağlantısı kullanılabilir. Dosya büyükse Drive bağlantısı gönderin.
 
 ## Linux — AppImage
 
@@ -27,10 +24,10 @@ Bu klasör PixelMend uygulamasını test eder. **Önce PixelMend’i kurun**, so
 
 ```sh
 chmod +x PixelMend-*.AppImage test-kit/PixelMend-Test.sh
-sh test-kit/PixelMend-Test.sh
+sh test-kit/PixelMend-Test.sh "$(pwd)"/PixelMend-*.AppImage
 ```
 
-4. Betik tek AppImage'ı otomatik bulur. Birden fazla AppImage varsa otomatik seçim yapmaz; tam yolu tek argüman olarak verin. Açılan test penceresinde Windows bölümündeki 5–8. adımları uygulayın. Rapor Masaüstünde `PixelMend-Test-....zip` adıyla oluşur.
+4. Açılan test penceresinde Windows bölümündeki 5–8. adımları uygulayın. Rapor Masaüstünde `PixelMend-Test-....zip` adıyla oluşur.
 
 ## Linux — DEB
 
@@ -41,7 +38,7 @@ sh test-kit/PixelMend-Test.sh
 sh PixelMend-Test.sh
 ```
 
-3. Uygulama bulunamazsa betik PixelMend çalıştırılabilir dosyasının tam yolunu ister. Önce standart koşuyu, ardından bilgisayar boşta iken kapsamlı koşuyu ayrı çalıştırın; her iki ZIP'i gönderin. Kapsamlı görsellerin insan incelemesi Linux kalite kabulü için zorunludur.
+3. Uygulama bulunamazsa betik PixelMend çalıştırılabilir dosyasının tam yolunu ister. Sonra yukarıdaki test adımlarını izleyin.
 
 ## ZIP oluşmadıysa veya test hata verirse
 

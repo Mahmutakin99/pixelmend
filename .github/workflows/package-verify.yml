@@ -83,6 +83,9 @@ jobs:
           pnpm build:engine
           pnpm build
           pnpm exec electron-builder --publish never --${{ matrix.os == 'macos' && 'mac' || matrix.os == 'windows' && 'win' || 'linux' }} ${{ matrix.builder_target }} --${{ matrix.arch }}
+      - name: Build companion test kit
+        shell: bash
+        run: node ../../tools/ci/make-test-kit.mjs --platform '${{ matrix.os }}'
       - name: Locate the requested package
         id: package
         shell: bash
@@ -124,14 +127,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pkg='${{ steps.package.outputs.file }}'; temp_dir="$(mktemp -d)"; trap 'rm -rf "$temp_dir" squashfs-root' EXIT
+          pkg='${{ steps.package.outputs.file }}'; temp_dir="$(mktemp -d)"; report_dir="$temp_dir/diagnostic-output"; mkdir -p "$report_dir"; trap 'rm -rf "$temp_dir" squashfs-root' EXIT
           if [ '${{ matrix.format }}' = appimage ]; then
             chmod +x "$pkg"; APPIMAGE_EXTRACT_AND_RUN=1 PIXELMEND_CI_SMOKE=1 "$pkg" --no-sandbox
+            set +e
+            APPIMAGE_EXTRACT_AND_RUN=1 PIXELMEND_CI_SMOKE=1 PIXELMEND_DIAGNOSTIC_NO_SANDBOX=1 PIXELMEND_DIAGNOSTIC_OUTPUT="$report_dir" out.noindex/test-kit/PixelMend-Test.sh "$pkg"
+            diagnostic_code=$?
+            set -e
           else
             dpkg-deb -x "$pkg" "$temp_dir"
             app_bin="$(find "$temp_dir" -type f -name pixelmend -perm -111 -print -quit)"
             test -n "$app_bin"; PIXELMEND_CI_SMOKE=1 "$app_bin" --no-sandbox
+            set +e
+            PIXELMEND_CI_SMOKE=1 PIXELMEND_DIAGNOSTIC_NO_SANDBOX=1 PIXELMEND_DIAGNOSTIC_OUTPUT="$report_dir" out.noindex/test-kit/PixelMend-Test.sh "$app_bin"
+            diagnostic_code=$?
+            set -e
           fi
+          # CI smoke exits before the interactive diagnostic can archive; retaining
+          # the partial report proves the companion launcher reached the package.
+          test "$diagnostic_code" -eq 1
+          test -n "$(find "$report_dir" -maxdepth 1 -type d -name 'PixelMend-Test-*' -print -quit)"
       - name: Smoke Windows NSIS package contents
         if: matrix.os == 'windows'
         shell: pwsh
@@ -161,9 +176,6 @@ jobs:
         run: |
           name="$(node ../../tools/ci/package-evidence.mjs stage --package '${{ steps.package.outputs.file }}' --format '${{ matrix.format }}' --os '${{ matrix.os }}' --arch '${{ matrix.arch }}' --manifest ci-evidence/build-manifest.json --node-sbom ci-evidence/sbom-node.cdx.json --python-sbom ci-evidence/sbom-python.cdx.json --output ci-artifacts)"
           echo "name=$name" >> "$GITHUB_OUTPUT"
-      - name: Build companion test kit
-        shell: bash
-        run: node ../../tools/ci/make-test-kit.mjs
       - uses: actions/upload-artifact@v4
         # The companion launchers use only the installed application and OS tools.
         # They do not need Python, Node or Playwright on a tester's computer.
