@@ -2,7 +2,8 @@
 
 <h1 align="center">PixelMend</h1>
 <p align="center">Repair, enlarge and edit your photos. On your own computer.</p>
-<p align="center"><strong>macOS · Apple Silicon · Local image processing · Development / RC</strong></p>
+<p align="center"><strong>macOS Apple Silicon · Windows x64 · Local image processing · RC</strong></p>
+<p align="center"><a href="https://github.com/Mahmutakin99/pixelmend-showcase/releases/tag/v1.0.0-rc.2">Download · 1.0.0-rc.2</a></p>
 <p align="center"><a href="README.md">Türkçe</a> · English</p>
 
 ![PixelMend photo editor](assets/02-editor.png)
@@ -36,13 +37,17 @@ These screenshots were captured from the running macOS application, rather than 
 
 ## Availability
 
-PixelMend is in development. The installed application shown here is **1.0.0-rc.2**, captured on **2 October 2026**. The source project's status record dated 24 September 2026 lists advanced model acceptance, Windows / Linux testing on real devices and final release as unfinished work.
+PixelMend is in development. The installed application shown here is **1.0.0-rc.2**, captured on **2 October 2026**. Windows operation was confirmed by the developer on that date; no additional Windows device test was performed while preparing this publication. Advanced model acceptance and the final stable release remain ongoing.
 
 | Platform | Status |
 | --- | --- |
-| macOS / Apple Silicon | Local RC application; the platform shown in this gallery |
-| Windows / Linux | Target platforms; not presented as generally available or accepted on real devices |
-| Public download | No installer is published in this showcase repository |
+| macOS / Apple Silicon | RC.2 · [DMG](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-macOS-arm64.dmg) / [ZIP](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-macOS-arm64.zip) |
+| Windows x64 | RC.2 · [EXE](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-Windows-x64-Setup.exe) / [ZIP + test launcher](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-Windows-x64.zip); not a portable build |
+| Linux | Support is incomplete; no Linux package is published |
+
+[Release notes, SHA-256 checksums and optional test kit](https://github.com/Mahmutakin99/pixelmend-showcase/releases/tag/v1.0.0-rc.2). The `.sh`, `.command` and `.cmd` launchers open installed-app diagnostics; they are not installers. macOS packages wrap the existing installed application and are not notarized. Windows may show SmartScreen warnings; verified Authenticode signing is not claimed. Do not disable system-wide security protections.
+
+The Git source repository remains private, but JavaScript can be extracted from public Electron packages; private repository visibility cannot guarantee secrecy of distributed application code.
 
 The screenshots document the interface only. This repository does not present a new quality comparison, speed benchmark, evidence of GPU acceleration or a claim that every model is ready.
 
@@ -54,4 +59,4 @@ Mahmut AKIN · [GitHub](https://github.com/Mahmutakin99)
 
 ## Rights and third-party materials
 
-Original showcase text is covered by the [rights notice](RIGHTS.md). The source project's Apache-2.0 license, rights in inherited assets and third-party photo / model licenses remain separate and unchanged. Model weights and application binaries are not included in this repository.
+Original showcase text is covered by the [rights notice](RIGHTS.md). The source project's Apache-2.0 license, rights in inherited assets and third-party photo / model licenses remain separate and unchanged. Application packages are hosted in Releases, not as source in the Git tree. Model weights are downloaded separately.

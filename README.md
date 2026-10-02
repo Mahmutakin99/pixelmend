@@ -2,7 +2,8 @@
 
 <h1 align="center">PixelMend</h1>
 <p align="center">Fotoğraflarınızı onarın, büyütün ve düzenleyin. Kendi bilgisayarınızda.</p>
-<p align="center"><strong>macOS · Apple Silicon · Yerel görüntü işleme · Geliştirme / RC</strong></p>
+<p align="center"><strong>macOS Apple Silicon · Windows x64 · Yerel görüntü işleme · RC</strong></p>
+<p align="center"><a href="https://github.com/Mahmutakin99/pixelmend-showcase/releases/tag/v1.0.0-rc.2">İndir · 1.0.0-rc.2</a></p>
 <p align="center">Türkçe · <a href="README.en.md">English</a></p>
 
 ![PixelMend fotoğraf düzenleyicisi](assets/02-editor.png)
@@ -36,13 +37,17 @@ Ekran görüntüleri çalışan macOS uygulamasından alınmıştır; tasarım m
 
 ## Kullanılabilirlik
 
-PixelMend geliştirme aşamasındadır. Bu tanıtımdaki kurulu uygulama **1.0.0-rc.2** sürümüdür; ekran görüntüleri **2 Ekim 2026** tarihinde alınmıştır. Kaynak projenin 24 Eylül 2026 durum kaydında ileri model kabulü, Windows / Linux gerçek cihaz doğrulaması ve nihai yayın açık işler olarak yer alır.
+PixelMend geliştirme aşamasındadır. Bu tanıtımdaki kurulu uygulama **1.0.0-rc.2** sürümüdür; ekran görüntüleri **2 Ekim 2026** tarihinde alınmıştır. Windows'ta çalıştığı geliştirici tarafından aynı tarihte doğrulanmıştır. Bu yayın hazırlığında ayrıca Windows cihaz testi yapılmamıştır. İleri model kabulü ve nihai kararlı sürüm çalışmaları devam eder.
 
 | Platform | Durum |
 | --- | --- |
-| macOS / Apple Silicon | Yerel RC uygulaması; bu galerinin platformu |
-| Windows / Linux | Hedef platformlar; genel kullanıma hazır veya cihaz üzerinde kabul edilmiş olarak sunulmaz |
-| Genel indirme | Bu tanıtım deposunda yayımlanmış kurulum paketi yok |
+| macOS / Apple Silicon | RC.2 · [DMG](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-macOS-arm64.dmg) / [ZIP](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-macOS-arm64.zip) |
+| Windows x64 | RC.2 · [EXE](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-Windows-x64-Setup.exe) / [ZIP + test başlatıcısı](https://github.com/Mahmutakin99/pixelmend-showcase/releases/download/v1.0.0-rc.2/PixelMend-1.0.0-rc.2-Windows-x64.zip); ZIP portable değildir |
+| Linux | Destek tamamlanmadı; paket yayımlanmıyor |
+
+[Sürüm notları, SHA-256 ve test kiti](https://github.com/Mahmutakin99/pixelmend-showcase/releases/tag/v1.0.0-rc.2). Test kitindeki `.sh` / `.command` / `.cmd` dosyaları kurulum yapmaz, kurulu uygulamanın tanı penceresini açar. macOS paketleri mevcut kurulu uygulamadan hazırlanmıştır; noter onayı yoktur. Windows SmartScreen uyarısı çıkabilir; doğrulanmış Authenticode imzası iddia edilmez. Sistem genelinde güvenlik korumalarını kapatmayın.
+
+Kaynak Git deposu private kalır; ancak public Electron kurulum paketlerinden uygulamanın JavaScript kodu çıkarılabilir. Private depo, dağıtılan paketin kodunun incelenmesini mutlak biçimde engellemez.
 
 Ekran görüntüleri yalnız arayüzü belgelemektedir. Bu depo yeni bir kalite karşılaştırması, hız ölçümü, GPU hızlanması kanıtı veya tüm modellerin hazır olduğuna dair bir iddia içermez.
 
@@ -54,4 +59,4 @@ Mahmut AKIN · [GitHub](https://github.com/Mahmutakin99)
 
 ## Haklar ve üçüncü taraflar
 
-Bu tanıtım deposunun özgün metinleri için [haklar bildirimi](RIGHTS.md) geçerlidir. Kaynak projedeki Apache-2.0 lisansı, ilgili devralınan varlıkların hakları ve üçüncü taraf fotoğraf / model lisansları ayrı ayrı korunur. Buradaki haklar bildirimi mevcut lisansları değiştirmez. Model dosyaları ve uygulama ikilileri bu depoya dahil değildir.
+Bu tanıtım deposunun özgün metinleri için [haklar bildirimi](RIGHTS.md) geçerlidir. Kaynak projedeki Apache-2.0 lisansı, ilgili devralınan varlıkların hakları ve üçüncü taraf fotoğraf / model lisansları ayrı ayrı korunur. Buradaki haklar bildirimi mevcut lisansları değiştirmez. Uygulama paketleri Releases alanındadır; kaynak kod Git ağacına eklenmez. Model dosyaları ayrı indirilir.
