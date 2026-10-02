@@ -1,0 +1,40 @@
+name: Hata bildirimi / Bug report
+description: Tekrarlanabilir uygulama sorununu paylaşın / Report a reproducible problem
+title: "[Bug] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: "Bu bildirim herkese açıktır. Özel fotoğraf, kişisel dosya yolu veya hassas tanı verisi eklemeyin. / This issue is public. Do not attach private photos, personal paths or sensitive diagnostics."
+  - type: input
+    id: version
+    attributes:
+      label: Uygulama sürümü / Application version
+      placeholder: 1.0.0-rc.2
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: İşletim sistemi ve cihaz / Operating system and device
+      placeholder: macOS, Apple Silicon
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Tekrar adımları / Steps to reproduce
+      description: Başlangıç durumunu ve işlemleri sırayla yazın / Describe the starting state and each step.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Beklenen ve gerçekleşen / Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: İsteğe bağlı kanıt / Optional evidence
+      description: Yalnız paylaşmaya hakkınız olan, kişisel bilgi içermeyen ekran görüntüleri. / Only screenshots you may share, without personal information.
