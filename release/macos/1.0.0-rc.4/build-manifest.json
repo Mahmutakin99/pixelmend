@@ -1,0 +1,18 @@
+{
+  "commit": "1aa3aac4951fa4ddaa0ab9d3a85aefd7a908a4a9",
+  "working_tree_dirty": true,
+  "source_note": "Built locally with uncommitted rc.4 startup fixes; commit is the base revision, not the complete packaged source.",
+  "version": "1.0.0-rc.4",
+  "os": "macos",
+  "arch": "arm64",
+  "tools": {
+    "node": "v22.23.2",
+    "pnpm": "12.4.1",
+    "uv": "uv 0.12.13 (Homebrew 2026-09-10 aarch64-apple-darwin)",
+    "python": "Python 3.12.13"
+  },
+  "lock_sha256": {
+    "apps/desktop/pnpm-lock.yaml": "9647874314946f469ecb806a9b98882860d35a9aaa46a426c74cbb182aeea8ee",
+    "engine/uv.lock": "6691417c33755fdb2b3923595a173049d4ffd185560971a35bcb5e730152e409"
+  }
+}

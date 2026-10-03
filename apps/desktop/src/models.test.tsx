@@ -17,6 +17,9 @@ describe('model availability and performance facts',()=>{
     expect(allowedActions({...model,published:true,state:'ready',in_use:true})).toEqual([]);
     expect(allowedActions({...model,published:true,state:'failed'})).toContain('retry');
   });
+  it('never offers install or delete while cached discovery is queued',()=>{
+    expect(allowedActions({...model,published:true,state:'waiting'})).toEqual([]);
+  });
   it('offers only fast and balanced models while advanced candidates are coming soon',()=>{
     const advanced = {...model, id:'sdxl-inpainting', tier:'advanced' as const};
     const balanced = {...model, id:'lama', tier:'balanced' as const};

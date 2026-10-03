@@ -20,6 +20,7 @@ const assert = require('node:assert/strict');
   try {
     page = await application.firstWindow();
     page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => { if(message.type()==='error') console.error('Renderer console:',message.text()); });
     await expect(page.getByRole('heading', {name: 'PixelMend', exact: true})).toBeVisible();
     const png = await page.evaluate(() => {
       const c = document.createElement('canvas'); c.width = 96; c.height = 64;
@@ -84,6 +85,10 @@ const assert = require('node:assert/strict');
     await page.mouse.up();assert.equal(await maskAlpha(),0,'selection stays erased after pointerup');
     await page.getByRole('button',{name:'Geri al',exact:true}).click();
     assert.equal(await maskAlpha(),255,'undo restores erased selection');
+    await expect.poll(async()=>{
+      const {models}=await page.evaluate(()=>window.pixelmend.models());
+      return models.find(model=>model.id==='lama')?.state;
+    },{timeout:180000}).toBe('ready');
     await page.getByRole('button', {name: 'Nesneyi Sil', exact: true}).click();
     await expect(page.getByRole('region',{name:'İşlem durumu'})).toBeVisible();
     await expect(page.getByRole('button',{name:'Nesneyi Sil',exact:true})).toBeDisabled();
@@ -137,7 +142,7 @@ const assert = require('node:assert/strict');
     await expect(page.locator('.canvas img')).toBeVisible();
     await page.getByRole('button', {name: 'Başlangıç', exact: true}).click();
     await expect(page.getByRole('heading', {name: 'Değişiklikler kaydedilsin mi?', exact: true})).toBeVisible();
-    await page.getByRole('dialog').getByRole('button', {name: 'Kaydet', exact: true}).click();
+    await page.getByRole('alertdialog', {name:'Değişiklikler kaydedilsin mi?'}).getByRole('button', {name: 'Kaydet', exact: true}).click();
     await expect(page.getByRole('heading', {name: 'Kaydet ve çık', exact: true})).toBeVisible();
     await page.getByRole('button', {name: 'Vazgeç', exact: true}).click();
     await expect(page.locator('.canvas img')).toBeVisible();

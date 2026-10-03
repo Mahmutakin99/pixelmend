@@ -8,7 +8,7 @@ test('artifact names are stable and include every target dimension', () => {
 });
 test('manifest fingerprints both locked dependency graphs', () => {
   const manifest = buildManifest({os:'linux', arch:'x64'});
-  assert.equal(manifest.version, '1.0.0-rc.2');
+  assert.equal(manifest.version, '1.0.0-rc.4');
   assert.match(manifest.lock_sha256['apps/desktop/pnpm-lock.yaml'], /^[a-f0-9]{64}$/);
   assert.match(manifest.lock_sha256['engine/uv.lock'], /^[a-f0-9]{64}$/);
 });

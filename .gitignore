@@ -49,6 +49,10 @@ apps/desktop/out.noindex/
 /release/**/*.AppImage
 /release/**/*.deb
 /release/**/*.exe
+/release/**/*.dmg
+
+# Generated diagnostics stay local; curated text evidence is committed explicitly.
+/release/macos/**/verification/
 
 # Licensed benchmark pixels are local; provenance remains versioned.
 engine/bench/fixtures/

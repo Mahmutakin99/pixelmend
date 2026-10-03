@@ -221,16 +221,44 @@ class ModelManager:
             return self._signature(final)
 
     async def start(self):
-        """Discover cached artifacts inside the app lifespan, never during construction."""
+        """Scan metadata before serving; verify/probe cached models in tracked tasks."""
         if self._started:
             return
         self._started = True
-        for entry in self._catalog.values():
-            if entry.manifest:
-                # A missing cache is ordinary; discovery does not download anything.
-                # Complete the cheap cache scan before accepting a user install.
-                # Otherwise a fresh install can be accidentally coalesced into discovery.
-                await asyncio.to_thread(self._operate, entry.manifest, 'discover', threading.Event())
+
+        def scan():
+            cached = []
+            for entry in self._catalog.values():
+                if entry.manifest:
+                    try:
+                        if self._target(entry.manifest).exists():
+                            cached.append(entry.manifest)
+                    except ModelManagerError as error:
+                        self._change(entry.id, state='error',
+                                     error={'code': error.code, 'message': str(error)})
+            return cached
+
+        # Missing artifacts remain absent, so a new install cannot coalesce with
+        # a not-yet-run scan and silently do nothing. No hashes or inference here.
+        cached = await asyncio.to_thread(scan)
+        serial = asyncio.Semaphore(1)
+
+        async def discover(manifest, cancel):
+            async with serial:
+                await asyncio.to_thread(self._operate, manifest, 'discover', cancel)
+
+        with self._mutex:
+            if self._closed:
+                return
+            for manifest in cached:
+                model_id = manifest.model_id
+                existing = self._tasks.get(model_id)
+                if existing and not existing.done():
+                    continue
+                cancel = threading.Event()
+                self._cancels[model_id] = cancel
+                self._change(model_id, state='waiting', error=None)
+                self._tasks[model_id] = asyncio.create_task(discover(manifest, cancel))
 
     async def _launch(self, model_id, operation, source=None):
         entry = self._entry(model_id)

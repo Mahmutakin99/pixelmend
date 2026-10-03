@@ -5,6 +5,7 @@ const os = require('node:os');
 const {setTimeout:delay} = require('node:timers/promises');
 const {createReport, sanitize} = require('./diagnostic-report.cjs');
 const {runDiagnostics, classifyError} = require('./diagnostic-runner.cjs');
+const {waitForModelPreparation} = require('./model-preparation.cjs');
 
 async function createDiagnosticHost() {
   let parent = process.env.PIXELMEND_DIAGNOSTIC_OUTPUT || app.getPath('desktop');
@@ -22,6 +23,7 @@ async function createDiagnosticHost() {
     webPreferences:{preload:path.join(__dirname,'diagnostic-preload.cjs'),sandbox:true,contextIsolation:true,nodeIntegration:false}});
   let state={phase:'preparing',message:'Motor ve model dosyaları hazırlanıyor…',models:[],tests:[],downloadBytes:0,hasReport:false};
   let archive, api, editorWindow, stopEngine, shutdown, running, controller, activeDownload;
+  controller=new AbortController();
   const send=()=>{if(!window.isDestroyed())window.webContents.send('diagnostics:update',sanitize(state));};
   const record=report.record.bind(report);
   report.record=value=>{record(value);state.tests=report.state.tests;send();};
@@ -105,7 +107,11 @@ async function createDiagnosticHost() {
       const capabilities=await (await api('/capabilities')).json();
       const runtime=await (await api('/diagnostics/runtime')).json();
       report.metadata({capabilities,runtime});
-      state.models=(await (await api('/models')).json()).models;
+      state.models=(await waitForModelPreparation({api,signal:controller.signal,onProgress:snapshot=>{
+        state.models=snapshot.models;
+        state.message='AI modelleri arka planda hazırlanıyor; test başlamadan sınamalar bekleniyor…';
+        report.metadata({models:state.models});send();
+      }})).models;
       state.device=`${capabilities.accelerator?.identity || os.type()} · ${(capabilities.host_ram_total_bytes/1024**3).toFixed(0)} GB bellek · ${process.arch}`;
       state.downloadBytes=state.models.filter(m=>m.published && m.state!=='ready').reduce((total,m)=>total+(m.size_bytes||0),0);
       state.phase='ready';state.message='Testi başlatabilirsiniz. Süre, modellerinize ve bilgisayarınıza bağlıdır.';send();
@@ -114,8 +120,10 @@ async function createDiagnosticHost() {
       if(process.argv.includes('--self-test-auto'))void start({mode:process.argv.includes('--self-test-comprehensive')?'comprehensive':'standard',installMissing:false});
     },
     async failed(error) {
-      report.record({id:'startup',name:'Uygulama başlangıcı',status:'failed',detail:error.message});
-      state.phase='done';await finish();
+      if(error.models)report.metadata({models:error.models});
+      report.record({id:'startup',name:'Uygulama başlangıcı',status:classifyError(error),detail:error.message});
+      state.phase='done';
+      try{await finish();}catch{state.message='ZIP oluşturulamadı. Kısmi rapor klasöründe sonuçlar korundu.';state.hasReport=true;send();}
     },
   };
 }

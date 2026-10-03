@@ -214,6 +214,126 @@ def test_start_probes_cache_and_never_advertises_failed_runtime(tmp_path):
     asyncio.run(run())
 
 
+def test_start_returns_before_cached_probe_and_reserves_queued_models(tmp_path):
+    """A slow cached model must not gate lifespan or permit a duplicate install."""
+    from dataclasses import replace
+    entry = fixture_entry()
+    second = replace(entry, id='second', manifest=replace(entry.manifest, model_id='second'))
+    for item in (entry, second):
+        target = model_file_path(tmp_path, item.manifest)
+        target.parent.mkdir(parents=True)
+        target.write_bytes(PAYLOAD)
+    entered = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def slow_probe(manifest, path):
+        calls.append(manifest.model_id)
+        if manifest.model_id == 'fixture':
+            entered.set()
+            assert release.wait(5)
+        return probe(manifest, path)
+
+    async def run():
+        manager = ModelManager(tmp_path, catalog=[entry, second], prober=slow_probe)
+        startup = asyncio.create_task(manager.start())
+        try:
+            done, _ = await asyncio.wait({startup}, timeout=.25)
+            assert startup in done, 'model probing blocked manager.start()'
+            assert await asyncio.to_thread(entered.wait, 2)
+            views = {m['id']: m for m in manager.list_models()['models']}
+            assert views['fixture']['state'] == 'probing'
+            assert views['second']['state'] == 'waiting'
+            with pytest.raises(ModelManagerError, match='active'):
+                await manager.probe('second')
+            await manager.install('second')  # coalesces with discovery, not a second operation
+            assert calls == ['fixture']
+            with pytest.raises(ModelManagerError):
+                with manager.lease('fixture'):
+                    pass
+            release.set()
+            assert await settle(manager) == 'ready'
+            for _ in range(200):
+                if manager.list_models()['models'][1]['state'] == 'ready':
+                    break
+                await asyncio.sleep(.01)
+            assert calls == ['fixture', 'second']
+            assert manager.list_models()['models'][1]['state'] == 'ready'
+        finally:
+            release.set()
+            await startup
+            await manager.close()
+    asyncio.run(run())
+
+
+def test_close_cancels_and_drains_background_discovery(tmp_path):
+    entry = fixture_entry()
+    target = model_file_path(tmp_path, entry.manifest)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(PAYLOAD)
+    entered = threading.Event()
+    release = threading.Event()
+
+    def slow_probe(manifest, path):
+        entered.set()
+        assert release.wait(5)
+        return probe(manifest, path)
+
+    async def run():
+        manager = ModelManager(tmp_path, catalog=[entry], prober=slow_probe)
+        startup = asyncio.create_task(manager.start())
+        try:
+            done, _ = await asyncio.wait({startup}, timeout=.25)
+            assert startup in done, 'startup still waits for native work'
+            assert await asyncio.to_thread(entered.wait, 2)
+            closing = asyncio.create_task(manager.close())
+            await asyncio.sleep(.02)
+            assert not closing.done(), 'native work must drain before close returns'
+            release.set()
+            await closing
+            assert manager.list_models()['models'][0]['state'] == 'cancelled'
+        finally:
+            release.set()
+            await startup
+            await manager.close()
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('failure', ['hash', 'probe'])
+def test_bad_cached_model_does_not_suppress_later_discovery(tmp_path, failure):
+    from dataclasses import replace
+    entry = fixture_entry()
+    second = replace(entry, id='second', manifest=replace(entry.manifest, model_id='second'))
+    for item in (entry, second):
+        target = model_file_path(tmp_path, item.manifest)
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b'X' * len(PAYLOAD) if failure == 'hash' and item.id == 'fixture' else PAYLOAD)
+
+    def checked_probe(manifest, path):
+        if manifest.model_id == 'fixture':
+            raise RuntimeError('runtime unavailable')
+        return probe(manifest, path)
+
+    async def run():
+        manager = ModelManager(tmp_path, catalog=[entry, second], prober=checked_probe)
+        try:
+            await manager.start()
+            for _ in range(200):
+                models = manager.list_models()['models']
+                if models[1]['state'] == 'ready':
+                    break
+                await asyncio.sleep(.01)
+            assert models[0]['state'] == 'error'
+            assert models[0]['error']['code'] == ('hash_mismatch' if failure == 'hash' else 'probe_failed')
+            assert models[1]['state'] == 'ready'
+            with pytest.raises(ModelManagerError):
+                with manager.lease('fixture'):
+                    pass
+        finally:
+            await manager.close()
+    asyncio.run(run())
+
+
 def test_local_acquisition_verifies_copies_and_survives_source_removal(tmp_path):
     from dataclasses import replace
     entry = replace(fixture_entry(), source='local')

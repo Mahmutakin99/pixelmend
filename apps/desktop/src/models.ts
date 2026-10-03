@@ -20,8 +20,11 @@ export type UpscaleMethod = 'ai'|'lanczos';
 export const selectableModels = (models: ModelView[]) => models.filter(model => model.tier !== 'advanced');
 // Availability is determined by an actual model probe, never by host RAM or provider presence.
 export const aiReady = (model:ModelView|undefined) => model?.state === 'ready' && model.probe?.status === 'passed';
+export const isModelPreparing = (model:ModelView|undefined) => !!model && ['waiting','verifying','probing'].includes(model.state);
+export const modelAvailability = (model:ModelView|undefined) => isModelPreparing(model) ? 'hazırlanıyor' : aiReady(model) ? 'hazır' : 'kurulum/sınama gerekli';
 export function allowedActions(model:ModelView):ModelAction[] {
   if (!(model.verified_manifest ?? model.published) || model.in_use) return [];
+  if (['waiting','cancelling','deleting'].includes(model.state)) return [];
   if (['downloading','verifying','installing'].includes(model.state)) return ['cancel'];
   if (model.state === 'probing' || model.probe?.status === 'running') return [];
   if (model.state === 'ready') return ['probe','delete'];

@@ -1,0 +1,101 @@
+[
+  {
+    "attempt": 1,
+    "interactiveMs": 272,
+    "basicEditingMs": 1299,
+    "modelsReadyMs": 25257,
+    "initialModels": [
+      {
+        "id": "migan-512-places2",
+        "state": "probing"
+      },
+      {
+        "id": "lama",
+        "state": "waiting"
+      },
+      {
+        "id": "sdxl-inpainting",
+        "state": "unavailable"
+      },
+      {
+        "id": "realesrgan-general-x4v3",
+        "state": "waiting"
+      },
+      {
+        "id": "realesrgan-x4plus",
+        "state": "waiting"
+      },
+      {
+        "id": "swin2sr-realworld-x4",
+        "state": "unavailable"
+      }
+    ],
+    "pageErrors": []
+  },
+  {
+    "attempt": 2,
+    "interactiveMs": 277,
+    "basicEditingMs": 1265,
+    "modelsReadyMs": 25159,
+    "initialModels": [
+      {
+        "id": "migan-512-places2",
+        "state": "probing"
+      },
+      {
+        "id": "lama",
+        "state": "waiting"
+      },
+      {
+        "id": "sdxl-inpainting",
+        "state": "unavailable"
+      },
+      {
+        "id": "realesrgan-general-x4v3",
+        "state": "waiting"
+      },
+      {
+        "id": "realesrgan-x4plus",
+        "state": "waiting"
+      },
+      {
+        "id": "swin2sr-realworld-x4",
+        "state": "unavailable"
+      }
+    ],
+    "pageErrors": []
+  },
+  {
+    "attempt": 3,
+    "interactiveMs": 271,
+    "basicEditingMs": 1267,
+    "modelsReadyMs": 25255,
+    "initialModels": [
+      {
+        "id": "migan-512-places2",
+        "state": "probing"
+      },
+      {
+        "id": "lama",
+        "state": "waiting"
+      },
+      {
+        "id": "sdxl-inpainting",
+        "state": "unavailable"
+      },
+      {
+        "id": "realesrgan-general-x4v3",
+        "state": "waiting"
+      },
+      {
+        "id": "realesrgan-x4plus",
+        "state": "waiting"
+      },
+      {
+        "id": "swin2sr-realworld-x4",
+        "state": "unavailable"
+      }
+    ],
+    "pageErrors": []
+  }
+]

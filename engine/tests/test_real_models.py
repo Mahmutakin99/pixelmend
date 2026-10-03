@@ -18,6 +18,11 @@ def test_real_models_queue_preserves_alpha_and_reports_actual_artifacts():
     async def scenario():
         manager=ModelManager(get_models_dir(),prober=_probe_model)
         await manager.start()
+        deadline = asyncio.get_running_loop().time() + 180
+        while any(model['state'] in {'waiting', 'verifying', 'probing'}
+                  for model in manager.list_models()['models']):
+            assert asyncio.get_running_loop().time() < deadline, 'model preparation timed out'
+            await asyncio.sleep(.05)
         states = {model['id']: model['state'] for model in manager.list_models()['models']}
         assert {model_id for model_id, state in states.items() if state == 'ready'} == {
             'lama', 'migan-512-places2', 'realesrgan-x4plus', 'realesrgan-general-x4v3',

@@ -8,6 +8,64 @@ from PIL import Image
 TOKEN = "a" * 64
 
 
+def test_http_and_basic_jobs_are_available_during_cached_probe(tmp_path, monkeypatch):
+    """Slow native startup work must not block health, import, or OpenCV."""
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    import pixelmend_engine.main as main
+    from pixelmend_engine.model_manager import ModelManager
+    from pixelmend_engine.model_store import model_file_path
+    from test_model_manager import fixture_entry, PAYLOAD, probe
+    entry = fixture_entry()
+    target = model_file_path(tmp_path / 'models', entry.manifest)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(PAYLOAD)
+    entered, release = threading.Event(), threading.Event()
+
+    def slow_probe(manifest, path):
+        entered.set()
+        assert release.wait(5)
+        return probe(manifest, path)
+
+    monkeypatch.setattr(main, 'ModelManager', lambda root, prober:
+                        ModelManager(tmp_path / 'models', catalog=[entry], prober=slow_probe))
+    monkeypatch.setenv('PIXELMEND_SESSIONS_DIR', str(tmp_path / 'sessions'))
+
+    def exercise():
+        encoded = BytesIO()
+        Image.fromarray(np.full((8, 8, 3), 100, dtype=np.uint8)).save(encoded, format='PNG')
+        with TestClient(main.create_app(session_token=TOKEN), base_url='http://127.0.0.1') as client:
+            try:
+                headers = {'X-PixelMend-Token': TOKEN}
+                assert entered.wait(2)
+                assert client.get('/health', headers=headers).json() == {'status': 'ok'}
+                assert client.get('/models', headers=headers).json()['models'][0]['state'] == 'probing'
+                imported = client.post('/assets', headers=headers,
+                                       files={'image': ('fixture.png', encoded.getvalue(), 'image/png')})
+                assert imported.status_code == 201
+                job = client.post('/jobs', headers=headers, data={
+                    'asset_id': imported.json()['asset_id'], 'algorithms': '["opencv_telea"]',
+                    'selection_strokes': '[{"mode":"draw","points":[{"x":4,"y":4}],"color":"#ff3b6b","opacity":1,"size":2,"hardness":1}]',
+                })
+                assert job.status_code == 201, job.text
+                for _ in range(200):
+                    status = client.get('/jobs/' + job.json()['job_id'], headers=headers).json()['status']
+                    if status in {'completed', 'failed'}:
+                        break
+                    time.sleep(.01)
+                assert status == 'completed'
+            finally:
+                release.set()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        result = pool.submit(exercise)
+        try:
+            result.result(timeout=3)
+        finally:
+            release.set()
+
+
 def test_all_routes_reject_untrusted_origin_and_host():
     from pixelmend_engine.main import create_app
 
