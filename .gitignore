@@ -42,3 +42,16 @@ apps/desktop/test-results/
 apps/desktop/out/
 apps/desktop/out.noindex/
 :memory:.ses
+
+# Local release evidence and agent work notes are not public source.
+/release/
+/.local-notes/
+/.ai/
+/.claude/
+/.codex/
+/docs/
+/CLAUDE.md
+/AGENTS.md
+/DURUM.md
+/MANUAL_TEST.md
+/AI_AJANI_DEVIR_BELGESI.md
