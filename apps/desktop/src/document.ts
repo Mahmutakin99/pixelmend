@@ -1,7 +1,7 @@
 export type BlobRef = { id: string; uri: string; width: number; height: number };
 export type Point = { x: number; y: number };
 export type Stroke = { id: string; mode: 'draw' | 'erase'; points: Point[]; color: string; opacity: number; size: number; hardness: number };
-export type Snapshot = { photo: BlobRef; paint: Stroke[]; selection: Stroke[]; label: string };
+export type Snapshot = { photo: BlobRef; paint: Stroke[]; selection: Stroke[]; label: string; generation?:GenerationInfo };
 export type EditorDocument = { version: 1; original: BlobRef; history: { past: Snapshot[]; present: Snapshot; future: Snapshot[] } };
 
 const cloneSnapshot = (snapshot: Snapshot): Snapshot => structuredClone(snapshot);
@@ -15,6 +15,21 @@ export function createDocument(photo: BlobRef): EditorDocument {
 }
 function commit(document: EditorDocument, snapshot: Snapshot): EditorDocument {
   return { ...document, history: { past: [...document.history.past, cloneSnapshot(document.history.present)], present: snapshot, future: [] } };
+}
+function validGeneration(value:GenerationInfo):boolean {
+  return !!value && ['text_edit','text_to_image'].includes(value.operation)
+    && typeof value.model_id==='string' && /^[a-f0-9]{40}$/.test(value.model_revision)
+    && Number.isInteger(value.seed) && value.seed>=0 && value.seed<2**32
+    && ['low-resource','balanced'].includes(value.profile)
+    && [value.original_prompt,value.used_prompt,value.translated_prompt].every(p=>typeof p==='string'&&p.trim().length>0&&[...p].length<=16384);
+}
+export function applyGenerativeResult(document:EditorDocument,photo:BlobRef,generation:GenerationInfo):EditorDocument {
+  if(!validBlob(photo)||!validGeneration(generation)||generation.operation!=='text_edit')throw new Error('project_invalid');
+  return commit(document,{photo,paint:[],selection:[],label:'text_edit',generation:structuredClone(generation)});
+}
+export function createGeneratedDocument(photo:BlobRef,generation:GenerationInfo):EditorDocument {
+  if(!validGeneration(generation)||generation.operation!=='text_to_image')throw new Error('project_invalid');
+  const document=createDocument(photo);document.history.present.generation=structuredClone(generation);document.history.present.label='text_to_image';return document;
 }
 export function addStroke(document: EditorDocument, target: 'paint' | 'selection', stroke: Stroke): EditorDocument {
   if (!validStroke(stroke)) throw new Error('project_invalid');
@@ -45,7 +60,8 @@ export function redo(document: EditorDocument): EditorDocument {
 export function parseDocument(value: unknown): EditorDocument {
   const doc = value as EditorDocument;
   if (!doc || doc.version !== 1 || !validBlob(doc.original) || !doc.history || !Array.isArray(doc.history.past) || !Array.isArray(doc.history.future)) throw new Error('project_invalid');
-  const validSnapshot = (s: any) => !!s && validBlob(s.photo) && Array.isArray(s.paint) && Array.isArray(s.selection) && s.paint.every(validStroke) && s.selection.every(validStroke) && typeof s.label === 'string';
+  const validSnapshot = (s: any) => !!s && validBlob(s.photo) && Array.isArray(s.paint) && Array.isArray(s.selection) && s.paint.every(validStroke) && s.selection.every(validStroke) && typeof s.label === 'string' && (s.generation===undefined||validGeneration(s.generation));
   if (![...doc.history.past, doc.history.present, ...doc.history.future].every(validSnapshot)) throw new Error('project_invalid');
   return structuredClone(doc);
 }
+import type {GenerationInfo} from './bridge';

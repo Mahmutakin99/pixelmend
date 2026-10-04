@@ -2,9 +2,17 @@ import type {EditorDocument, Stroke} from './document';
 import type {Capabilities, ModelAction, ModelSnapshot, ModelView, UpscaleMethod} from './models';
 import type {PixelMendPreferences} from './preferences';
 export type AssetView = {asset_id:string;preview:string;width:number;height:number};
-export type JobSnapshot = {job_id:string;status:string;result_ids:string[];result_details?:{algorithm:string;model_revision:string|null;provider:string|null;fallback_reason?:string|null}[];error?:{code:string;message:string};progress?:{completed:number;total:number;phase:string}};
+export type GenerationInfo = {operation:'text_edit'|'text_to_image';model_id:string;model_revision:string;seed:number;profile:'low-resource'|'balanced';original_prompt:string;used_prompt:string;translated_prompt:string};
+export type JobSnapshot = {job_id:string;status:string;seed?:number;result_ids:string[];result_details?:Array<{algorithm:string;model_revision:string|null;provider:string|null;fallback_reason?:string|null}&Partial<GenerationInfo>>;error?:{code:string;message:string};progress?:{completed:number;total:number;phase:string}};
+type GenerativeCommon = {prompt:string;promptLanguage:'tr'|'en';englishOverride?:string;profile:'low-resource'|'balanced';seed?:number};
+export type GenerativeRequest = GenerativeCommon & ({operation:'text_edit';assetId:string;selectionStrokes:Stroke[];paintStrokes:Stroke[]}|{operation:'text_to_image';aspect:'square'|'landscape'|'portrait'});
+export type GenerativePreflight = {ready:boolean;reason?:{code:string;message:string};seed:number;width:number;height:number;profile:string};
 export type Preferences = Pick<PixelMendPreferences, 'language' | 'theme'> & Partial<PixelMendPreferences>;
 export interface DesktopBridge {
+  generativePreflight(request:GenerativeRequest):Promise<GenerativePreflight>;
+  startGenerativeJob(request:GenerativeRequest):Promise<JobSnapshot>;
+  disposeAsset(id:string):Promise<void>;
+  disposeGenerativeJob(id:string):Promise<void>;
   confirmClose():Promise<void>;
   models():Promise<ModelSnapshot>;
   modelAction(id:string,action:ModelAction):Promise<ModelSnapshot|ModelView>;

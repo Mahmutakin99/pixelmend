@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import {
   addStroke,
   applyResult,
+  applyGenerativeResult,
+  createGeneratedDocument,
+  parseDocument,
   createDocument,
   redo,
   undo,
@@ -22,11 +25,14 @@ import { Settings as PerformanceSettings } from "./Settings";
 import { useModels } from "./useModels";
 import { selectableModels, isModelPreparing, modelAvailability } from "./models";
 import { showsAiControls } from "./ai-controls";
+import {useGenerative} from "./useGenerative";
+import {GenerativePanel} from "./GenerativePanel";
+import type {GenerativeRequest} from "./bridge";
 import "./bridge";
 import "./style.css";
 import "./tokens.css";
 type Tool = "paint" | "paintErase" | "select" | "selectErase";
-type Inspector = "draw" | "remove" | "upscale" | "view";
+type Inspector = "draw" | "remove" | "upscale" | "view" | "text_edit";
 type Active = {
   pointerId: number;
   target: "paint" | "selection";
@@ -50,6 +56,11 @@ function previewStroke(stroke: Stroke, scale: number): Stroke {
   return {...stroke, size: stroke.size * scale, points: stroke.points.map(p => ({x:p.x * scale, y:p.y * scale}))};
 }
 function App() {
+  const gen=useGenerative();
+  const [generateOpen,setGenerateOpen]=useState(false),[compareOriginal,setCompareOriginal]=useState(false);
+  const pendingGenerated=useRef(false);
+  const appliedGenerativeAssets=useRef(new Set<string>());
+  const hasPreview=!!gen.candidate&&!generateOpen;
   const [doc, setDoc] = useState<EditorDocument>();
   const [tool, setTool] = useState<Tool>("paint"),
     [size, setSize] = useState(28),
@@ -87,6 +98,10 @@ function App() {
   const closeIntent = useRef(false);
   const closeRequest = useRef<() => void>(() => {});
   const p = doc?.history.present;
+  useEffect(()=>{
+    const retained=new Set(doc?[doc.original.id,...[...doc.history.past,doc.history.present,...doc.history.future].map(s=>s.photo.id)]:[]);
+    for(const id of appliedGenerativeAssets.current){if(!retained.has(id)){appliedGenerativeAssets.current.delete(id);void window.pixelmend.disposeAsset(id).catch(()=>{});}}
+  },[doc]);
   useEffect(() => { documentRef.current = doc; }, [doc]);
   const { models, capabilities, error: modelError, refresh } = useModels();
   const selectedUpscaleId = normalizePreferences(settings || {}).upscaleModelTier === 'fast' ? 'realesrgan-general-x4v3' : 'realesrgan-x4plus';
@@ -106,9 +121,9 @@ function App() {
   const preparationNotice = modelsPreparing ? <p role="note" aria-live="polite">AI modelleri arka planda hazırlanıyor; diğer araçları kullanabilirsiniz.</p> : null;
   const outputLimit = capabilities?.policy?.max_output_pixels ?? 200_000_000;
   const [starting, setStarting] = useState(false),
-    busy = starting || !!job,
+    busy = starting || !!job || gen.busy,
     busyRef = useRef(false);
-  busyRef.current = busy || !!preview;
+  busyRef.current = busy || !!preview || hasPreview || hasPreview;
   const reportError = (context: ErrorContext, cause: unknown) => {
     console.error(cause);
     setError(userError(context, cause));
@@ -144,7 +159,7 @@ function App() {
     if (!canvas || !p) return;
     const context = canvas.getContext('2d')!;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    if (!cursorPreview || busy || preview || !['draw','remove'].includes(inspector)) return;
+    if (!cursorPreview || busy || preview || hasPreview || !['draw','remove','text_edit'].includes(inspector)) return;
     const source = cursorPreview.target === 'paint' ? paint.current : mask.current;
     const display = previewSize(p.photo.width, p.photo.height);
     const radius = size * display.scale / 2;
@@ -217,7 +232,7 @@ function App() {
   };
   const cursorAt = (e: React.PointerEvent): CursorPreview | null => {
     const canvas = e.currentTarget as HTMLCanvasElement;
-    if (!p || busy || preview || !canvas.width) return null;
+    if (!p || busy || preview || hasPreview || !canvas.width) return null;
     const rect = canvas.getBoundingClientRect();
     const target = tool.startsWith('paint') ? 'paint' : 'selection';
     return {
@@ -243,11 +258,11 @@ function App() {
       if (e.type === 'pointerup' || e.type === 'pointercancel') panGesture.current = null;
       return;
     }
-    if (inspector !== "draw" && inspector !== "remove") {
+    if (inspector !== "draw" && inspector !== "remove" && inspector !== "text_edit") {
       setCursorPreview(null);
       return;
     }
-    if (!p || busy || preview) return;
+    if (!p || busy || preview || hasPreview) return;
     const q = imagePoint(
       e.clientX,
       e.clientY,
@@ -358,7 +373,7 @@ function App() {
     };
   }, [job]);
   const process = async (op: "remove" | "upscale", d?: Dimensions) => {
-    if (!p || locked.current || preview) return;
+    if (!p || busy || locked.current || preview || hasPreview) return;
     if (op === "remove") {
       if (!p.selection.some(s => s.mode === "draw")) {
         reportError('remove', new Error('selection_required'));
@@ -453,6 +468,7 @@ function App() {
     }
   };
   const leaveHome = () => {
+    if(pendingGenerated.current){pendingGenerated.current=false;openGenerated();setShowExit(false);setShowExitSave(false);return;}
     active.current = null;
     setPreview(null);
     setShowExit(false);
@@ -461,6 +477,7 @@ function App() {
     if (closeIntent.current) void window.pixelmend.confirmClose();
   };
   const saveProject = async () => {
+    try {
     const snapshot = documentRef.current;
     if (!snapshot) return false;
     const saved = documentFingerprint(snapshot);
@@ -468,6 +485,7 @@ function App() {
     if (ok && documentRef.current?.original.id === snapshot.original.id) savedFingerprint.current = saved;
     setNotice(ok ? "Proje kaydedildi." : "Kaydetme iptal edildi.");
     return ok && documentFingerprint(documentRef.current) === saved;
+    } catch(error){reportError('save',error);return false;}
   };
   const requestHome = () => {
     if (isDocumentDirty(doc, savedFingerprint.current) || active.current) setShowExit(true);
@@ -475,7 +493,7 @@ function App() {
   };
   closeRequest.current = () => {
     if (busy) { setNotice('Kapatmadan önce çalışan işlemi tamamlayın veya iptal edin.'); return; }
-    if (preview) { setNotice('Kapatmadan önce önizlemeyi Uygula veya Vazgeç ile tamamlayın.'); return; }
+    if (preview || hasPreview) { setNotice('Kapatmadan önce önizlemeyi Uygula veya Vazgeç ile tamamlayın.'); return; }
     closeIntent.current = true;
     if (doc && (isDocumentDirty(doc, savedFingerprint.current) || active.current || preview)) setShowExit(true);
     else void window.pixelmend.confirmClose();
@@ -503,17 +521,31 @@ function App() {
       return next;
     });
   };
+  const startGenerative=(request:GenerativeRequest)=>{if(job||starting||preview||active.current)return;void gen.session.start(request);};
+  const discardGenerative=()=>{void gen.session.discard().catch(e=>setNotice(String(e)));setCompareOriginal(false);};
+  const acceptEdit=()=>{const candidate=gen.session.take();if(!candidate)return;const a=candidate.asset;appliedGenerativeAssets.current.add(a.asset_id);setDoc(d=>d&&applyGenerativeResult(d,{id:a.asset_id,uri:a.preview,width:a.width,height:a.height},candidate.info));setCompareOriginal(false);setNotice('Yazıyla düzenleme uygulandı.');};
+  const openGenerated=()=>{const candidate=gen.session.take();if(!candidate)return;const a=candidate.asset;appliedGenerativeAssets.current.add(a.asset_id);setDoc(createGeneratedDocument({id:a.asset_id,uri:a.preview,width:a.width,height:a.height},candidate.info));savedFingerprint.current=null;setGenerateOpen(false);setNotice('Üretilen görsel yeni belgede açıldı.');};
+  const requestGenerated=()=>{if(isDocumentDirty(doc,savedFingerprint.current)){pendingGenerated.current=true;setShowExit(true);}else openGenerated();};
+  const generateDialog=generateOpen&&<div className="modal generation-dialog" role="dialog" aria-modal="true" aria-label="Yazıyla Oluştur">
+    <button disabled={gen.busy} aria-label="Üretim ekranını kapat" onClick={()=>{discardGenerative();setGenerateOpen(false);}}>Kapat</button>
+    <div className="generation-layout"><GenerativePanel kind="text_to_image" state={gen} capabilities={capabilities} models={models} start={startGenerative} cancel={()=>{void gen.session.cancel().catch(e=>setNotice(String(e)));}} discard={discardGenerative} accept={requestGenerated} settings={()=>setShowSettings(true)}/>
+    <div className="generation-preview">{gen.candidate?<img src={gen.candidate.asset.preview} alt="Üretilen görsel önizlemesi"/>:<p>Sonucunuz burada görünecek.</p>}</div></div>
+  </div>;
+  const candidateUri=hasPreview&&!compareOriginal?gen.candidate?.asset.preview:undefined;
+  const displayingResult=!!preview||hasPreview&&!compareOriginal;
   if (!doc)
     return (
       <main className="home">
         <h1>PixelMend</h1>
         <p>Fotoğrafları yerelde düzenleyin.</p>
         {preparationNotice}
-        <button onClick={open}>Görsel Aç</button>
+        <button disabled={busy} onClick={open}>Görsel Aç</button>
+        <button disabled={busy} onClick={()=>setGenerateOpen(true)}>Yazıyla Oluştur</button>
+        {generateDialog}
         <button
           onClick={async () => {
             const d = await window.pixelmend.openProject();
-            if (d) { savedFingerprint.current = documentFingerprint(d); setDoc(d); }
+            if (d) { const opened=parseDocument(d);savedFingerprint.current = documentFingerprint(opened); setDoc(opened); }
           }}
         >
           Proje Aç
@@ -540,19 +572,20 @@ function App() {
     <main>
       {preparationNotice}
       <header>
-        <button disabled={busy || !!preview} onClick={requestHome}>
+        <button disabled={busy || !!preview || hasPreview} onClick={requestHome}>
           Başlangıç
         </button>
         <h1>PixelMend</h1>
+        <button disabled={busy || !!preview || hasPreview} onClick={()=>setGenerateOpen(true)}>Yazıyla Oluştur</button>
         <button
           onClick={() => setDoc((d) => d && undo(d))}
-          disabled={busy || !!preview || !doc.history.past.length}
+          disabled={busy || !!preview || hasPreview || !doc.history.past.length}
         >
           Geri al
         </button>
         <button
           onClick={() => setDoc((d) => d && redo(d))}
-          disabled={busy || !!preview || !doc.history.future.length}
+          disabled={busy || !!preview || hasPreview || !doc.history.future.length}
         >
           Yinele
         </button>
@@ -561,7 +594,7 @@ function App() {
         </button>
         <div className="save-menu">
           <button
-            disabled={busy || !!preview}
+            disabled={busy || !!preview || hasPreview}
             aria-expanded={showSave}
             onClick={() => setShowSave((v) => !v)}
           >
@@ -594,9 +627,13 @@ function App() {
           <button aria-label="Çizim" title="Çizim" aria-pressed={inspector === "draw"} onClick={() => { setInspector("draw"); setTool("paint"); }}><ToolIcon name="draw" /></button>
           <button aria-label="Nesne silme" title="Nesne silme" aria-pressed={inspector === "remove"} onClick={() => { setInspector("remove"); setTool("select"); }}><ToolIcon name="remove" /></button>
           <button aria-label="Büyütme" title="Büyütme" aria-pressed={inspector === "upscale"} onClick={() => setInspector("upscale")}><ToolIcon name="upscale" /></button>
+          <button aria-label="Yazıyla Düzenle" title="Yazıyla Düzenle" aria-pressed={inspector === "text_edit"} onClick={()=>{setInspector("text_edit");setTool("select");}}>✦</button>
           <button aria-label="Görünüm" title="Görünüm" aria-pressed={inspector === "view"} onClick={() => setInspector("view")}><ToolIcon name="view" /></button>
         </nav>
         <aside className="inspector">
+          {(inspector==='text_edit'||hasPreview||gen.busy&&!generateOpen)&&<><div className="quick-actions"><button disabled={busy||hasPreview} aria-pressed={tool==='select'} onClick={()=>setTool('select')}>Alan seç</button><button disabled={busy||hasPreview} aria-pressed={tool==='selectErase'} onClick={()=>setTool('selectErase')}>Seçim silgisi</button></div><label>Seçim boyutu<input type="range" min="2" max="500" value={size} disabled={busy||hasPreview} onChange={e=>setSize(+e.target.value)}/></label>
+          <GenerativePanel kind="text_edit" state={gen} capabilities={capabilities} models={models} source={{assetId:p!.photo.id,selectionStrokes:p!.selection,paintStrokes:p!.paint}} locked={!!job||starting||!!preview} start={startGenerative} cancel={()=>{void gen.session.cancel().catch(e=>setNotice(String(e)));}} discard={discardGenerative} accept={acceptEdit} settings={()=>setShowSettings(true)} compare={compareOriginal} setCompare={setCompareOriginal}/></>}
+
           {inspector === "draw" && <section className="tool-group">
             <h2>Çizim</h2>
             <p>Görselin üzerine renk ekleyin.</p>
@@ -672,7 +709,7 @@ function App() {
             <p>Silinecek alanı işaretleyin.</p>
             <label><input type="radio" name="remove-method" checked={removeMethod === "lama"} onChange={() => setRemoveMethod("lama")}/> AI ile nesne sil{!removeAIReady && ` (${modelAvailability(models.find(m=>m.id===selectedRemoveId))})`}</label>
             <label><input type="radio" name="remove-method" checked={removeMethod === "opencv"} onChange={() => setRemoveMethod("opencv")}/> Hızlı — OpenCV</label>
-            {showsAiControls('remove', removeMethod) ? <><label>AI modeli<select aria-label="Nesne silme modeli" value={selectedRemoveId} disabled={busy || !!preview} onChange={async event=>{
+            {showsAiControls('remove', removeMethod) ? <><label>AI modeli<select aria-label="Nesne silme modeli" value={selectedRemoveId} disabled={busy || !!preview || hasPreview} onChange={async event=>{
               const tier=event.target.value==='migan-512-places2'?'fast':'balanced';
               const next={...normalizePreferences(settings || {}),removeModelTier:tier as 'fast'|'balanced'|'advanced'};
               try {await window.pixelmend.setSettings(next);setSettings(next);setRemoveMethod('lama');}catch(error){reportError('remove',error);}
@@ -695,7 +732,7 @@ function App() {
               <span className="value-input"><input type="range" min="2" max="160" value={size} onChange={(e) => setSize(+e.target.value)} /><input aria-label="Seçim fırçası boyutu piksel" type="number" min="2" max="160" value={size} onChange={(e) => setSize(Math.max(2, Math.min(160, +e.target.value || 2)))} /><span>px</span></span>
             </label>
             <button
-              disabled={busy || !!preview || (removeMethod === 'lama' && !removeAIReady)}
+              disabled={busy || !!preview || hasPreview || (removeMethod === 'lama' && !removeAIReady)}
               onClick={() => process("remove")}
             >
               Nesneyi Sil
@@ -706,7 +743,7 @@ function App() {
             <p>{upscaleMethod === "ai" ? "Ayrıntıları ve netliği iyileştirir; ince dokular değişebilir." : "Görünümü koruyarak boyutlandırır; AI ile ayrıntı üretmez."}</p>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "lanczos"} onChange={() => { setUpscaleMethod("lanczos"); setEnhancementMode("resize"); }}/><span><strong>Standart büyütme</strong><small>Lanczos · özgün görünüm öncelikli</small></span></label>
             <label className="method-option"><input type="radio" name="upscale-method" checked={upscaleMethod === "ai"} disabled={!aiReady} onChange={() => setUpscaleMethod("ai")}/><span><strong>AI ile iyileştir</strong><small>RealESRGAN · doğal ayrıntı öncelikli{!aiReady && ` · ${modelAvailability(models.find(m=>m.id===selectedUpscaleId))}`}</small></span></label>
-            {showsAiControls('upscale', upscaleMethod) ? <><label>AI modeli<select aria-label="İyileştirme modeli" value={selectedUpscaleId} disabled={busy || !!preview} onChange={async event=>{
+            {showsAiControls('upscale', upscaleMethod) ? <><label>AI modeli<select aria-label="İyileştirme modeli" value={selectedUpscaleId} disabled={busy || !!preview || hasPreview} onChange={async event=>{
               const tier=event.target.value==='realesrgan-general-x4v3'?'fast':'balanced';
               const next={...normalizePreferences(settings || {}),upscaleModelTier:tier as 'fast'|'balanced'|'advanced'};
               try {await window.pixelmend.setSettings(next);setSettings(next);setUpscaleMethod('ai');}catch(error){reportError('upscale',error);}
@@ -718,7 +755,7 @@ function App() {
             </div></> : null}
             {enhancementMode === 'preserve' ? <p className="hint">AI, görüntüyü doğal 4× ayrıntı yolundan geçirir ve sonucu aynı ölçülere getirir. İnce dokular değişebilir.</p> : <><div className="quick-actions">
               <button
-                disabled={busy || !!preview || (upscaleMethod === 'ai' && !aiReady)}
+                disabled={busy || !!preview || hasPreview || (upscaleMethod === 'ai' && !aiReady)}
                 onClick={() => {
                   const d = {
                     width: p!.photo.width * 2,
@@ -731,7 +768,7 @@ function App() {
                 2×
               </button>
               <button
-                disabled={busy || !!preview || (upscaleMethod === 'ai' && !aiReady)}
+                disabled={busy || !!preview || hasPreview || (upscaleMethod === 'ai' && !aiReady)}
                 onClick={() => {
                   const d = {
                     width: p!.photo.width * 4,
@@ -774,7 +811,7 @@ function App() {
             </label></>}
             <p className={valid ? "hint" : "hint error"}>{valid ? `${mp.toFixed(1)} MP hedef · güvenli sınır işlem başında RAM ve diske göre doğrulanır` : `En fazla ${outputLimit / 1e6} MP ve pozitif tam sayılar girin.`}</p>
             <button
-              disabled={busy || !!preview || !valid || (upscaleMethod === 'ai' && !aiReady)}
+              disabled={busy || !!preview || hasPreview || !valid || (upscaleMethod === 'ai' && !aiReady)}
               onClick={() => process("upscale", enhancementMode === 'preserve' ? preserveDimensions(p!.photo) : target)}
             >
               Önizleme oluştur
@@ -805,15 +842,15 @@ function App() {
             className="canvas zoomable"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: zoomOrigin }}
           >
-            <img src={preview?.uri || p!.photo.uri} alt="Düzenlenen görsel" />
+            <img src={preview?.uri || candidateUri || p!.photo.uri} alt="Düzenlenen görsel" />
             <canvas
-              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'paint' ? 0 : undefined }}
+              style={{ visibility: displayingResult ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'paint' ? 0 : undefined }}
               className="paint"
               ref={paint}
             />
             <canvas
               className="mask"
-              style={{ visibility: preview ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined, cursor: canvasCursor({editing: inspector === 'draw' || inspector === 'remove', hasPreview: !!preview, busy, hasRing: !!cursorPreview}) }}
+              style={{ visibility: displayingResult ? "hidden" : "visible", opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? 0 : undefined, cursor: canvasCursor({editing: inspector === 'draw' || inspector === 'remove' || inspector === 'text_edit', hasPreview: !!preview || hasPreview, busy, hasRing: !!cursorPreview}) }}
               ref={mask}
               onPointerDown={point}
               onPointerMove={point}
@@ -824,11 +861,11 @@ function App() {
             <canvas
               aria-hidden="true"
               className="cursor-layer"
-              style={{ visibility: preview ? 'hidden' : 'visible', opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? .42 : 1 }}
+              style={{ visibility: displayingResult ? 'hidden' : 'visible', opacity: cursorPreview?.erasing && cursorPreview.target === 'selection' ? .42 : 1 }}
               ref={cursorLayer}
             />
           </div>
-          {busy && (
+          {(starting || !!job) && (
             <div className="processing" role="region" aria-label="İşlem durumu">
               <progress aria-label="İşlem sürüyor" />
               <strong>{notice}</strong>
@@ -850,9 +887,10 @@ function App() {
           )}
         </article>
       </section>
+      {generateDialog}
       {showExit && (
         <Exit
-          close={() => {closeIntent.current = false; setShowExit(false);}}
+          close={() => {pendingGenerated.current=false;closeIntent.current = false; setShowExit(false);}}
           discard={leaveHome}
           save={() => {
             setShowExit(false);
@@ -862,7 +900,7 @@ function App() {
       )}
       {showExitSave && (
         <SaveExit
-          close={() => {closeIntent.current = false; setShowExitSave(false);}}
+          close={() => {pendingGenerated.current=false;closeIntent.current = false; setShowExitSave(false);}}
           image={saveImage}
           project={saveProject}
           leave={leaveHome}
@@ -903,7 +941,7 @@ function Exit({
   return (
     <div className="modal confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="exit-title">
       <h2 id="exit-title">Değişiklikler kaydedilsin mi?</h2>
-      <p>Çizimler ve yapılan işlemler kaydedilmeden ana ekrana dönülecek.</p>
+      <p>Devam etmeden önce mevcut belgedeki çizimleri ve işlemleri kaydedebilirsiniz.</p>
       <div className="modal-actions">
         <button autoFocus onClick={close}>Vazgeç</button>
         <button onClick={discard}>Kaydetmeden çık</button>

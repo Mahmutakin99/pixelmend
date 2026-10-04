@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {createDocument,addStroke,undo,redo,applyResult,parseDocument} from './document';
+import {createDocument,addStroke,undo,redo,applyResult,parseDocument,applyGenerativeResult,createGeneratedDocument} from './document';
 const photo={id:'a'.repeat(64),uri:'pixelmend://blob/a',width:100,height:80};
 const stroke={id:'s',mode:'draw' as const,points:[{x:10,y:20}],color:'#ff0000',opacity:.4,size:8,hardness:.7};
 describe('immutable project history',()=>{
@@ -39,5 +39,23 @@ describe('immutable project history',()=>{
   const doc=addStroke(createDocument(photo),'paint',stroke);
   doc.history.present.paint[0].points[0].x=NaN;
   expect(()=>parseDocument(doc)).toThrow();
+ });
+});
+
+describe('generative document history',()=>{
+ const info={operation:'text_edit' as const,model_id:'klein',model_revision:'a'.repeat(40),seed:7,profile:'low-resource' as const,original_prompt:'Bir kedi.',used_prompt:'Add a cat.',translated_prompt:'Add a cat.'};
+ it('bakes paint once and restores photo, paint and selection in one undo step',()=>{
+  const before=addStroke(addStroke(createDocument(photo),'paint',stroke),'selection',stroke);
+  const next=applyGenerativeResult(before,{...photo,id:'generated'},info);
+  expect(next.history.past.length).toBe(before.history.past.length+1);
+  expect(next.history.present.paint).toEqual([]);expect(next.history.present.selection).toEqual([]);
+  expect(undo(next).history.present).toEqual(before.history.present);
+  expect(redo(undo(next)).history.present).toEqual(next.history.present);
+  expect(parseDocument(JSON.parse(JSON.stringify(next))).history.present.generation).toEqual(info);
+ });
+ it('creates a separate generated document and keeps old projects readable',()=>{
+  const old=createDocument(photo);const fresh=createGeneratedDocument({...photo,id:'new'}, {...info,operation:'text_to_image'});
+  expect(fresh.history.past).toEqual([]);expect(old.history.present.generation).toBeUndefined();expect(parseDocument(old)).toEqual(old);
+  expect(()=>parseDocument({...fresh,history:{...fresh.history,present:{...fresh.history.present,generation:{...info,seed:-1}}}})).toThrow();
  });
 });
