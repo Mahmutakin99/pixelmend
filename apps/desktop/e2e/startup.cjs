@@ -25,12 +25,14 @@ const path = require('node:path');
       const interactiveMs=Math.round(performance.now()-began);
       assert(interactiveMs<=5000,`interactive window took ${interactiveMs} ms`);
       const initial=await page.evaluate(()=>window.pixelmend.models());
+      const native=initial.models.filter(m=>['mlx','torch-cpu'].includes(m.runtime));
+      if(process.env.PIXELMEND_EXPECT_GENERATIVE_INSTALLED==='1'){assert.equal(native.length,2);assert(native.every(m=>m.state==='installed'&&!m.loaded&&!m.probe),'generative packages must remain installed without eager load/probe');}
       const pending=initial.models.filter(m=>['waiting','verifying','probing'].includes(m.state));
       assert(pending.length>0,'fixture requires real installed models still preparing');
       await expect(page.getByRole('note')).toContainText('arka planda');
       await page.getByRole('button',{name:'Ayarlar',exact:true}).click();
       await page.getByRole('button',{name:'Hakkında',exact:true}).click();
-      await expect(page.getByText('1.0.0-rc.4',{exact:true})).toBeVisible();
+      await expect(page.getByText(require('../package.json').version,{exact:true})).toBeVisible();
       await page.getByRole('button',{name:'AI modelleri',exact:true}).click();
       await expect(page.getByRole('heading',{name:'Kurulu modeller',exact:true})).toBeVisible();
       await page.getByRole('button',{name:'Bitti',exact:true}).click();
@@ -74,14 +76,14 @@ const path = require('node:path');
       await page.screenshot({path:path.join(output,`startup-${attempt}.png`)});
       await expect.poll(async()=>{
         const {models}=await page.evaluate(()=>window.pixelmend.models());
-        return models.filter(m=>m.published).every(m=>m.state==='ready'&&m.probe?.status==='passed');
+        return models.filter(m=>m.published&&!['mlx','torch-cpu'].includes(m.runtime)).every(m=>m.state==='ready'&&m.probe?.status==='passed');
       },{timeout:180000}).toBe(true);
       const modelsReadyMs=Math.round(performance.now()-began);
       await page.getByRole('button',{name:'Nesne silme',exact:true}).click();
       await page.getByRole('radio',{name:/AI ile nesne sil/}).check();
       await expect(page.getByRole('button',{name:'Nesneyi Sil',exact:true})).toBeEnabled();
       assert.deepEqual(errors,[]);
-      results.push({attempt,interactiveMs,basicEditingMs,modelsReadyMs,initialModels:initial.models.map(({id,state})=>({id,state})),pageErrors:errors});
+      results.push({attempt,interactiveMs,basicEditingMs,modelsReadyMs,initialModels:initial.models.map(({id,state,runtime,loaded,probe})=>({id,state,runtime,loaded,probe})),pageErrors:errors});
       // Save was confirmed; let the app's own close handshake drain the sidecar.
       const exited=new Promise(resolve=>childProcess.once('exit',resolve));
       await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());

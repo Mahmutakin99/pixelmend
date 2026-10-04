@@ -8,8 +8,12 @@ Bu paket Apple Silicon Mac (M1/M2/M3/M4 ve sonrası) içindir.
 4. Bilgisayar boşta iken test penceresini yeniden açıp kapsamlı testi ayrı çalıştırın. Bu koşu 12 lisanslı fotoğrafla çalışır ve uzun sürebilir.
 5. Masaüstündeki her iki ZIP raporunu gönderin; kapsamlı test görselleri ayrıca insan tarafından incelenmelidir. ZIP oluşmazsa kısmi rapor klasörünü ve başlangıç raporunu birlikte gönderin.
 
-Bu paket Developer ID ile imzalanmamış ve notarize edilmemiştir. macOS açılışı engellerse Sistem Ayarları → Gizlilik ve Güvenlik bölümünde bu uygulama için gösterilen açma seçeneğini kullanın. Güvenlik ayarlarını genel olarak kapatmayın.
+Uygulamanın imza ve notarizasyon durumu dağıtımın `signing-status.json` kaydında belirtilir. İmzalanmamış geliştirme paketleri dağıtım kabulünü karşılamaz. macOS açılışı engellerse Sistem Ayarları → Gizlilik ve Güvenlik bölümünde bu uygulama için gösterilen açma seçeneğini kullanın. Güvenlik ayarlarını genel olarak kapatmayın.
 
 Normal uygulama penceresi model sınamalarını beklemeden açılır. Kurulu modeller arka planda sırayla hazırlanırken fotoğraf açma, çizim, OpenCV ve Lanczos kullanılabilir. Test kiti ise rapora başlamadan model hazırlığının tamamlanmasını bekler; hazırlık için üst sınır 180 saniyedir.
 
-Model dosyaları pakete dahil değildir; uygulama kullanılabilir modelleri indirir ve doğrular. İleri model kartlarının “yakında” olması beklenir. Rapor otomatik gönderilmez.
+Model dosyaları pakete dahil değildir; uygulama kullanılabilir modelleri indirir ve doğrular. Rapor otomatik gönderilmez.
+
+Üretken özellikleri ayrıca ve isteğe bağlı sınamak için `URETKEN-TEST.md`
+kontrolünü kullanın. Standart veya kapsamlı ONNX testi üretken modelleri
+otomatik yüklemez ve üretken kalite kabulü sayılmaz.

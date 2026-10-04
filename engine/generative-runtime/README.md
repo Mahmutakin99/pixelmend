@@ -1,8 +1,10 @@
-# PixelMend generative runtime feasibility harness
+# PixelMend local generative runtime
 
-This separate development project tests the proposed Apple Silicon runtime.
-It is not integrated into PixelMend, and no hardware profile has been accepted.
-The existing ONNX engine has no dependency on this project.
+This separate project supplies one-shot Apple Silicon workers for PixelMend.
+The engine owns their processes, cancellation, package leases and selected-area
+composition. Hardware profiles remain disabled until resource and human quality
+acceptance; a successful inference alone does not enable a profile. The existing
+ONNX engine never imports this project or its native dependencies at startup.
 
 Python 3.12, MFLUX 0.21.0, MLX 0.32.2 and MLX-LM 0.32.0 are pinned in
 `pyproject.toml`; `uv.lock` records the complete dependency graph and hashes.
@@ -18,6 +20,7 @@ From the repository root:
 
 ```sh
 uv sync --project engine/generative-runtime --frozen
+engine/generative-runtime/.venv/bin/python tools/generative/prepare-macos15.py
 engine/generative-runtime/.venv/bin/python -m unittest discover -s engine/generative-runtime/tests
 ```
 
@@ -29,8 +32,12 @@ From this directory, with the same environment:
 
 PyInstaller produces a directory containing its own Python and native components.
 Keep the entire directory together. Building successfully is not proof of native
-imports, model inference, signing, notarization or macOS 15 compatibility. Native
-wheel deployment targets must be checked before distribution on older systems.
+imports, model inference, signing, notarization or macOS 15 compatibility. The installer selects the official macOS 15 MLX wheels from the existing lock
+and verifies their actual sizes and SHA256 values; the host would otherwise
+prefer the macOS 26 variant. After building, run
+`python tools/generative/native-audit.py PATH_TO_RUNTIME`. Packaging rejects
+native components requiring a newer OS than 15.0. This binary audit does not
+replace running the finished app on a real macOS 15 device.
 
 `convert_klein.py SOURCE DESTINATION` converts a developer-downloaded immutable
 distilled 4B snapshot using the pinned MFLUX mappings and native module shapes.
@@ -64,7 +71,8 @@ The process emits JSON lines and exits. Requests support:
 Image operations require a caller-created absolute `session_dir` owned by the
 current user, with permission 0700. They exclusively create `output.png`, as a
 bare RGB PNG with permission 0600. Editing here tests the model on a crop;
-selection composition and alpha preservation belong to the later engine task.
+the engine composes only selected pixels, preserves alpha and verifies source
+pixels outside the binary selection.
 This internal protocol must not be exposed directly to Electron's renderer.
 
 The harness disables Hugging Face online access and telemetry before imports,
@@ -85,8 +93,7 @@ MLX evaluates the native step.
 The pipe publishes a validated `english` string, rejecting unterminated generation,
 empty output, reasoning markup, and an unchanged source echo. Input token limits
 are checked without truncation. These checks cannot prove semantic correctness.
-The real Turkish quality gate is mandatory before connecting translation to image
-generation. These test modes deliberately run as separate processes. The 1000-character
+The real Turkish quality gate is mandatory before accepting a production profile. These test modes deliberately run as separate processes. The 1000-character
 limit applies to the user's source; the prepared image prompt is governed by the
 image tokenizer's 512-token limit instead.
 
@@ -101,3 +108,9 @@ Structured errors contain only controlled identifiers. For content-free frozen
 import diagnosis, `PIXELMEND_GENERATIVE_DIAGNOSTICS=1` enables a traceback only
 for `probe`. Synthetic evaluation evidence, weights, and generated binaries
 remain in the Git-ignored `.local-notes` directory.
+
+Image workers use the pinned MFLUX one-seed MemorySaver callbacks to release the
+text encoder and transformer before VAE decoding. Klein opts out of implicit VAE
+tiling because of tile colour offsets. The original VAE and 1 GiB cache limit are
+preserved; no system GPU or wired-memory settings are changed. See
+`../../tools/generative/README.md` for isolated Mac app packaging and signing.

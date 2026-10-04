@@ -37,18 +37,23 @@ def test_real_models_queue_preserves_alpha_and_reports_actual_artifacts():
         mask=np.zeros((16,24),np.uint8);mask[6:10,10:14]=255
         try:
             async with JobQueue(store,model_manager=manager) as queue:
-                lama=queue.submit(asset.asset_id,['lama'],mask)
-                await queue.join();assert lama.status=='completed',lama.error
-                image=next(iter(lama.results.values()))
-                np.testing.assert_array_equal(image.rgb[mask==0],rgba[:,:,:3][mask==0])
-                np.testing.assert_array_equal(image.alpha,rgba[:,:,3])
-                ai=queue.submit(asset.asset_id,['realesrgan_x4plus'],scale=2)
-                await queue.join();assert ai.status=='completed',ai.error
-                image=next(iter(ai.results.values()))
-                assert image.rgb.shape==(32,48,3)
-                expected=np.asarray(Image.fromarray(rgba[:,:,3]).resize((48,32),Image.Resampling.LANCZOS))
-                np.testing.assert_array_equal(image.alpha,expected)
-                for job,algorithm in [(lama,'lama'),(ai,'realesrgan_x4plus')]:
+                completed=[]
+                for algorithm in ['lama','migan_512_places2']:
+                    job=queue.submit(asset.asset_id,[algorithm],mask)
+                    await queue.join();assert job.status=='completed',job.error
+                    image=next(iter(job.results.values()))
+                    np.testing.assert_array_equal(image.rgb[mask==0],rgba[:,:,:3][mask==0])
+                    np.testing.assert_array_equal(image.alpha,rgba[:,:,3])
+                    completed.append((job,algorithm))
+                for algorithm in ['realesrgan_x4plus','realesrgan_general_x4v3']:
+                    job=queue.submit(asset.asset_id,[algorithm],scale=2)
+                    await queue.join();assert job.status=='completed',job.error
+                    image=next(iter(job.results.values()))
+                    assert image.rgb.shape==(32,48,3)
+                    expected=np.asarray(Image.fromarray(rgba[:,:,3]).resize((48,32),Image.Resampling.LANCZOS))
+                    np.testing.assert_array_equal(image.alpha,expected)
+                    completed.append((job,algorithm))
+                for job,algorithm in completed:
                     detail=job.snapshot()['result_details'][0]
                     assert detail['algorithm']==algorithm
                     assert detail['model_revision']==job.model_path.parent.name

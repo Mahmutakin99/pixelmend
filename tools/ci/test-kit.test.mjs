@@ -178,3 +178,15 @@ test('test-kit generator removes a previous platform launcher from the same outp
     assert.ok(!existsSync(join(output, 'PixelMend-Test.command')));
   } finally { rmSync(f.dir, {recursive: true, force: true}); }
 });
+
+test('Mac test kit includes an explicit offline generative checklist without starting models',()=>{
+ const f=fixture();
+ try {
+  const output=join(f.dir,'mac');
+  assert.equal(spawnSync('node',[generator,'--platform','macos',output],{encoding:'utf8'}).status,0);
+  const guide=readFileSync(join(output,'URETKEN-TEST.md'),'utf8');
+  assert.match(guide,/İnterneti kapat/);assert.match(guide,/Yazıyla Düzenle/);assert.match(guide,/Yazıyla Oluştur/);
+  assert.match(guide,/İptal/);assert.match(guide,/Geri al/);
+  assert.doesNotMatch(readFileSync(join(output,'PixelMend-Test.command'),'utf8'),/startGenerativeJob/);
+ }finally{rmSync(f.dir,{recursive:true,force:true});}
+});

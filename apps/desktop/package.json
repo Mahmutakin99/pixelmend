@@ -1,6 +1,6 @@
 {
   "name": "pixelmend",
-  "version": "1.0.0-rc.4",
+  "version": "1.1.0-alpha.1",
   "private": true,
   "description": "Local photo repair and image enhancement desktop application",
   "homepage": "https://github.com/Mahmutakin99/pixelmend",
@@ -20,7 +20,9 @@
     "package:mac": "corepack pnpm package --mac dmg zip --arm64",
     "package:win": "corepack pnpm package --win nsis --x64",
     "package:linux": "corepack pnpm package --linux AppImage deb --x64",
-    "test:ci-tools": "node --test ../../tools/ci/*.test.mjs"
+    "test:ci-tools": "node --test ../../tools/ci/*.test.mjs",
+    "test:e2e:generative": "node e2e/generative.cjs",
+    "package:mac:generative": "node ../../tools/generative/package-mac.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

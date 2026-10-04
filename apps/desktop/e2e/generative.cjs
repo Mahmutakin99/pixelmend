@@ -5,11 +5,13 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
 (async()=>{
  const output=path.resolve(process.env.PIXELMEND_E2E_OUTPUT||'test-results/generative');await fs.mkdir(output,{recursive:true});
  const temp=await fs.mkdtemp(path.join(os.tmpdir(),'pixelmend-generative-ui-'));
+ const startupStarted=Date.now();
  const app=await electron.launch(process.env.PIXELMEND_E2E_APP?{executablePath:process.env.PIXELMEND_E2E_APP,args:[`--user-data-dir=${temp}/profile`]}:{args:['.',`--user-data-dir=${temp}/profile`]});
  let page;const errors=[];
  try{
   page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));
   await expect(page.getByRole('button',{name:'Yazıyla Oluştur',exact:true})).toBeVisible();
+  const interactiveMilliseconds=Date.now()-startupStarted;assert(interactiveMilliseconds<5000,'interactive startup exceeded 5 seconds');
   const facts=await page.evaluate(()=>window.pixelmend.capabilities());
   assert(facts.generative?.accepted_profiles.includes('low-resource'),'explicit low-resource profile acceptance required');
   const source=path.resolve('../../engine/bench/fixtures/original-coffee.png'),project=path.join(temp,'test.pixelmend'),png=path.join(temp,'test.png');
@@ -45,7 +47,7 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   await expect(page.locator('.canvas img')).toBeVisible();await expect(page.getByRole('button',{name:'Geri al',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Görsel olarak kaydet (PNG)',exact:true}).click();await expect.poll(()=>fs.stat(png).then(s=>s.size).catch(()=>0)).toBeGreaterThan(1000);
   await page.getByRole('button',{name:'Başlangıç',exact:true}).click();await app.evaluate(({dialog},project)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[project]});},project);await page.getByRole('button',{name:'Proje Aç',exact:true}).click();await expect(page.locator('.canvas img')).toBeVisible();await expect.poll(()=>page.locator('.canvas img').evaluate(img=>[img.naturalWidth,img.naturalHeight])).toEqual([600,400]);
-  assert.deepEqual(errors,[]);await fs.writeFile(path.join(output,'result.json'),JSON.stringify({passed:true,cancelUiMilliseconds,profileAcceptanceBypass:process.env.PIXELMEND_NATIVE_MEASUREMENT==='1'}));
+  assert.deepEqual(errors,[]);await fs.writeFile(path.join(output,'result.json'),JSON.stringify({passed:true,cancelUiMilliseconds,interactiveMilliseconds,profileAcceptanceBypass:process.env.PIXELMEND_NATIVE_MEASUREMENT==='1'}));
   console.log('PASS: native edit preview/discard/apply/history/project, generation/cancel/editor/PNG');
  }catch(error){console.error('Renderer errors:',errors);if(page)await page.screenshot({path:path.join(output,'failure.png')}).catch(()=>{});throw error;}
  finally{if(page&&!page.isClosed())await page.evaluate(()=>window.pixelmend.confirmClose()).catch(()=>{});await app.close();await fs.rm(temp,{recursive:true,force:true});}

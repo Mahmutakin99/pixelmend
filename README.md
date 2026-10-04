@@ -46,3 +46,44 @@ Uygulama `apps/desktop`, motor `engine/src`, testler `apps/desktop/e2e` ve `engi
 ## Lisans
 
 Kaynak kod [Apache-2.0](LICENSE) lisanslıdır. Bağımlılıklar ve model lisansları ayrıca geçerlidir: [üçüncü taraf bildirimleri](THIRD_PARTY_NOTICES.md).
+
+## Türkçe komutla üretim — 1.1.0-alpha.1
+
+Yazıyla Düzenle seçili alana komutla nesne ekler veya değiştirir; Yazıyla Oluştur
+fotoğraf açmadan yeni görsel üretir. Türkçe komutlar ayrı yerel OPUS-MT çeviri
+modeliyle hazırlanır; İngilizce karşılığı gelişmiş bölümden düzeltebilirsiniz.
+Görsel modeli FLUX.2 Klein distilled 4B'nin MLX 4-bit paketidir.
+
+Bu özellik macOS 15+, Apple Silicon ve en az 16 GB RAM ister. Her profil ayrıca
+cihaz sınıfında kalite ve kaynak kabulünü geçmelidir; kabul edilmemiş profil
+başlatılmaz. Kullanılabilir bellek işlem başında yeniden kontrol edilir. Modelin
+kurulu olması profil kabulü veya her Mac'te çalışma garantisi değildir.
+
+İlk kurulumda Ayarlar → Modeller'den doğrulanmış Klein ve OPUS-MT paket
+klasörlerini seçin. Paket boyutu ve SHA-256 dosya listesi kurulum sırasında
+kontrol edilir. Üretken paketlerin varsayılan yeri Application Support altındaki
+uygulama model-paket dizinidir; mevcut ONNX önbelleği taşınmaz. Paket yayın
+adresleri hazırlanıp doğrulanmadan otomatik indirme sunulmaz.
+
+Kurulumdan sonra işlemler çevrim dışıdır; fotoğraf ve komutlar sunucuya
+aktarılmaz, çalışma sırasında otomatik model indirilmez. Çeviri ve görsel
+süreçleri sırayla çalışır ve her iş sonunda kapanır. Komutlar yalnız açıkça
+kaydettiğiniz yerel `.pixelmend` projesine eklenir; PNG'ye komut yazılmaz.
+
+Manuel kontrol:
+
+1. İki modeli Ayarlar'dan kurun.
+2. İnterneti kapatıp uygulamayı yeniden açın.
+3. Fotoğrafta alan seçip “buraya turuncu bir kedi ekle” yazın.
+4. Önizlemede bir kez Vazgeç, sonra yeniden üretip Uygula seçin.
+5. Geri al/Yinele ile fotoğraf, boyama ve seçimin geri döndüğünü kontrol edin.
+6. Bir üretimi İptal edip uygulamanın yeniden kullanılabildiğini kontrol edin.
+7. Yazıyla Oluştur'da yeni görsel üretip Düzenleyicide Aç seçin.
+8. PNG ve proje kaydedip projeyi yeniden açın.
+
+Yeni görseller opak sRGB'dir. Düzenlemede alfa ve seçim dışı pikseller korunur;
+tamamen şeffaf boşluğa yeni opak nesne eklenmez. Ayrıntı çalışma çözünürlüğüyle
+sınırlıdır; kaynak boyutuna birleştirme doğrudan 4K üretim anlamına gelmez.
+
+Kaynak geliştiriciler için gömülü çalışma paketi ve imzalama hazırlığı:
+[Mac alpha paketleme](tools/generative/README.md).
