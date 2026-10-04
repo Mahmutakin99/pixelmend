@@ -1,54 +1,45 @@
 # PixelMend
 
-Fotoğraflarınızda istemediğiniz bir alanı fırçayla işaretleyip silin — çevresindeki piksellerden yola çıkarak doldurulsun. Aynı uygulamada düşük çözünürlüklü fotoğrafları da büyütün. Birden fazla algoritma sonucu yan yana karşılaştırın, en beğendiğinizi seçin.
+Fotoğraf düzenleme, nesne silme ve görsel büyütme için yerel masaüstü uygulaması.
+Görselleriniz işlenmek için dış servislere gönderilmez.
 
-- **Tamamen yerel çalışır** — görselleriniz cihazınızdan çıkmaz, hiçbir üçüncü parti API'ye gönderilmez.
-- **Çapraz platform** — v1 hedefi macOS Apple Silicon, Windows x64 ve Linux x64.
-- **Doğrulanmış kapasiteye göre uyarlanır** — cihazda gerçekten çalışan backend ve modeller ölçülür; uygun olmayan ağır yöntemler varsayılan kapalı kalır.
+## Uygulamayı indirme
 
-> **Durum:** Yerel motor ve masaüstü uygulaması geliştirme aşamasında. macOS arm64, Windows x64 ve Linux x64 için imzasız CI paketleri üretilir; gerçek platform kabulü ve kod imzalama henüz tamamlanmamıştır. RealESRGAN AI upscale altyapısı hazır olsa da doğrulanmış public model artefaktı ve M4 benchmarkı tamamlanmadığı için AI modu henüz etkin değildir. Güncel kararları `DURUM.md`'den takip edebilirsiniz.
+Mac Apple Silicon paketleri [Releases](https://github.com/Mahmutakin99/pixelmend/releases) bölümündedir. DMG'yi açıp PixelMend'i Applications klasörüne sürükleyin; ZIP aynı uygulamanın alternatifidir. Bir sürümün desteklediği platformlar ve modeller kendi Release açıklamasında belirtilir.
 
-## Paket desteği
+Yeni Mac dağıtımı Intel Mac, Windows veya Linux paketi içermez. RC sürümleri
+ön sürümdür; AI çıktısını kaydetmeden önce inceleyin. Eski paketler farklı
+özelliklere ve imza durumuna sahip olabilir.
 
-| Hedef | CI çıktısı | Dağıtım durumu |
-|---|---|---|
-| macOS Apple Silicon | arm64 DMG ve ZIP | İmzasız test paketi üretilir; gerçek cihaz kabulü, Developer ID ve notarization bekler. |
-| Windows x64 | NSIS | İmzasız test paketi üretilir; gerçek cihaz kabulü ve imzalama bekler. |
-| Linux x64 | AppImage ve DEB | İmzasız test paketi üretilir; gerçek dağıtım/masaüstü kabulü bekler. |
+## İlk kullanım
 
-## Bu ne işe yarar
+1. Bir fotoğraf açın.
+2. Silmek istediğiniz bölgeyi seçim fırçasıyla işaretleyin veya büyütme yöntemini seçin.
+3. Sonucu önizleyin; uygun bulursanız uygulayıp PNG/proje olarak kaydedin.
 
-1. **Nesne/leke silme (inpainting):** Bir fotoğrafta istenmeyen bir nesneyi, yazıyı veya lekeyi fırçayla işaretleyin; uygulama o alanı çevredeki dokuya uygun şekilde doldurur.
-2. **Büyütme (upscale):** Düşük çözünürlüklü bir fotoğrafı detay kaybetmeden büyütün.
-3. **Karşılaştırma:** Her iki iş için de birden fazla algoritma çalıştırılır, sonuçlar yan yana gösterilir — en iyi sonucu siz seçersiniz.
+Modeller uygulama paketinden ayrı indirilir. İndirme internet gerektirir;
+kurulumdan sonra görüntü işleme yereldir. Hata bildirirken kişisel fotoğraf,
+parola veya özel anahtar paylaşmayın.
 
-## Cihazınıza göre önerilen mod
+## Kaynaktan geliştirme
 
-Tier yalnız toplam RAM'e bakılarak seçilmeyecek. Uygulama; host belleğini, gerçekten seçilmiş accelerator/adapter'ın bellek bütçesini, modelin ilgili execution provider'da açılıp açılmadığını ve kısa kalibrasyon ölçümünü ayrı ayrı değerlendirecek.
+İndirdiğiniz uygulamanın kaynağı, ilgili Release'in sürüm etiketidir.
+Varsayılan dal ile yayımlanan ön sürüm aynı kodu içermeyebilir; derlemeden
+önce istediğiniz sürüm etiketini seçin.
 
-| Doğrulanmış cihaz profili | Önerilen tier | Varsayılan kapsam |
-|---|---|---|
-| Hızlandırıcı yok, doğrulanamadı veya model probe'u başarısız | **Hafif** | OpenCV inpainting ve klasik Lanczos büyütme |
-| LaMa, seçili backend'de doğruluk ve süre bütçesini geçti | **Orta** | + LaMa ile gelişmiş nesne silme |
-| Real-ESRGAN bellek ve büyük görsel benchmark'ını geçti | **Yüksek** | + model tabanlı büyütme |
-| Opsiyonel ağır motor ve seçilen SD modeli kendi host/device bellek kapılarını geçti | **Maksimum** (ayrıca indirilir) | + prompt destekli üretken doldurma |
+`apps/desktop` altında:
 
-8/16/24/32GB değerleri ancak ölçümler tamamlandığında yaklaşık örnekler olarak yayınlanacak; ayrık GPU'da VRAM, host RAM'in yerine geçmez. Ölçülemeyen kapasite `unknown` kalır ve uygulama temkinli öneri verir. Kullanıcı öneriyi **Ayarlar → Performans**'tan değiştirebilir. Ağır modlar varsayılan kapalıdır, yalnız kullanıcı açtığında ilgili model indirilir.
+```sh
+corepack pnpm install --frozen-lockfile
+corepack pnpm test
+corepack pnpm build
+```
 
-## Neden bu yaklaşım
-
-Tek bir algoritmayı "doğru cevap" olarak dayatmak yerine, her iş için birkaç farklı yöntemin sonucunu üretip karşılaştırma imkanı sunuyoruz — hangi algoritma sizin fotoğrafınızda daha iyi sonuç verir, önceden bilinemez. Aynı zamanda düşük donanımlı bir cihazda da uygulamanın kullanılabilir kalması için ağır algoritmalar isteğe bağlı tutuluyor.
-
-## Kullanılan modeller ve lisanslar
-
-Bkz. [`docs/modeller-ve-lisanslar.md`](docs/modeller-ve-lisanslar.md).
-
-## Geliştirme
-
-Proje durumu, alınan kararlar ve sıradaki adımlar için: [`DURUM.md`](DURUM.md).
-Mimari detay: [`docs/mimari.md`](docs/mimari.md).
-Kurulum adımları: [`docs/faz-0-kurulum.md`](docs/faz-0-kurulum.md).
+Python motoru için `engine` altında `uv sync --all-groups --locked` ve
+`uv run pytest -q` çalıştırın. Yerel paketleme komutları geliştirme çıktısıdır;
+imzalı dağıtım için ayrıca Developer ID ve Apple notarizasyonu gerekir.
 
 ## Lisans
 
-Proje Apache-2.0 lisanslıdır. Üçüncü parti model lisansları ayrıdır; bkz. [`docs/modeller-ve-lisanslar.md`](docs/modeller-ve-lisanslar.md).
+Kaynak kod [Apache-2.0](LICENSE) lisanslıdır. Model ve bağımlılık lisansları
+ayrıca geçerlidir: [üçüncü taraf bildirimleri](THIRD_PARTY_NOTICES.md).
