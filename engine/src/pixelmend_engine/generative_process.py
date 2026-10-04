@@ -26,6 +26,9 @@ MESSAGES={
     'model_not_installed':'Gerekli model paketi kurulu değil.',
     'unsupported_platform':'Bu özellik macOS 15+, Apple Silicon ve en az 16 GB bellek gerektirir.',
     'unsupported_runtime':'Yerel çalışma paketi uyumlu değil; doğrulanmış paketi yeniden kurun.',
+    'selection_empty':'Düzenlenecek görünür bir alan seçin. Tamamen şeffaf alan düzenlenemez.',
+    'selection_too_small':'Seçim çalışma çözünürlüğünde çok küçük kalıyor. Daha geniş bir alan seçin.',
+    'selection_invalid':'Seçim veya boyama çizimleri geçersiz.',
 }
 
 
