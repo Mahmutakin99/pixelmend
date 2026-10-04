@@ -20,6 +20,8 @@ a = Analysis(
         'mlx._reprlib_fix',
         'mlx.__array_api_info',
         'transformers.models.qwen2.tokenization_qwen2',
+        'transformers.models.marian.modeling_marian',
+        'transformers.models.marian.tokenization_marian',
     ]),
     hookspath=[],
     hooksconfig={},

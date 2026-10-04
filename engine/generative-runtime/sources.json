@@ -11,11 +11,15 @@
       "quantization": {"bits": 4, "group_size": 64, "vae": "unquantized"}
     },
     {
-      "package_id": "qwen3-1.7b-mlx-q4",
-      "repository": "Qwen/Qwen3-1.7B",
-      "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
-      "license": "Apache-2.0",
-      "quantization": {"bits": 4, "group_size": 64}
+      "package_id": "opus-mt-tc-big-tr-en-f16",
+      "repository": "Helsinki-NLP/opus-mt-tc-big-tr-en",
+      "revision": "2261c8fc7b1af59caee87f8ff0ecf3fbccfe8391",
+      "license": "CC-BY-4.0",
+      "runtime": "torch-cpu",
+      "storage_dtype": "float16",
+      "execution_dtype": "float32",
+      "attribution": "Helsinki-NLP Research Group, OPUS-MT project",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/"
     }
   ]
 }
