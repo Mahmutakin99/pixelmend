@@ -96,7 +96,7 @@ def process(image, mask, algorithm, scale, target_size=None, *, model_path=None,
 @dataclass
 class Job:
     job_id: str
-    asset_id: str
+    asset_id: str | None
     algorithms: list[str]
     mask: np.ndarray | None
     scale: int
@@ -112,6 +112,9 @@ class Job:
     model_revision: str | None = None
     provider: str | None = None
     compute_ticket: object | None = None
+    generative_request: object | None = None
+    generative_reservations: list = field(default_factory=list)
+    generation_seed: int | None = None
     fallback_reason: str | None = None
     result_metadata: dict = field(default_factory=dict)
     cancel_event: Event = field(default_factory=Event)
@@ -126,6 +129,7 @@ class Job:
                 'error': self.error,
                 'progress': self.progress, 'model_revision': self.model_revision, 'provider': self.provider,
                 'fallback_reason': self.fallback_reason, 'resource_mode': self.resource_mode,
+                'seed': self.generation_seed,
                 'result_details': [{'result_id': key, 'width': image.width, 'height': image.height, **self.result_metadata[key]}
                                    for key, image in self.results.items()]}
 
@@ -135,13 +139,14 @@ class JobQueue:
 
     def __init__(self, assets: AssetStore, *, processor=process, max_jobs=32,
                  result_budget=POLICY.result_budget_bytes, model_manager: ModelManager | None = None,
-                 coordinator=None):
+                 coordinator=None, generative_service=None):
         self.assets = assets
         self.processor = processor
         self.max_jobs = max_jobs
         self.result_budget = result_budget
         self.model_manager = model_manager
         self.coordinator = coordinator or getattr(model_manager, 'coordinator', None) or ComputeCoordinator()
+        self.generative_service = generative_service
         self.adapter_cache = AdapterCache()
         self.jobs = {}
         self.pending = asyncio.Queue()
@@ -222,6 +227,29 @@ class JobQueue:
     def get(self, job_id):
         return self.jobs[job_id]
 
+    def submit_generative(self, request):
+        """Pin source/model revisions without loading or hashing on the event loop."""
+        if self.generative_service is None:
+            raise ModelManagerError('runtime_unavailable', 'Yerel çalışma paketi kurulu değil.')
+        if not self.accepting or len(self.jobs) >= self.max_jobs:
+            raise ValueError('job capacity unavailable')
+        reservations = self.generative_service.reserve(request)
+        try:
+            if request.asset_id is not None:
+                self.assets.acquire_for_job(request.asset_id)
+        except BaseException:
+            for reservation in reservations:
+                reservation.release()
+            raise
+        job = Job(uuid4().hex, request.asset_id, [request.operation], None, 1,
+                  resource_mode=request.profile, generative_request=request,
+                  generative_reservations=reservations, generation_seed=request.seed)
+        job.compute_ticket = self.coordinator.reserve_job()
+        self.jobs[job.job_id] = job
+        job.emit('queued', **job.snapshot())
+        self.pending.put_nowait(job)
+        return job
+
     def cancel(self, job_id):
         """Request cancellation; retain native-work references until it returns."""
         job = self.get(job_id)
@@ -281,6 +309,32 @@ class JobQueue:
             job.provider = 'CPUExecutionProvider'
             job.progress = {'phase':'cpu_fallback'}
 
+    async def _run_generative(self, job):
+        loop = asyncio.get_running_loop()
+        def update(event):
+            if job.status == 'cancelling':
+                return
+            progress = {'phase':event.get('stage', 'generating')}
+            if event['event'] == 'progress':
+                progress.update(completed=event['completed'], total=event['total'])
+            job.progress = progress
+            job.emit('progress', **progress)
+        def on_event(event):
+            stage = event.get('stage')
+            if stage in {'translating', 'generating'}:
+                from .generative_service import TRANSLATION_PACKAGE, IMAGE_PACKAGE
+                self.generative_service.packages._change(
+                    TRANSLATION_PACKAGE if stage == 'translating' else IMAGE_PACKAGE, loaded=True)
+            loop.call_soon_threadsafe(update, event)
+        def execute():
+            with self.coordinator.operation('job', job.cancel_event):
+                # No old ONNX session is needed while a new MLX model is resident.
+                self.adapter_cache.close()
+                return self.generative_service.execute(job.generative_request,
+                    job.generative_reservations, job.cancel_event, on_event,
+                    result_bytes=sum(j.result_bytes for j in self.jobs.values()), result_budget=self.result_budget)
+        return await loop.run_in_executor(self.executor, execute)
+
     async def _consume(self):
         """Await the whole native call before publishing results or releasing assets."""
         while True:
@@ -292,11 +346,14 @@ class JobQueue:
                 if job.status != 'cancelling':
                     job.status = 'running'
                     job.emit('running', job_id=job.job_id)
-                    image = self.assets.get_image(job.asset_id)
+                    image = self.assets.get_image(job.asset_id) if job.asset_id is not None else None
                     for algorithm in job.algorithms:
                         started = monotonic()
                         execution_evidence = {}
-                        if self.processor is process:
+                        generative_metadata = None
+                        if job.generative_request is not None:
+                            result, generative_metadata = await self._run_generative(job)
+                        elif self.processor is process:
                             def update_progress(done, total):
                                 job.progress = {'completed': done, 'total': total, 'phase': 'tiles'}
                             result = await self._run_native(job, image, algorithm, update_progress, execution_evidence)
@@ -312,7 +369,7 @@ class JobQueue:
                         result_id = uuid4().hex
                         job.results[result_id] = result
                         elapsed = monotonic() - started
-                        job.result_metadata[result_id] = {'algorithm': algorithm, 'execution_evidence': execution_evidence,
+                        job.result_metadata[result_id] = generative_metadata or {'algorithm': algorithm, 'execution_evidence': execution_evidence,
                             'fallback_reason': job.fallback_reason,
                             'model_id': AI_MODELS.get(algorithm),
                             'model_revision': job.model_revision if algorithm in AI_MODELS else None,
@@ -346,7 +403,13 @@ class JobQueue:
                 if job.compute_ticket is not None:
                     job.compute_ticket.release()
                     job.compute_ticket = None
-                self.assets.release_from_job(job.asset_id)
+                if job.asset_id is not None:
+                    self.assets.release_from_job(job.asset_id)
+                for reservation in job.generative_reservations:
+                    self.generative_service.packages._change(reservation.id, loaded=False)
+                    reservation.release()
+                job.generative_reservations.clear()
+                job.generative_request = None
                 if job.model_lease is not None:
                     job.model_lease.__exit__(None, None, None)
                     job.model_lease = None

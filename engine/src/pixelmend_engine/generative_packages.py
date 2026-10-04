@@ -133,6 +133,27 @@ def safe_directory(path, create=False):
     return path
 
 
+class PackageReservation:
+    def __init__(self,manager,id,path):
+        self.manager=manager;self.id=id;self.path=path;self.released=False
+
+    def verify(self,cancel):
+        if self.released:raise ModelManagerError('package_in_use','Model referansı kapandı.')
+        try:verify_package(self.path,self.manager.catalog[self.id].manifest,cancel=cancel)
+        except ModelPackageError:
+            raise ModelManagerError('package_invalid','Paket eksik veya değiştirilmiş. Yeniden kurun.') from None
+        self.manager._change(self.id,package_verified=True)
+
+    def release(self):
+        with self.manager._mutex:
+            if not self.released:
+                self.released=True
+                lock=self.manager._lease_locks[self.id]
+                lock.release()
+                self.manager._views[self.id]['in_use']-=1;self.manager._version+=1
+                if not lock.is_locked:self.manager._lease_locks.pop(self.id)
+
+
 class PackageManager:
     def __init__(self, models_dir, *, catalog=None, downloader=download_part, prober=None, coordinator=None):
         definitions=load_catalog() if catalog is None else tuple(catalog)
@@ -142,7 +163,7 @@ class PackageManager:
         self.models_dir=Path(models_dir).absolute()
         self.downloader=downloader;self.prober=prober
         self.coordinator=coordinator or ComputeCoordinator()
-        self._mutex=threading.RLock();self._tasks={};self._cancels={};self._closed=False
+        self._mutex=threading.RLock();self._tasks={};self._cancels={};self._lease_locks={};self._closed=False
         self._io=asyncio.Semaphore(2);self._version=0;self._views={}
         for id,d in self.catalog.items():
             m=d.manifest
@@ -313,25 +334,31 @@ class PackageManager:
 
     @contextmanager
     def lease(self,id):
+        reservation=self.reserve(id)
+        try:
+            reservation.verify(threading.Event())
+            yield reservation.path
+        finally:reservation.release()
+
+    def reserve(self,id):
+        """Pin an immutable revision now; hash later in the inference worker."""
         d=self._definition(id)
         with self._mutex:
             if id in self._tasks or self._closed:
                 raise ModelManagerError('package_in_use','Model kullanımda; işlem bitmesini bekleyin.')
+            try:
+                _,target,lock_path=self._paths(d)
+                if not target.is_dir():raise ModelPackageError('package missing')
+                lock=self._lease_locks.get(id)
+                if lock is None:lock=FileLock(lock_path,timeout=0,thread_local=False)
+                lock.acquire()
+            except ModelPackageError:
+                raise ModelManagerError('package_invalid','Paket eksik veya değiştirilmiş. Yeniden kurun.') from None
+            except Timeout:
+                raise ModelManagerError('package_in_use','Model kullanımda; işlem bitmesini bekleyin.') from None
+            self._lease_locks[id]=lock
             self._views[id]['in_use']+=1;self._version+=1
-        lock=None
-        try:
-            _,target,lock_path=self._paths(d)
-            lock=FileLock(lock_path,timeout=0);lock.acquire()
-            verify_package(target,d.manifest)
-            self._change(id,package_verified=True)
-            yield target
-        except ModelPackageError:
-            raise ModelManagerError('package_invalid','Paket eksik veya değiştirilmiş. Yeniden kurun.') from None
-        except Timeout:
-            raise ModelManagerError('package_in_use','Model kullanımda; işlem bitmesini bekleyin.') from None
-        finally:
-            if lock and lock.is_locked:lock.release()
-            with self._mutex:self._views[id]['in_use']-=1;self._version+=1
+            return PackageReservation(self,id,target)
 
     async def close(self):
         with self._mutex:

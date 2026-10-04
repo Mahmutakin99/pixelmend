@@ -20,6 +20,8 @@ class PreparedPrompt:
 def validate_user_prompt(value):
     if not isinstance(value,str) or not value.strip() or len(value)>1000:
         raise RuntimeErrorCode('invalid_prompt')
+    try:value.encode('utf-8')
+    except UnicodeError:raise RuntimeErrorCode('invalid_prompt') from None
     return value.strip()
 
 

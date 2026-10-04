@@ -141,3 +141,24 @@ def test_retry_accounts_for_verified_cached_parts_when_disk_is_tight(tmp_path,mo
         assert calls==['weights.part1','tokenizer/config.json']
         await manager.close()
     asyncio.run(check())
+
+
+def test_queued_reservations_pin_package_without_hashing_or_loading(tmp_path,monkeypatch):
+    import pixelmend_engine.generative_packages as packages
+    async def check():
+        d=definition();target=tmp_path/d.manifest.model_id/d.manifest.revision
+        target.mkdir(parents=True);(target/'weights.safetensors').write_bytes(b'abcdef')
+        (target/'tokenizer').mkdir();(target/'tokenizer/config.json').write_bytes(b'cfg')
+        manager=PackageManager(tmp_path,catalog=(d,));await manager.start()
+        calls=[];original=packages.verify_package
+        monkeypatch.setattr(packages,'verify_package',lambda *_args,**_kwargs:calls.append(True))
+        first=manager.reserve(d.manifest.model_id);second=manager.reserve(d.manifest.model_id)
+        assert calls==[] and manager.list_models()['models'][0]['in_use']==2
+        with pytest.raises(ModelManagerError):await manager.delete(d.manifest.model_id)
+        monkeypatch.setattr(packages,'verify_package',original)
+        first.verify(threading.Event())
+        first.release();first.release();second.release()
+        assert manager.list_models()['models'][0]['in_use']==0
+        await manager.delete(d.manifest.model_id);assert (await settle(manager))['state']=='absent'
+        await manager.close()
+    asyncio.run(check())

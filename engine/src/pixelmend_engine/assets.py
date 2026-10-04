@@ -68,6 +68,11 @@ class AssetStore:
         with self._lock:
             return sum(asset.size_bytes for asset in self._assets.values())
 
+    @property
+    def available_capacity(self):
+        with self._lock:
+            return self.max_assets - len(self._assets), self.byte_budget - self.used_bytes
+
     def close(self):
         """Release all session data after worker shutdown."""
         with self._lock:

@@ -20,6 +20,8 @@ from .model_manager import ModelManager
 from .generative_packages import PackageManager, CombinedModelManager
 from .compute import ComputeCoordinator
 from .generative_process import RuntimeOwner
+from .generative_service import GenerativeService, IMAGE_PACKAGE
+from .generative_api import generative_router
 from .paths import get_models_dir, get_generative_models_dir, get_generative_runtime, get_coreml_cache_dir, cleanup_stale_sessions, create_session_dir
 from .policy import POLICY
 
@@ -31,8 +33,9 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
     runtime = RuntimeOwner(get_generative_runtime())
     packages = PackageManager(get_generative_models_dir(), prober=runtime.probe, coordinator=coordinator)
     manager = CombinedModelManager(ModelManager(get_models_dir(), prober=_probe_model, coordinator=coordinator), packages)
-    queue = JobQueue(assets, model_manager=manager, coordinator=coordinator)
     session_dir = None
+    generative = GenerativeService(assets, packages, runtime, session_parent=lambda: session_dir)
+    queue = JobQueue(assets, model_manager=manager, coordinator=coordinator, generative_service=generative)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -45,6 +48,7 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
                 yield
         finally:
             await run_in_threadpool(runtime.close)
+            generative.close()
             await manager.close()
             assets.close()
             if session_dir is not None:
@@ -56,6 +60,7 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
     token_dependency = require_session_token(session_token)
     app.include_router(job_router(queue, assets, token_dependency))
     app.include_router(model_router(manager, token_dependency))
+    app.include_router(generative_router(queue, generative, token_dependency))
     if diagnostics:
         from .diagnostics import diagnostic_router
         app.include_router(diagnostic_router(queue, assets, token_dependency))
@@ -89,6 +94,9 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
         report = collect_capabilities().as_dict()
         report['policy'] = POLICY.as_dict()
         report['generative'] = generative_capabilities(report['host_ram_total_bytes'], get_generative_runtime() is not None)
+        host = generative.host_provider()
+        report['generative']['accepted_profiles'] = [p['profile'] for p in packages.catalog[IMAGE_PACKAGE].accepted_profiles
+            if p['hardware_class'] == host['hardware_class']]
         return report
 
     @app.post("/assets", status_code=status.HTTP_201_CREATED)

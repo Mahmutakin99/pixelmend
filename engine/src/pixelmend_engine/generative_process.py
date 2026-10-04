@@ -12,6 +12,7 @@ import time
 import psutil
 
 from .model_manager import ModelManagerError
+from .process_memory import MacFootprint
 
 MAX_LINE=65536
 KILL_SIGNAL=getattr(signal,'SIGKILL',9)
@@ -29,6 +30,13 @@ MESSAGES={
     'selection_empty':'Düzenlenecek görünür bir alan seçin. Tamamen şeffaf alan düzenlenemez.',
     'selection_too_small':'Seçim çalışma çözünürlüğünde çok küçük kalıyor. Daha geniş bir alan seçin.',
     'selection_invalid':'Seçim veya boyama çizimleri geçersiz.',
+    'invalid_request':'Üretim isteği geçersiz. Komut, profil, oran ve seed değerlerini kontrol edin.',
+    'profile_not_accepted':'Bu cihaz için seçilen çalışma profilinin kalite ve kaynak kabulü tamamlanmadı.',
+    'memory_insufficient':'Kullanılabilir bellek yetersiz. Düşük kaynak profilini seçin veya diğer uygulamaları kapatın.',
+    'disk_insufficient':'Geçici görsel dosyaları için disk alanı yetersiz.',
+    'result_budget':'Sonuç belleği dolu. Önceki adayları kapatıp yeniden deneyin.',
+    'asset_capacity':'Düzenleyici belleği dolu. Kullanılmayan görselleri kapatın.',
+    'package_in_use':'Model paketi hazırlanıyor veya başka bir işlemde kullanılıyor.',
 }
 
 
@@ -100,7 +108,7 @@ class RuntimeOwner:
         write_lock=threading.Lock();write_error=threading.Event();result=None;child_error=None
         started=time.monotonic();deadline=started+timeout
         peak_rss=0;phase='starting_process';phase_start=started;stage_seconds={};group_cleaned=False
-        observed=psutil.Process(process.pid)
+        observed=psutil.Process(process.pid);footprint=MacFootprint();peak_footprint=None
         def read_stdout():
             try:
                 while True:
@@ -135,6 +143,8 @@ class RuntimeOwner:
                     self._signal(process,KILL_SIGNAL);group_cleaned=True
                 try:peak_rss=max(peak_rss,observed.memory_info().rss)
                 except psutil.Error:pass
+                measured=footprint.read(process.pid)
+                if measured is not None:peak_footprint=max(peak_footprint or 0,measured)
                 if cancel.is_set() or self._shutdown.is_set():
                     self._stop(process,write_lock);raise InterruptedError()
                 if time.monotonic()>=deadline:
@@ -177,6 +187,7 @@ class RuntimeOwner:
             stage_seconds[phase]=time.monotonic()-phase_start
             result['stage_seconds']=stage_seconds
             result['child_peak_rss_bytes']=peak_rss
+            result['child_peak_footprint_bytes']=peak_footprint
             return result
         finally:
             if process.poll() is None:self._stop(process,write_lock)
