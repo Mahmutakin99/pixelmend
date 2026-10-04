@@ -22,6 +22,7 @@ from .paths import get_coreml_cache_dir
 from .adapter_cache import AdapterCache
 from .model_catalog import UPSCALE_MODELS, INPAINT_MODELS, AI_MODELS
 from .fallback import may_retry_cpu, check_cpu_capacity
+from .compute import ComputeCoordinator
 
 TERMINAL = frozenset({'completed', 'failed', 'cancelled'})
 
@@ -110,6 +111,7 @@ class Job:
     model_lease: object | None = None
     model_revision: str | None = None
     provider: str | None = None
+    compute_ticket: object | None = None
     fallback_reason: str | None = None
     result_metadata: dict = field(default_factory=dict)
     cancel_event: Event = field(default_factory=Event)
@@ -132,12 +134,14 @@ class JobQueue:
     """Serialize native work and keep cancellation independent of thread preemption."""
 
     def __init__(self, assets: AssetStore, *, processor=process, max_jobs=32,
-                 result_budget=POLICY.result_budget_bytes, model_manager: ModelManager | None = None):
+                 result_budget=POLICY.result_budget_bytes, model_manager: ModelManager | None = None,
+                 coordinator=None):
         self.assets = assets
         self.processor = processor
         self.max_jobs = max_jobs
         self.result_budget = result_budget
         self.model_manager = model_manager
+        self.coordinator = coordinator or getattr(model_manager, 'coordinator', None) or ComputeCoordinator()
         self.adapter_cache = AdapterCache()
         self.jobs = {}
         self.pending = asyncio.Queue()
@@ -209,6 +213,7 @@ class JobQueue:
                     job.model_lease.__exit__(None, None, None)
                 self.assets.release_from_job(asset_id)
                 raise
+        job.compute_ticket = self.coordinator.reserve_job()
         self.jobs[job.job_id] = job
         job.emit('queued', **job.snapshot())
         self.pending.put_nowait(job)
@@ -237,22 +242,35 @@ class JobQueue:
     async def join(self):
         await self.pending.join()
 
+    def _compute(self, job, callback):
+        # Existing OpenCV/Lanczos tools remain available during a native probe.
+        # Unknown injected processors are conservatively treated as native work.
+        heavy = self.processor is not process or any(
+            a in AI_MODELS or a in {'text_edit', 'text_to_image'} for a in job.algorithms)
+        if not heavy:
+            if job.cancel_event.is_set():
+                raise InterruptedError()
+            return callback()
+        with self.coordinator.operation('job', job.cancel_event):
+            return callback()
+
     async def _run_native(self, job, image, algorithm, update_progress, evidence):
         for attempt in range(2):
             try:
                 return await asyncio.get_running_loop().run_in_executor(
-                    self.executor, lambda: self.processor(
+                    self.executor, lambda: self._compute(job, lambda: self.processor(
                         image, job.mask, algorithm, job.scale, job.target_size,
                         model_path=getattr(job, 'model_path', None), provider=job.provider,
                         cancel_event=job.cancel_event, progress=update_progress,
                         adapter_cache=self.adapter_cache, execution_evidence=evidence,
-                        resource_mode=job.resource_mode))
+                        resource_mode=job.resource_mode)))
             except Exception as error:
                 if attempt or algorithm not in AI_MODELS or not may_retry_cpu(error, job.provider, job.cancel_event.is_set()):
                     raise
             # Exit the exception scope first, releasing references to the failed
             # native call before constructing a CPU session for the SAME model.
-            await asyncio.get_running_loop().run_in_executor(self.executor, self.adapter_cache.close)
+            await asyncio.get_running_loop().run_in_executor(
+                self.executor, lambda: self._compute(job, self.adapter_cache.close))
             if job.cancel_event.is_set():
                 raise InferenceCancelled()
             check_cpu_capacity(image, job.target_size, upscale=algorithm in UPSCALE_MODELS,
@@ -284,7 +302,8 @@ class JobQueue:
                             result = await self._run_native(job, image, algorithm, update_progress, execution_evidence)
                         else:
                             result = await asyncio.get_running_loop().run_in_executor(
-                                self.executor, self.processor, image, job.mask, algorithm, job.scale)
+                                self.executor, lambda: self._compute(job, lambda:
+                                    self.processor(image, job.mask, algorithm, job.scale)))
                         if job.status == 'cancelling':
                             break
                         size = result.rgb.nbytes + (result.alpha.nbytes if result.alpha is not None else 0)
@@ -304,7 +323,7 @@ class JobQueue:
                         job.emit('result', result_id=result_id, **job.result_metadata[result_id],
                                  width=result.width, height=result.height)
                 job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
-            except (InferenceCancelled, asyncio.CancelledError):
+            except (InferenceCancelled, asyncio.CancelledError, InterruptedError):
                 job.status = 'cancelled'
             except Exception as error:
                 job.status = 'cancelled' if job.status == 'cancelling' else 'failed'
@@ -324,6 +343,9 @@ class JobQueue:
                     job.emit('error', **job.error)
             finally:
                 job.mask = None
+                if job.compute_ticket is not None:
+                    job.compute_ticket.release()
+                    job.compute_ticket = None
                 self.assets.release_from_job(job.asset_id)
                 if job.model_lease is not None:
                     job.model_lease.__exit__(None, None, None)

@@ -18,6 +18,8 @@ from .job_api import job_router
 from .model_api import model_router
 from .model_manager import ModelManager
 from .generative_packages import PackageManager, CombinedModelManager
+from .compute import ComputeCoordinator
+from .generative_process import RuntimeOwner
 from .paths import get_models_dir, get_generative_models_dir, get_generative_runtime, get_coreml_cache_dir, cleanup_stale_sessions, create_session_dir
 from .policy import POLICY
 
@@ -25,9 +27,11 @@ from .policy import POLICY
 def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
     """Create a production sidecar app with its private session asset store."""
     assets = AssetStore()
-    packages = PackageManager(get_generative_models_dir())
-    manager = CombinedModelManager(ModelManager(get_models_dir(), prober=_probe_model), packages)
-    queue = JobQueue(assets, model_manager=manager)
+    coordinator = ComputeCoordinator()
+    runtime = RuntimeOwner(get_generative_runtime())
+    packages = PackageManager(get_generative_models_dir(), prober=runtime.probe, coordinator=coordinator)
+    manager = CombinedModelManager(ModelManager(get_models_dir(), prober=_probe_model, coordinator=coordinator), packages)
+    queue = JobQueue(assets, model_manager=manager, coordinator=coordinator)
     session_dir = None
 
     @asynccontextmanager
@@ -40,6 +44,7 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
             async with queue:
                 yield
         finally:
+            await run_in_threadpool(runtime.close)
             await manager.close()
             assets.close()
             if session_dir is not None:

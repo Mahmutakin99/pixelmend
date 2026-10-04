@@ -20,6 +20,7 @@ import httpx
 
 from .model_catalog import DEFAULT_MODEL_CATALOG, ModelCatalogEntry
 from .model_store import ModelManifest, model_file_path
+from .compute import ComputeCoordinator
 
 CHUNK_BYTES = 1024 * 1024
 DISK_RESERVE_BYTES = 64 * 1024 * 1024
@@ -105,7 +106,7 @@ class ModelManager:
     """Workers own blocking IO; state and leases are protected across loop/worker threads."""
 
     def __init__(self, models_dir: Path, *, catalog: Iterable[ModelCatalogEntry] = DEFAULT_MODEL_CATALOG,
-                 downloader=stream_pinned_model, prober=None):
+                 downloader=stream_pinned_model, prober=None, coordinator=None):
         self.models_dir = Path(models_dir).absolute()
         entries = tuple(catalog)
         self._catalog = {entry.id: entry for entry in entries}
@@ -118,6 +119,7 @@ class ModelManager:
                 raise ValueError('catalog id differs from manifest')
         self._downloader = downloader
         self._prober = prober
+        self.coordinator = coordinator or ComputeCoordinator()
         self._mutex = threading.RLock()
         self._tasks: dict[str, asyncio.Task] = {}
         self._cancels: dict[str, threading.Event] = {}
@@ -384,7 +386,9 @@ class ModelManager:
             probe = {'status': 'running', 'selected_provider': None, 'providers': [], 'measured_at': None}
             self._change(model_id, state='probing', probe=probe)
             try:
-                result = self._prober(manifest, target)
+                with self.coordinator.operation('probe', cancel):
+                    _check_cancel(cancel)
+                    result = self._prober(manifest, target)
                 selected = result['selected_provider']
                 providers = result['providers']
                 if (result.get('status', 'passed') != 'passed' or not isinstance(selected, str)
@@ -393,6 +397,8 @@ class ModelManager:
                     raise ValueError('invalid probe result')
                 if self._signature(target.stat()) != signature:
                     raise ValueError('model changed during probe')
+            except InterruptedError:
+                raise _Cancelled() from None
             except Exception:
                 self._change(model_id, probe={**probe, 'status': 'failed',
                              'measured_at': datetime.now(timezone.utc).isoformat()})

@@ -52,7 +52,8 @@ Send one UTF-8 JSON line ending with a newline to stdin, at most 64 KiB.
 The process emits JSON lines and exits. Requests support:
 
 - `probe`: checks pinned versions, native imports and a Metal computation.
-  An optional `model_dir` also tests Marian loading without a prompt.
+  An optional `model_dir` tests Marian loading without a prompt, or Klein when
+  `model_kind` is `image`. Neither probe establishes profile quality acceptance.
 - `translate`: `model_dir` is an absolute local OPUS-MT package directory; `prompt`
   is the synthetic Turkish test instruction.
 - `generate`: `model_dir` is an absolute converted Klein directory, `prompt`
@@ -72,9 +73,14 @@ one model per process. Translation uses Marian's Turkish-to-English encoder-deco
 on CPU, with four beams, no sampling, and at most 511 new tokens. It has no chat
 or reasoning mode and receives text directly without instruction prompts. The
 source float16 safetensors are loaded into float32; they are not quantized.
-SIGALRM provides a cooperative 30-second translation
-limit and 300-second image limit. A supervising process must enforce hard
-termination of native calls; that supervisor is a later implementation task.
+SIGALRM provides a cooperative 30-second translation limit and 300-second image
+limit. A second bounded stdin line `{"event":"cancel"}` requests interruption.
+The engine's `RuntimeOwner` enforces deadlines independently, escalates from
+cooperative cancellation to termination after two seconds, kills an unresponsive
+owned process group, and waits for exit before publishing a result. The engine
+also validates the owner-selected PNG path, private permissions, dimensions,
+channels and absence of metadata. Completed denoise steps are emitted only after
+MLX evaluates the native step.
 
 The pipe publishes a validated `english` string, rejecting unterminated generation,
 empty output, reasoning markup, and an unchanged source echo. Input token limits

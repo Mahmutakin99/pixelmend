@@ -12,6 +12,26 @@ spec.loader.exec_module(runtime)
 
 
 class ContractTests(unittest.TestCase):
+    def test_bounded_cancel_message_interrupts_without_echo(self):
+        import io
+        called=[]
+        self.assertTrue(hasattr(runtime,'read_cancellation'))
+        runtime.read_cancellation(io.BytesIO(b'{"event":"cancel"}\n'),lambda:called.append(True))
+        self.assertEqual(called,[True])
+        for data in [b'',b'{"event":"other"}\n',b'x'*65537,b'{"event":"cancel","prompt":"private"}\n']:
+            runtime.read_cancellation(io.BytesIO(data),lambda:self.fail('invalid control message'))
+
+    def test_progress_counts_evaluated_native_steps(self):
+        from types import SimpleNamespace
+        self.assertTrue(hasattr(runtime,'StepProgress'))
+        events=[];original=runtime.emit
+        try:
+            runtime.emit=events.append
+            callback=runtime.StepProgress(lambda value:events.append('evaluated'))
+            callback.call_in_loop(t=1,latents=object(),config=SimpleNamespace(num_inference_steps=4))
+            self.assertEqual(events,['evaluated',{'event':'progress','completed':2,'total':4}])
+        finally:runtime.emit=original
+
     def test_image_limit_includes_native_tokenizer_special_tokens(self):
         from types import SimpleNamespace
         class Tokenizer:

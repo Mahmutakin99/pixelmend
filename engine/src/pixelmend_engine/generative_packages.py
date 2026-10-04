@@ -21,6 +21,7 @@ import httpx
 from .model_manager import ModelManagerError, _trusted_url
 from .model_package import (ModelPackageFile, ModelPackageManifest, ModelPackageError,
                             _checked_path, _verify_file, verify_package)
+from .compute import ComputeCoordinator
 
 GIB = 1024**3
 
@@ -133,13 +134,14 @@ def safe_directory(path, create=False):
 
 
 class PackageManager:
-    def __init__(self, models_dir, *, catalog=None, downloader=download_part, prober=None):
+    def __init__(self, models_dir, *, catalog=None, downloader=download_part, prober=None, coordinator=None):
         definitions=load_catalog() if catalog is None else tuple(catalog)
         self.catalog={d.manifest.model_id:d for d in definitions}
         if len(self.catalog)!=len(definitions):
             raise ValueError('duplicate package id')
         self.models_dir=Path(models_dir).absolute()
         self.downloader=downloader;self.prober=prober
+        self.coordinator=coordinator or ComputeCoordinator()
         self._mutex=threading.RLock();self._tasks={};self._cancels={};self._closed=False
         self._io=asyncio.Semaphore(2);self._version=0;self._views={}
         for id,d in self.catalog.items():
@@ -149,7 +151,6 @@ class PackageManager:
                 'operation':'generative','operations':list(d.operations),'tier':'balanced',
                 'size_bytes':d.size_bytes,'downloaded_bytes':0,'revision':m.revision,'package_revision':m.revision,
                 'source_revision':d.source_revision,'sha256':None,'license_id':m.license_id,'license_url':m.license_url,
-                'package_files':[{'path':f.path,'size_bytes':f.size_bytes,'sha256':f.sha256} for f in m.files],
                 'source_repository':d.source_repository,'package_verified':False,
                 'error':None,'probe':None,'in_use':0,'stored_bytes':0,'active_revision':None,'loaded':False,
                 'accepted_profiles':list(d.accepted_profiles),'last_used_at':None,'stale_revisions':[],
@@ -237,8 +238,9 @@ class PackageManager:
             if operation=='probe':
                 self._change(id,state='verifying');verify_package(target,d.manifest,cancel=cancel)
                 if self.prober is None:raise ModelManagerError('runtime_unavailable','Yerel çalışma paketi bulunamadı.')
-                self._change(id,state='probing')
-                evidence=self.prober(d,target,cancel)
+                with self.coordinator.operation('probe',cancel):
+                    self._change(id,state='probing')
+                    evidence=self.prober(d,target,cancel)
                 check_cancel(cancel)
                 return dict(state='installed',probe=evidence,loaded=False,package_verified=True)
             self._install(d,parent,target,cancel,source)

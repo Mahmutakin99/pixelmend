@@ -28,8 +28,9 @@ def test_http_and_basic_jobs_are_available_during_cached_probe(tmp_path, monkeyp
         assert release.wait(5)
         return probe(manifest, path)
 
-    monkeypatch.setattr(main, 'ModelManager', lambda root, prober:
-                        ModelManager(tmp_path / 'models', catalog=[entry], prober=slow_probe))
+    monkeypatch.setattr(main, 'ModelManager', lambda root, prober, coordinator:
+                        ModelManager(tmp_path / 'models', catalog=[entry], prober=slow_probe,
+                                     coordinator=coordinator))
     monkeypatch.setenv('PIXELMEND_SESSIONS_DIR', str(tmp_path / 'sessions'))
 
     def exercise():

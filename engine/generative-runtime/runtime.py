@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import signal
 import sys
+import threading
 import time
 
 VERSIONS = {'mflux': '0.21.0', 'mlx': '0.32.2', 'mlx-lm': '0.32.0'}
@@ -93,6 +94,35 @@ def read_request(stream):
     if not isinstance(value, dict):
         raise ValueError('invalid_request')
     return value
+
+
+def read_cancellation(stream, interrupt):
+    line = stream.readline(MAX_LINE + 1)
+    if len(line) > MAX_LINE or not line.endswith(b'\n'):
+        return
+    try:
+        value = json.loads(line, object_pairs_hook=_unique_object)
+    except (UnicodeError, ValueError):
+        return
+    if value == {'event': 'cancel'}:
+        interrupt()
+
+
+def watch_cancellation():
+    # An unbuffered duplicate avoids holding stdin's BufferedReader lock when
+    # the one-shot interpreter shuts down while the parent keeps its pipe open.
+    with os.fdopen(os.dup(sys.stdin.fileno()), 'rb', buffering=0) as control:
+        read_cancellation(control, lambda: os.kill(os.getpid(), signal.SIGINT))
+
+
+class StepProgress:
+    def __init__(self, evaluate):
+        self.evaluate = evaluate
+
+    def call_in_loop(self, t, latents, config, **_):
+        # The pinned callback runs before MFLUX's mx.eval; force evaluation first.
+        self.evaluate(latents)
+        emit({'event': 'progress', 'completed': t + 1, 'total': config.num_inference_steps})
 
 
 def validate_image_options(request):
@@ -181,6 +211,7 @@ def translate(request):
 
 
 def generate(request):
+    import mlx.core as mx
     from mflux.models.flux2 import Flux2Klein
     from mflux.models.flux2.variants.edit.flux2_klein_edit import Flux2KleinEdit
     from mflux.models.common.config.model_config import ModelConfig
@@ -207,6 +238,7 @@ def generate(request):
     model = cls(model_path=model_path, model_config=ModelConfig.flux2_klein_4b())
     # MFLUX truncates by default; reject rather than silently losing conditions.
     validate_image_prompt(model.tokenizers['qwen3'], prompt)
+    model.callbacks.register(StepProgress(mx.eval))
     emit({'event': 'stage', 'stage': 'generating'})
     image = model.generate_image(seed=seed, prompt=prompt, width=width, height=height,
                                  num_inference_steps=4, guidance=1.0, **kwargs).image
@@ -232,6 +264,7 @@ def main():
         operation = request.get('operation')
         if operation not in {'probe', 'translate', 'generate', 'edit'}:
             raise ValueError('invalid_operation')
+        threading.Thread(target=watch_cancellation, daemon=True).start()
         mx = check_runtime()
         # Third-party libraries may print prompts or progress; keep them off pipes/logs.
         with open(os.devnull, 'w') as sink, contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
@@ -241,14 +274,25 @@ def main():
                 mx.eval(values)
                 result = {'versions': VERSIONS, 'metal': True, 'gpu_result': values.tolist()}
                 if 'model_dir' in request:
-                    # Optional content-free translator load check for packaging diagnostics.
-                    model, tokenizer = load_translator(request['model_dir'])
-                    result['translation_model_loaded'] = True
+                    if request.get('model_kind', 'translation') == 'translation':
+                        model, tokenizer = load_translator(request['model_dir'])
+                        result['translation_model_loaded'] = True
+                    elif request['model_kind'] == 'image':
+                        from mflux.models.common.config.model_config import ModelConfig
+                        from mlx.utils import tree_flatten
+                        model = Flux2Klein(model_path=local_model(request['model_dir']),
+                                           model_config=ModelConfig.flux2_klein_4b())
+                        mx.eval(*[value for _, value in tree_flatten(model.parameters())])
+                        result['image_model_loaded'] = True
+                    else:
+                        raise ValueError('invalid_request')
             else:
                 with deadline(300):
                     result = translate(request) if operation == 'translate' else generate(request)
         result.update(event='result', elapsed_seconds=time.monotonic() - started,
                       mlx_peak_bytes=mx.get_peak_memory())
+        if operation in {'generate', 'edit'}:
+            emit({'event': 'stage', 'stage': 'releasing_resources'})
         emit(result)
         return 0
     except (Exception, KeyboardInterrupt) as error:
