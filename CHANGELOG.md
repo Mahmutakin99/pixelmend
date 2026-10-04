@@ -2,6 +2,12 @@
 
 PixelMend uses Semantic Versioning. Release candidates use `1.0.0-rc.N`; model artifacts and release signing are published separately.
 
+## 1.0.0-rc.4
+
+- Open the editor before model verification completes; keep basic editing available while AI prepares in the background.
+- Wait for model readiness in diagnostics and preserve partial reports on startup errors or cancellation.
+- Show the packaged application version in About.
+
 ## 1.0.0-rc.2
 
 - Native vector-stroke masks and paint exports avoid full-resolution renderer canvases.

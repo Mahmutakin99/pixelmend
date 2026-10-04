@@ -17,10 +17,11 @@ PYTHONPATH=src .venv/bin/python bench/run_upscale.py --model ../engine/models_ca
 ```
 
 For this Mac delivery, `fetch_photographs.py` restores the 12 reviewed files from
-`docs/verification/photograph-manifest.json`, verifies original and prepared hashes,
+`photograph-manifest.json` in this directory, verifies original and prepared hashes,
 and writes `fixtures/manifest.json`. The reviewed inputs are max-edge-192 RGB
 thumbnails; original photographs are retained separately. This keeps the benchmark
 scope explicit. `run_upscale.py` now requires exactly 12 distinct IDs, samples RSS
 during inference, records session-load time separately, and saves AI/Lanczos PNGs.
 `run_lama.py` (run from repository root) creates the four removal comparison sheets.
-The measurements and visual verdict are in `docs/verification/mac-acceptance.md`.
+Measurements and generated comparison images stay local; inspect the outputs
+before drawing a quality or performance conclusion.

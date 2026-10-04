@@ -1,51 +1,48 @@
 # PixelMend
 
-Bu Mac üzerinde fotoğrafları yerel olarak düzenleyen Electron uygulaması. Görseller dış servislere gönderilmez.
+Fotoğrafları cihazınızda düzenleyen masaüstü uygulaması. Görselleriniz işlenmek için dış servislere gönderilmez.
 
-- **Nesne silme:** varsayılan AI — LaMa veya açıkça seçilen Hızlı — OpenCV. LaMa hazır değilse Ayarlar → Modeller üzerinden kurulum/sınama gerekir; sessiz yöntem değişikliği yapılmaz.
-- **Büyütme:** Standart büyütme (Lanczos) görünümü korur; AI ile iyileştir (RealESRGAN x4plus) ayrıntıyı yeniden yapılandırabilir. İkisi de 2×, 4× ve özel ölçüyü destekler; sonuç önizlemesini uygulayabilir veya vazgeçebilirsiniz.
-- **Düzenleme:** çizim, seçim ve silgiler, geri al/yinele, zoom, sonuçtan devam, PNG kaydı ve `.pixelmend` projesi.
-- **Modeller:** SHA-256 ve boyut doğrulanır; kullanım boyunca kilit tutulur. LaMa CPU'da çalışır; RealESRGAN M4 üzerinde Core ML'i sınar ve yararlıysa seçer, aksi halde CPU'ya açıkça geçer. LaMa sabit yayımlanmış kaynaktan indirilir; RealESRGAN uygulamanın sabit manifestine uyan yerel ONNX dosyasından kurulur.
+- Nesne silme: LaMa ile AI veya OpenCV ile hızlı doldurma.
+- Büyütme: Lanczos veya RealESRGAN ile 2×, 4× ve özel ölçüler.
+- Çizim, seçim ve silgi araçları; geri al/yinele ve sonuç önizlemesi.
+- PNG kaydı ve `.pixelmend` proje dosyaları.
 
-Bu teslim yalnız macOS Apple Silicon üzerindeki mevcut Mac'i kapsar. Genel imzalı dağıtım, Windows/Linux kabulü ve üretken doldurma kapsam dışıdır. Güncel doğrulama ve sınırlar: [Mac kabul raporu](docs/verification/mac-acceptance.md), [durum](DURUM.md).
+## İndirme ve kurulum
 
-## Model deposu
+Mac Apple Silicon (M1 ve sonrası) paketleri [Releases](https://github.com/Mahmutakin99/pixelmend/releases) bölümündedir. DMG'yi açıp PixelMend'i Applications klasörüne sürükleyin. ZIP aynı uygulama için alternatiftir.
 
-Varsayılan kalıcı konum `~/Library/Caches/PixelMend/models/<model>/<revision>/`.
-`PIXELMEND_MODELS_DIR` yalnız açık geliştirme/test override'ıdır. Her açılışta bütünlük ve gerçek sağlayıcı sınaması tekrar yapılır. Model dosyaları projeye veya Git'e eklenmez.
+Windows/Linux ve Intel Mac bu yeni Mac dağıtımının kapsamında değildir. RC sürümleri ön sürümdür; AI çıktısını kaydetmeden önce inceleyin.
 
-Yerel RealESRGAN export aracı `tools/model-export/export.py`; kaynak ağırlık, lisans, export ortamı ve PyTorch/ONNX eşdeğerliği [provenance kaydında](docs/verification/realesrgan-export.json). Ayarlar → Modeller → Yerel ONNX kur, dosyayı atomik olarak model deposuna kopyalar. Başka hash'e sahip ONNX dosyaları kabul edilmez.
+## İlk kullanım
 
-## Geliştirme ve doğrulama
+1. Uygulamayı açın ve Ayarlar → AI modelleri bölümünden ihtiyacınız olan modelleri kurun.
+2. Bir fotoğraf açın; silmek istediğiniz bölgeyi seçim fırçasıyla işaretleyin.
+3. Nesne silme veya büyütme yöntemini seçip önizlemeyi oluşturun.
+4. Sonucu inceleyip Uygula veya Vazgeç'i seçin; PNG ya da proje olarak kaydedin.
+
+Model dosyaları uygulama paketine dahil değildir. İndirme internet gerektirir; kurulumdan sonra görüntü işleme yereldir. Modeller arka planda hazırlanırken görsel açma, çizim, OpenCV ve Lanczos kullanılabilir. AI yalnız ilgili model hazır olduğunda etkinleşir. SDXL ve Swin2SR bu sürümde kullanıma açık değildir.
+
+## Modeller ve gizlilik
+
+İndirmelerde boyut ve SHA-256 doğrulanır. Kalıcı model deposu varsayılan olarak `~/Library/Caches/PixelMend/models/` altındadır. Core ML uygun olduğunda kullanılabilir; tüm işlemlerin GPU'da çalıştığına dair bir garanti yoktur.
+
+Test kiti sonuçları otomatik göndermez. Bir hata bildirirken kişisel fotoğraflarınızı veya parolalarınızı paylaşmayın.
+
+## Kaynaktan geliştirme
+
+Yayınlanan uygulamayı derlemek için ilgili Release etiketiyle aynı kaynak sürümünü kullanın. `apps/desktop` altında:
 
 ```sh
-cd apps/desktop
+corepack pnpm install --frozen-lockfile
 corepack pnpm test
 corepack pnpm build
 corepack pnpm test:ci-tools
 ```
 
-Zorunlu gerçek model kabulü (iki model kurulu olmalıdır; atlanan test başarı değildir):
+Python motoru için `engine` altında `uv sync --all-groups --locked` ve `uv run pytest -q` çalıştırın. Yerel imzasız Mac paketi için `apps/desktop` altında `corepack pnpm package:mac` kullanın; bu geliştirme komutu imzalı Release üretmez.
 
-```sh
-PIXELMEND_REAL_MODELS=1 engine/.venv/bin/python -m pytest engine/tests -q
-```
+Uygulama `apps/desktop`, motor `engine/src`, testler `apps/desktop/e2e` ve `engine/tests` altındadır. Model export araçları `tools/model-export`, benchmark araçları `engine/bench` içindedir.
 
-Paketleme: `apps/desktop` altında `corepack pnpm package:mac`. Paketli GUI testleri `e2e/editor.cjs` ve `e2e/models.cjs`; `PIXELMEND_E2E_APP` uygulamanın `Contents/MacOS/PixelMend` yoludur. İkinci testte `PIXELMEND_E2E_FRESH=1` temiz model deposuna kurulum ve yeniden açılışı da doğrular.
+## Lisans
 
-## Klasörler
-
-| Yol | Amaç |
-|---|---|
-| `apps/desktop/src`, `electron` | Arayüz ve güvenli yerel motor köprüsü |
-| `apps/desktop/e2e`, `engine/tests` | Gerçek uygulama ve motor regresyonları |
-| `engine/src` | Görsel, model, kuyruk ve kaynak sınırı kodu |
-| `engine/bench` | Fotoğraf benchmark araçları; yerel fixture pikselleri Git dışında |
-| `tools/model-export` | Yalıtılmış model export ortamı ve kaynak/lisans doğrulaması |
-| `docs/verification` | Manifestler, ölçümler ve kabul raporu |
-| `apps/desktop/test-results` | Yerel ekran görüntüleri ve karşılaştırma PNG'leri; Git dışında |
-| `node_modules`, `.venv` | Geliştirme/paketleme bağımlılıkları |
-| `dist`, `build`, `out.noindex` | Yeniden üretilebilir derleme/paket çıktıları |
-| `.git`, `.github`, `.ai` | Geçmiş, CI ve proje çalışma kuralları |
-
-Proje Apache-2.0 lisanslıdır. Model ve üçüncü taraf lisansları ayrıca geçerlidir: [model lisansları](docs/modeller-ve-lisanslar.md).
+Kaynak kod [Apache-2.0](LICENSE) lisanslıdır. Bağımlılıklar ve model lisansları ayrıca geçerlidir: [üçüncü taraf bildirimleri](THIRD_PARTY_NOTICES.md).

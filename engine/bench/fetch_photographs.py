@@ -13,7 +13,7 @@ def main():
     args = parser.parse_args()
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=True)
-    catalog = Path(__file__).resolve().parents[2] / 'docs/verification/photograph-manifest.json'
+    catalog = Path(__file__).resolve().parent / 'photograph-manifest.json'
     rows = json.loads(catalog.read_text())
     for row in rows:
         name = row['id'] + ('.jpg' if row['id'] in {'skin', 'rocket', 'hubble_deep_field'} else '.png')

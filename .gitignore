@@ -50,6 +50,12 @@ apps/desktop/out.noindex/
 /release/**/*.deb
 /release/**/*.exe
 /release/**/*.dmg
+/release/macos/*-signed/mac-arm64/
+/release/**/*.blockmap
+
+# Local release evidence and agent notes are not public source documentation.
+/release/
+/.local-notes/
 
 # Generated diagnostics stay local; curated text evidence is committed explicitly.
 /release/macos/**/verification/
