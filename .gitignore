@@ -57,6 +57,17 @@ apps/desktop/out.noindex/
 /release/
 /.local-notes/
 
+# Keep local agent configuration and work logs out of the public source tree.
+/.ai/
+/.claude/
+/.codex/
+/docs/
+/CLAUDE.md
+/AGENTS.md
+/DURUM.md
+/MANUAL_TEST.md
+/AI_AJANI_DEVIR_BELGESI.md
+
 # Generated diagnostics stay local; curated text evidence is committed explicitly.
 /release/macos/**/verification/
 
