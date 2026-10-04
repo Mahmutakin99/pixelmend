@@ -192,10 +192,10 @@ def deadline(seconds):
 
 def translate(request):
     prompt = validate_prompt(request.get('prompt'))
-    emit({'event': 'stage', 'stage': 'translating'})
     with deadline(30):
         import torch
         model, tokenizer = load_translator(request.get('model_dir'))
+        emit({'event': 'stage', 'stage': 'translating'})
         tokens = tokenizer(prompt, return_tensors='pt', truncation=False)
         validate_translation_token_count(tokens['input_ids'].shape[-1],
                                          model.config.max_position_embeddings)
@@ -208,6 +208,15 @@ def translate(request):
                                                    tokenizer.decode(result[0], skip_special_tokens=True),
                                                    prompt)
         return {'english': english, 'translation_runtime': 'torch-cpu'}
+
+
+def configure_memory_saving(model):
+    # One seed per owned child. Native callbacks release encoders after embedding
+    # and transformer before decode. Klein's VAE opts out of implicit tiling:
+    # keep its colour statistics and keep our full-process peak measurement.
+    from mflux.callbacks.instances.memory_saver import MemorySaver
+    model.callbacks.register(MemorySaver(model=model, keep_transformer=False,
+                                        cache_limit_bytes=None, num_seeds=1))
 
 
 def generate(request):
@@ -236,8 +245,11 @@ def generate(request):
     emit({'event': 'stage', 'stage': 'loading_image_model'})
     cls = Flux2KleinEdit if edit else Flux2Klein
     model = cls(model_path=model_path, model_config=ModelConfig.flux2_klein_4b())
+    from mlx.utils import tree_flatten
+    mx.eval(*[value for _, value in tree_flatten(model.parameters())])
     # MFLUX truncates by default; reject rather than silently losing conditions.
     validate_image_prompt(model.tokenizers['qwen3'], prompt)
+    configure_memory_saving(model)
     model.callbacks.register(StepProgress(mx.eval))
     emit({'event': 'stage', 'stage': 'generating'})
     image = model.generate_image(seed=seed, prompt=prompt, width=width, height=height,
@@ -289,7 +301,7 @@ def main():
             else:
                 with deadline(300):
                     result = translate(request) if operation == 'translate' else generate(request)
-        result.update(event='result', elapsed_seconds=time.monotonic() - started,
+        result.update(event='result', versions=VERSIONS, elapsed_seconds=time.monotonic() - started,
                       mlx_peak_bytes=mx.get_peak_memory())
         if operation in {'generate', 'edit'}:
             emit({'event': 'stage', 'stage': 'releasing_resources'})

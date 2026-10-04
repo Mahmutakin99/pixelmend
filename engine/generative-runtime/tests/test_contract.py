@@ -12,6 +12,19 @@ spec.loader.exec_module(runtime)
 
 
 class ContractTests(unittest.TestCase):
+    def test_one_shot_memory_saver_preserves_global_peak_and_never_forces_vae_tiling(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from unittest.mock import Mock
+        factory=Mock(return_value=object())
+        model=SimpleNamespace(callbacks=SimpleNamespace(register=Mock()),tiling_config=None)
+        self.assertTrue(hasattr(runtime,'configure_memory_saving'))
+        with patch.dict(sys.modules,{'mflux.callbacks.instances.memory_saver':SimpleNamespace(MemorySaver=factory)}):
+            runtime.configure_memory_saving(model)
+        factory.assert_called_once_with(model=model,keep_transformer=False,cache_limit_bytes=None,num_seeds=1)
+        model.callbacks.register.assert_called_once_with(factory.return_value)
+        self.assertIsNone(model.tiling_config)
+
     def test_bounded_cancel_message_interrupts_without_echo(self):
         import io
         called=[]

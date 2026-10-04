@@ -107,3 +107,16 @@ def test_output_validation_rejects_links_wrong_size_channels_and_metadata(tmp_pa
     outside=tmp_path/'outside.png';Image.new('RGB',(32,32)).save(outside);outside.chmod(0o600)
     path.unlink();path.symlink_to(outside)
     with pytest.raises(RuntimeErrorCode):validate_output(tmp_path,(32,32))
+
+@pytest.mark.skipif(os.name=='nt',reason='POSIX exit-group race')
+def test_dead_group_permission_error_cannot_leave_a_stale_active_owner(tmp_path,monkeypatch):
+    path=executable(tmp_path,"import json,sys\njson.loads(sys.stdin.readline())\nprint(json.dumps({'event':'result','english':'A cat.'}),flush=True)")
+    def denied(*_):raise PermissionError('departed process group')
+    monkeypatch.setattr(os,'killpg',denied)
+    owner=RuntimeOwner(path)
+    try:
+        result=owner.run({},threading.Event(),lambda _:None,timeout=2)
+        assert result['english']=='A cat.'
+    finally:
+        assert owner.active_pid is None
+    owner.close()

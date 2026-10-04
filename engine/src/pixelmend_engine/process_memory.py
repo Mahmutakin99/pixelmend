@@ -1,6 +1,7 @@
 """Darwin's process physical-footprint counter; unavailable stays unknown.
 
-The structure matches RUSAGE_INFO_V2 in the Apple SDK sys/resource.h.
+The structures match RUSAGE_INFO_V2/V4 in the Apple SDK sys/resource.h.
+Prefer the V4 lifetime physical peak; fall back to sampled V2 current footprint.
 Keep this metric separate from RSS and MLX allocation; do not add them.
 """
 import ctypes
@@ -40,7 +41,25 @@ class MacFootprint:
     def read(self, pid):
         if self.query is None:
             return None
+        usage = RUsageV4()
+        if self.query(pid, 4, ctypes.byref(usage)) == 0:
+            return max(usage.ri_phys_footprint, usage.ri_lifetime_max_phys_footprint) or None
         usage = RUsageV2()
         if self.query(pid, 2, ctypes.byref(usage)) != 0:
             return None
         return usage.ri_phys_footprint or None
+
+
+class RUsageV4(ctypes.Structure):
+    _fields_ = RUsageV2._fields_ + [
+        (name, ctypes.c_uint64) for name in (
+            'ri_cpu_time_qos_default', 'ri_cpu_time_qos_maintenance',
+            'ri_cpu_time_qos_background', 'ri_cpu_time_qos_utility',
+            'ri_cpu_time_qos_legacy', 'ri_cpu_time_qos_user_initiated',
+            'ri_cpu_time_qos_user_interactive', 'ri_billed_system_time',
+            'ri_serviced_system_time', 'ri_logical_writes',
+            'ri_lifetime_max_phys_footprint', 'ri_instructions', 'ri_cycles',
+            'ri_billed_energy', 'ri_serviced_energy',
+            'ri_interval_max_phys_footprint', 'ri_runnable_time',
+        )
+    ]

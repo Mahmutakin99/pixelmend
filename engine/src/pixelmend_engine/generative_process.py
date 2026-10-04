@@ -68,8 +68,20 @@ class RuntimeOwner:
     def _signal(process,sig):
         try:
             if os.name=='nt':process.kill() if sig==KILL_SIGNAL else process.terminate()
-            else:os.killpg(process.pid,sig)
+            else:
+                # A reaped leader's PID can be reused. Never signal a group
+                # associated with a different process incarnation.
+                if process.returncode is not None:
+                    try:
+                        current=psutil.Process(process.pid)
+                        if current.create_time()!=process._pixelmend_birth:return
+                    except psutil.NoSuchProcess:pass
+                os.killpg(process.pid,sig)
         except ProcessLookupError:pass
+        except PermissionError:
+            # Darwin can return EPERM for a departed group. The leader has
+            # already exited; keep draining pipes and still clear ownership.
+            if process.poll() is None:raise
 
     def _stop(self,process,write_lock):
         def cooperative():
@@ -103,6 +115,7 @@ class RuntimeOwner:
                 process=subprocess.Popen([str(self.executable)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,env=env,start_new_session=os.name!='nt',bufsize=0)
             except OSError:raise RuntimeErrorCode('runtime_unavailable') from None
+            process._pixelmend_birth=psutil.Process(process.pid).create_time()
             self._process=process
         lines=queue.Queue(maxsize=16);bad=threading.Event();done=threading.Event()
         write_lock=threading.Lock();write_error=threading.Event();result=None;child_error=None
