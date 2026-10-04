@@ -1,4 +1,5 @@
-const MODEL_IDS = new Set(['lama', 'migan-512-places2', 'realesrgan-x4plus','realesrgan-general-x4v3']);
+const PACKAGE_IDS = new Set(['flux2-klein-4b-mlx-q4','opus-mt-tc-big-tr-en-f16']);
+const MODEL_IDS = new Set(['lama', 'migan-512-places2', 'realesrgan-x4plus','realesrgan-general-x4v3',...PACKAGE_IDS]);
 const UPSCALE_MODELS = {'realesrgan-x4plus':'realesrgan_x4plus','realesrgan-general-x4v3':'realesrgan_general_x4v3'};
 const REMOVE_MODELS = {'lama':'lama', 'migan-512-places2':'migan_512_places2'};
 const ACTIONS = new Set(['install-local', 'install', 'cancel', 'retry', 'probe', 'delete']);
@@ -101,7 +102,9 @@ function registerModelIpc(ipcMain, api, authorized) {
     requireSender(event);const {route,method}=modelRoute(id,action);
     if (action === 'install-local') {
       const {dialog} = require('electron');
-      const selection = await dialog.showOpenDialog({title:'Doğrulanmış ONNX modelini seçin', properties:['openFile'], filters:[{name:'ONNX',extensions:['onnx']}]});
+      const selection = await dialog.showOpenDialog(PACKAGE_IDS.has(id)
+        ? {title:'Doğrulanmış model paketinin klasörünü seçin',properties:['openDirectory']}
+        : {title:'Doğrulanmış ONNX modelini seçin', properties:['openFile'], filters:[{name:'ONNX',extensions:['onnx']}]});
       if (selection.canceled) return (await api('/models')).json();
       return (await api(route,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({path:selection.filePaths[0]})})).json();
     }

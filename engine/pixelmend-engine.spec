@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import collect_submodules
 datas = []
 hiddenimports = []
 datas += collect_data_files('onnxruntime')
-datas += collect_data_files('pixelmend_engine', includes=['diagnostic_fixtures/*'])
+datas += collect_data_files('pixelmend_engine', includes=['diagnostic_fixtures/*', 'generative_catalog.json'])
 hiddenimports += collect_submodules('onnxruntime')
 
 

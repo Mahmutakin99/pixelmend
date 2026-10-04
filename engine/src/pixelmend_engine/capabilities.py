@@ -42,6 +42,19 @@ def available_execution_providers() -> tuple[str, ...]:
     return tuple(onnxruntime.get_available_providers())
 
 
+def generative_capabilities(total_ram_bytes: int, runtime_installed: bool) -> dict:
+    """Eligibility facts only; accepted profiles require separate hardware/quality evidence."""
+    try:
+        major = int(platform.mac_ver()[0].split('.')[0])
+    except ValueError:
+        major = 0
+    return {'platform_supported': platform.system() == 'Darwin' and platform.machine() == 'arm64'
+            and major >= 15 and total_ram_bytes >= 16*1024**3,
+            'runtime_installed': runtime_installed, 'minimum_ram_bytes': 16*1024**3,
+            'minimum_macos_major': 15, 'runtime': 'mlx', 'translation_runtime': 'torch-cpu',
+            'accepted_profiles': []}
+
+
 def _mac_sysctl(key: str) -> str | None:
     """Read a small, public macOS hardware fact without treating it as VRAM."""
     try:

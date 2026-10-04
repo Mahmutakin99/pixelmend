@@ -4,10 +4,11 @@ import os
 import shutil
 import time
 import tempfile
+import sys
 from pathlib import Path
 from uuid import uuid4
 
-from platformdirs import user_cache_path
+from platformdirs import user_cache_path, user_data_path
 
 MODELS_DIR_ENV = "PIXELMEND_MODELS_DIR"
 SESSIONS_DIR_ENV = 'PIXELMEND_SESSIONS_DIR'
@@ -26,6 +27,27 @@ def get_models_dir() -> Path:
 def get_coreml_cache_dir() -> Path:
     """Return the durable Core ML compilation cache, separate from model bytes."""
     return get_models_dir().parent / 'coreml-cache'
+
+
+def get_generative_models_dir() -> Path:
+    """Large packages use application data; leave existing ONNX cache in place."""
+    override = os.environ.get(MODELS_DIR_ENV)
+    root = Path(override).expanduser() if override else Path(user_data_path('PixelMend', appauthor=False))
+    return root / 'model-packages'
+
+
+def get_generative_runtime() -> Path | None:
+    """Main-process configuration only; never accept an executable from a request."""
+    override = os.environ.get('PIXELMEND_GENERATIVE_RUNTIME')
+    if override:
+        candidate = Path(override)
+        if not candidate.is_absolute():
+            return None
+    elif getattr(sys, 'frozen', False):
+        candidate = Path(sys.executable).parent.parent / 'generative-runtime' / 'pixelmend-generative-runtime'
+    else:
+        return None
+    return candidate if candidate.is_file() and not candidate.is_symlink() and os.access(candidate, os.X_OK) else None
 
 
 def get_sessions_dir() -> Path:

@@ -3,6 +3,13 @@ import {describe, expect, it} from 'vitest';
 const require = createRequire(import.meta.url);
 
 describe('desktop model and job boundary', () => {
+  it('allowlists local multi-file packages without accepting them as ONNX algorithms', () => {
+    const {modelRoute, jobForm}=require('../electron/model-ipc.cjs');
+    for (const id of ['flux2-klein-4b-mlx-q4','opus-mt-tc-big-tr-en-f16']) {
+      expect(modelRoute(id,'install-local')).toEqual({route:`/models/${id}/install-local`,method:'POST'});
+      expect(()=>jobForm({assetId:'a'.repeat(32),operation:'remove',modelId:id,selectionStrokes:[]})).toThrow();
+    }
+  });
   it('routes the fast model explicitly and rejects models belonging to another tool', () => {
     const {jobForm}=require('../electron/model-ipc.cjs');
     const payload={assetId:'a'.repeat(32),operation:'upscale',upscaleMethod:'ai',targetWidth:100,targetHeight:80,modelId:'realesrgan-general-x4v3',intent:'preserve_size'};

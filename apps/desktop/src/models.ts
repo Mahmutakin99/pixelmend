@@ -4,12 +4,16 @@ export type ModelView = {
   downloaded_bytes:number;revision:string|null;sha256:string|null;license_id:string|null;license_url:string|null;
   error:{code:string;message:string}|null;
   probe:{status:'unmeasured'|'running'|'passed'|'failed';selected_provider:string|null;providers:string[];measured_at:string|null}|null;
-  in_use:boolean;
+  in_use:boolean|number;
   stored_bytes:number;active_revision:string|null;last_used_at:string|null;stale_revisions:string[];
-  operation?:'remove'|'upscale';tier?:'fast'|'balanced'|'advanced';description?:string;
+  operation?:'remove'|'upscale'|'generative';tier?:'fast'|'balanced'|'advanced';description?:string;
+  runtime?:'mlx'|'torch-cpu';operations?:string[];loaded?:boolean;package_revision?:string;source_revision?:string;
+  accepted_profiles?:Array<{profile:'low-resource'|'balanced'}>;
   minimum_memory_bytes?:number|null;recommended_memory_bytes?:number|null;
 };
 export type Capabilities = {
+  generative?:{platform_supported:boolean;runtime_installed:boolean;minimum_ram_bytes:number;
+    minimum_macos_major:number;runtime:'mlx';translation_runtime:'torch-cpu';accepted_profiles:string[]};
   host_ram_total_bytes:number|null;host_ram_available_bytes:number|null;cpu_count:number|null;
   execution_providers:string[];
   accelerator:{identity:string|null;memory_kind:string;device_budget_bytes:number|null;device_headroom_bytes:number|null};

@@ -150,3 +150,19 @@ def test_package_verification_rejects_a_symlinked_member_directory(tmp_path):
 
     with pytest.raises(PackageMissingFileError, match='unet/weights.bin'):
         verify_package(root, manifest)
+
+@pytest.mark.parametrize('path', ['dir\\file', 'dir:file', 'file\x00'])
+def test_package_manifest_rejects_cross_platform_paths(path):
+    with pytest.raises(ValueError):
+        ModelPackageManifest('fixture-package', 'a'*40, 'Apache-2.0',
+                             'https://example.test/license', (ModelPackageFile(path,1,digest(b'x')),))
+
+
+def test_package_rejects_linked_directory_even_when_named_like_leaf(tmp_path):
+    root=tmp_path/'root';outside=tmp_path/'outside';root.mkdir();outside.mkdir()
+    (outside/'weights').write_bytes(b'one')
+    (root/'weights').symlink_to(outside,target_is_directory=True)
+    manifest=ModelPackageManifest('fixture-package','a'*40,'Apache-2.0',
+        'https://example.test/license',(ModelPackageFile('weights/weights',3,digest(b'one')),))
+    with pytest.raises(PackageMissingFileError):
+        verify_package(root,manifest)

@@ -1,10 +1,20 @@
 import {describe, expect, it} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {Settings} from './Settings';
+import {Settings, ModelCard} from './Settings';
 import {aiReady, allowedActions, selectableModels, type ModelView} from './models';
 
 const model:ModelView={id:'realesrgan-x4plus',name:'RealESRGAN x4plus',state:'unavailable',published:false,size_bytes:null,downloaded_bytes:0,revision:null,sha256:null,license_id:null,license_url:null,error:null,probe:null,in_use:false,stored_bytes:0,active_revision:null,last_used_at:null,stale_revisions:[]};
 describe('model availability and performance facts',()=>{
+  it('describes installed generative packages without requiring an ONNX provider',()=>{
+    const packageModel={...model,id:'flux2-klein-4b-mlx-q4',runtime:'mlx' as const,
+      source:'local' as const,verified_manifest:true,state:'installed',name:'Klein'};
+    const html=renderToStaticMarkup(<ModelCard model={packageModel} refresh={()=>{}}/>);
+    expect(html).toContain('Kurulu; ilk işlemde yüklenecek');
+    expect(html).toContain('Sına');
+    expect(html).not.toContain('Yerel ONNX');
+    const absent=renderToStaticMarkup(<ModelCard model={{...packageModel,state:'absent'}} refresh={()=>{}}/>);
+    expect(absent).toContain('Yerel paket klasörü seç');
+  });
   it('requires installed weights and a successful provider probe to enable AI',()=>{
     expect(aiReady(model)).toBe(false);
     expect(aiReady({...model,state:'ready',published:true})).toBe(false);

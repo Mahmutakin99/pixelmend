@@ -10,23 +10,24 @@ const tierCopy = {
 } as const;
 type Section = 'general' | 'canvas' | 'models' | 'performance' | 'about';
 
-function ModelCard({model, refresh}: {model: ModelView; refresh: () => void}) {
+export function ModelCard({model, refresh}: {model: ModelView; refresh: () => void}) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const allowed = allowedActions(model);
+  const isPackage = !!model.runtime;
   const act = async (action: ModelAction) => {
     setPending(true); setError('');
     try { await window.pixelmend.modelAction(model.id, action); refresh(); }
     catch (cause) { setError(String(cause)); }
     finally { setPending(false); }
   };
-  const primary = allowed.includes('install-local') ? ['install-local', 'Yerel ONNX seç'] as const
+  const primary = allowed.includes('install-local') ? ['install-local', isPackage ? 'Yerel paket klasörü seç' : 'Yerel ONNX seç'] as const
     : allowed.includes('install') ? ['install', 'Modeli indir'] as const
-    : allowed.includes('probe') ? ['probe', 'Yeniden ölç'] as const : null;
+    : allowed.includes('probe') ? ['probe', isPackage ? 'Sına' : 'Yeniden ölç'] as const : null;
   return <article className="model-card" aria-label={`${model.name} modeli`}>
-    <div><h3>{model.name}</h3><p>{stateLabels[model.state] || model.state}{model.in_use ? ' · Kullanımda' : ''}</p></div>
+    <div><h3>{model.name}</h3><p>{isPackage && model.state === 'installed' ? 'Kurulu; ilk işlemde yüklenecek' : stateLabels[model.state] || model.state}{model.in_use ? ' · Kullanımda' : ''}</p></div>
     <p className="model-summary">{model.description || (model.state === 'ready' ? 'Bu Mac’te doğrulandı ve kullanıma hazır.' : 'Kurulum ve kısa bir çalışma sınaması tamamlanınca kullanılabilir.')}</p>
-    <div className="model-meta"><span>{model.size_bytes ? formatBytes(model.size_bytes) : 'Boyut henüz doğrulanmadı'}</span><span>{model.source === 'local' ? 'Yerel doğrulanmış dosya' : model.verified_manifest ? 'Yayımlanmış model' : 'Kurulum henüz sunulmuyor'}</span></div>
+    <div className="model-meta"><span>{model.size_bytes ? formatBytes(model.size_bytes) : 'Boyut henüz doğrulanmadı'}</span><span>{model.source === 'local' ? isPackage ? 'Yerel doğrulanmış paket' : 'Yerel doğrulanmış dosya' : model.verified_manifest ? 'Yayımlanmış model' : 'Kurulum henüz sunulmuyor'}</span></div>
     {['downloading', 'verifying'].includes(model.state) && <progress aria-label={`${model.name} kurulumu`} value={model.downloaded_bytes} max={model.size_bytes || 1}/>} 
     <div className="model-actions">
       {primary && <button className="primary" disabled={pending} onClick={() => act(primary[0])}>{primary[1]}</button>}
@@ -34,7 +35,7 @@ function ModelCard({model, refresh}: {model: ModelView; refresh: () => void}) {
       {allowed.includes('cancel') && <button disabled={pending} onClick={() => act('cancel')}>İptal</button>}
     </div>
     {(error || model.error) && <p className="inline-error" role="alert">{error || model.error?.message}</p>}
-    <details><summary>Teknik ayrıntılar</summary><dl className="technical-facts"><dt>Sağlayıcı</dt><dd>{model.probe?.selected_provider || 'Henüz ölçülmedi'}</dd><dt>En az bellek</dt><dd>{model.minimum_memory_bytes ? formatBytes(model.minimum_memory_bytes) : 'Ölçüm tamamlanmadı'}</dd><dt>Önerilen bellek</dt><dd>{model.recommended_memory_bytes ? formatBytes(model.recommended_memory_bytes) : 'Ölçüm tamamlanmadı'}</dd><dt>Lisans</dt><dd>{model.license_id || 'Doğrulama bekliyor'}</dd><dt>Revision</dt><dd>{model.revision || 'Doğrulama bekliyor'}</dd><dt>SHA-256</dt><dd>{model.sha256 || 'Doğrulama bekliyor'}</dd></dl></details>
+    <details><summary>Teknik ayrıntılar</summary><dl className="technical-facts"><dt>{isPackage ? 'Çalışma motoru' : 'Sağlayıcı'}</dt><dd>{isPackage ? model.runtime === 'mlx' ? 'MLX' : 'Yerel CPU çevirisi' : model.probe?.selected_provider || 'Henüz ölçülmedi'}</dd><dt>En az bellek</dt><dd>{model.minimum_memory_bytes ? formatBytes(model.minimum_memory_bytes) : 'Ölçüm tamamlanmadı'}</dd><dt>Önerilen bellek</dt><dd>{model.recommended_memory_bytes ? formatBytes(model.recommended_memory_bytes) : 'Ölçüm tamamlanmadı'}</dd><dt>Lisans</dt><dd>{model.license_id || 'Doğrulama bekliyor'}</dd><dt>Revision</dt><dd>{model.revision || 'Doğrulama bekliyor'}</dd><dt>SHA-256</dt><dd>{model.sha256 || 'Doğrulama bekliyor'}</dd></dl></details>
   </article>;
 }
 

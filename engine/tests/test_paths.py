@@ -32,3 +32,13 @@ def test_owned_sessions_are_marked_and_only_expire_after_ttl(tmp_path: Path) -> 
     assert active.exists()
     assert not stale.exists()
     assert (tmp_path / 'unrelated').exists()
+
+
+def test_generative_models_use_application_data_without_moving_onnx(monkeypatch):
+    from platformdirs import user_data_path
+    from pixelmend_engine.paths import get_generative_models_dir
+    monkeypatch.delenv('PIXELMEND_MODELS_DIR',raising=False)
+    assert get_generative_models_dir()==Path(user_data_path('PixelMend',appauthor=False))/'model-packages'
+    assert get_models_dir()!=get_generative_models_dir()
+    monkeypatch.setenv('PIXELMEND_MODELS_DIR','/tmp/test-models')
+    assert get_generative_models_dir()==Path('/tmp/test-models')/'model-packages'

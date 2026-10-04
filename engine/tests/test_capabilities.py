@@ -37,3 +37,20 @@ def test_capabilities_report_apple_device_and_unified_memory_without_inventing_v
     assert report.accelerator.identity == "Apple M4 (Mac16,1)"
     assert report.accelerator.memory_kind == "unified"
     assert report.accelerator.device_budget_bytes is None
+
+
+def test_generative_capability_requires_supported_host_and_separate_runtime(monkeypatch):
+    import pixelmend_engine.capabilities as capabilities
+    monkeypatch.setattr(capabilities.platform,'system',lambda:'Darwin')
+    monkeypatch.setattr(capabilities.platform,'machine',lambda:'arm64')
+    monkeypatch.setattr(capabilities.platform,'mac_ver',lambda:('15.0',(),''))
+    facts=capabilities.generative_capabilities(16*1024**3,True)
+    assert facts['platform_supported'] and facts['runtime_installed']
+    assert facts['accepted_profiles']==[]
+    assert 'execution_provider' not in facts
+    assert not capabilities.generative_capabilities(8*1024**3,True)['platform_supported']
+    monkeypatch.setattr(capabilities.platform,'machine',lambda:'x86_64')
+    assert not capabilities.generative_capabilities(16*1024**3,True)['platform_supported']
+    monkeypatch.setattr(capabilities.platform,'machine',lambda:'arm64')
+    monkeypatch.setattr(capabilities.platform,'mac_ver',lambda:('14.7',(),''))
+    assert not capabilities.generative_capabilities(16*1024**3,True)['platform_supported']

@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile,
 
 from .assets import AssetCapacityError, AssetInUseError, AssetNotFoundError, AssetStore
 from .auth import require_session_token
-from .capabilities import collect_capabilities
+from .capabilities import collect_capabilities, generative_capabilities
 from .imageio import ImageIOError, ImageAsset
 from .strokes import StrokeValidationError, render_paint
 from .imageio import MAX_SOURCE_BYTES
@@ -17,14 +17,16 @@ from .jobs import JobQueue
 from .job_api import job_router
 from .model_api import model_router
 from .model_manager import ModelManager
-from .paths import get_models_dir, get_coreml_cache_dir, cleanup_stale_sessions, create_session_dir
+from .generative_packages import PackageManager, CombinedModelManager
+from .paths import get_models_dir, get_generative_models_dir, get_generative_runtime, get_coreml_cache_dir, cleanup_stale_sessions, create_session_dir
 from .policy import POLICY
 
 
 def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
     """Create a production sidecar app with its private session asset store."""
     assets = AssetStore()
-    manager = ModelManager(get_models_dir(), prober=_probe_model)
+    packages = PackageManager(get_generative_models_dir())
+    manager = CombinedModelManager(ModelManager(get_models_dir(), prober=_probe_model), packages)
     queue = JobQueue(assets, model_manager=manager)
     session_dir = None
 
@@ -81,6 +83,7 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
         """Expose observed device facts without deriving unsupported budgets."""
         report = collect_capabilities().as_dict()
         report['policy'] = POLICY.as_dict()
+        report['generative'] = generative_capabilities(report['host_ram_total_bytes'], get_generative_runtime() is not None)
         return report
 
     @app.post("/assets", status_code=status.HTTP_201_CREATED)

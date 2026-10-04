@@ -60,7 +60,8 @@ class ModelPackageManifest:
             if not isinstance(file, ModelPackageFile):
                 raise ValueError('files must contain ModelPackageFile values')
             member = PurePosixPath(file.path)
-            if (not file.path or member.is_absolute() or '..' in member.parts or '.' in member.parts
+            if (not file.path or any(c in file.path for c in ('\\', ':', '\x00'))
+                    or member.is_absolute() or '..' in member.parts or '.' in member.parts
                     or member.name != member.parts[-1] or str(member) != file.path or file.path in paths):
                 raise ValueError('package file path must be a unique safe relative POSIX path')
             if isinstance(file.size_bytes, bool) or not isinstance(file.size_bytes, int) or file.size_bytes <= 0:
@@ -74,13 +75,14 @@ def _checked_path(root: Path, relative_path: str) -> Path:
     target = root
     # `lstat` every component; checking only the leaf follows a directory link
     # before its file can be inspected.
-    for part in PurePosixPath(relative_path).parts:
+    parts = PurePosixPath(relative_path).parts
+    for index, part in enumerate(parts):
         target = target / part
         try:
             details = target.lstat()
         except FileNotFoundError:
             raise PackageMissingFileError(relative_path) from None
-        if target.name != PurePosixPath(relative_path).name and not stat.S_ISDIR(details.st_mode):
+        if index < len(parts) - 1 and not stat.S_ISDIR(details.st_mode):
             raise PackageMissingFileError(relative_path)
     try:
         details = target.lstat()
@@ -96,11 +98,21 @@ def _verify_file(root: Path, file: ModelPackageFile, cancel=None) -> None:
     if path.stat().st_size != file.size_bytes:
         raise PackageHashMismatchError(file.path)
     digest = hashlib.sha256()
-    with path.open('rb') as handle:
+    flags = os.O_RDONLY
+    if os.name != 'nt':
+        flags |= os.O_NOFOLLOW | os.O_NONBLOCK
+    with os.fdopen(os.open(path, flags), 'rb') as handle:
+        before = os.fstat(handle.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_size != file.size_bytes:
+            raise PackageHashMismatchError(file.path)
         while chunk := handle.read(1024 * 1024):
             if cancel is not None and cancel.is_set():
                 raise InterruptedError('model package operation cancelled')
             digest.update(chunk)
+        after = os.fstat(handle.fileno())
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+                after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+            raise PackageHashMismatchError(file.path)
     if digest.hexdigest() != file.sha256:
         raise PackageHashMismatchError(file.path)
 
