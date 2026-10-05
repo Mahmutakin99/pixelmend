@@ -16,6 +16,7 @@ import psutil
 
 from .capabilities import generative_capabilities, _mac_sysctl
 from .generative_edit import prepare_edit,composite_edit
+from .generative_image_pipeline import run_image_pipeline
 from .generative_process import RuntimeErrorCode,validate_output
 from .generative_prompts import PromptPreparer,validate_user_prompt
 from .model_manager import ModelManagerError
@@ -198,7 +199,7 @@ class GenerativeService:
                 with (session/'input.png').open('xb') as stream:
                     (session/'input.png').chmod(0o600);Image.fromarray(plan.input_rgb).save(stream,format='PNG')
             try:
-                result=self.owner.run({'operation':'edit' if plan else 'generate','model_dir':str(paths[IMAGE_PACKAGE]),
+                result=run_image_pipeline(self.owner,{'operation':'edit' if plan else 'generate','model_dir':str(paths[IMAGE_PACKAGE]),
                     'session_dir':str(session),'prompt':used_prompt,'seed':request.seed,'width':width,'height':height},
                     cancel,on_event,timeout=300)
                 generated=validate_output(session,(width,height))
@@ -223,7 +224,8 @@ class GenerativeService:
             'seconds':time.monotonic()-started,'stage_seconds':timings,
             'resources':{'child_peak_rss_bytes':result.get('child_peak_rss_bytes'),
                          'mlx_peak_bytes':result.get('mlx_peak_bytes'),
-                         'child_peak_footprint_bytes':result.get('child_peak_footprint_bytes')}}
+                         'child_peak_footprint_bytes':result.get('child_peak_footprint_bytes'),
+                         'phase_resources':result.get('phase_resources')}}
         return output,metadata
 
     def close(self):self.prompts.clear()

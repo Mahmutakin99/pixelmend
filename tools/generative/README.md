@@ -28,6 +28,9 @@ models and a profile have passed acceptance. It uses real local models and
 requires source fixture photos; native file dialogs alone are automated.
 
 Klein's pinned VAE opts out of implicit tiling because separate GroupNorm
-statistics can offset tile colours. The runtime releases the text encoder and
-transformer through MFLUX's one-seed memory callbacks, retains a 1 GiB MLX cache
-limit, and uses the original VAE. No system wired-memory limits are changed.
+statistics can offset tile colours. The runtime loads components in phases and
+finishes denoising before its process exits. The engine validates the private BF16
+latent file and starts a separate VAE-only worker after that exit. Both workers
+share a 300-second deadline; their measured physical peaks are combined with max,
+never sum. Native numerical operations, the original VAE and the 1 GiB MLX cache
+limit are preserved. No system wired-memory limits are changed.

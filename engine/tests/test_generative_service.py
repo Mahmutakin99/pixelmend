@@ -49,8 +49,16 @@ def fixtures(tmp_path):
                 progress({'event':'progress','completed':i+1,'total':4})
                 if cancel.is_set():raise InterruptedError()
             path=Path(request['session_dir'])/'output.png'
-            Image.new('RGB',(request['width'],request['height']),(17,29,41)).save(path);path.chmod(0o600)
+            if request['image_phase']=='denoise':
+                import json,struct
+                size=2*128*(request['height']//16)*(request['width']//16)
+                header=json.dumps({'packed_latents':{'dtype':'BF16','shape':[1,128,request['height']//16,request['width']//16],'data_offsets':[0,size]}}).encode()
+                latent=Path(request['session_dir'])/'latents.safetensors'
+                latent.write_bytes(struct.pack('<Q',len(header))+header+bytes(size));latent.chmod(0o600)
+            else:
+                Image.new('RGB',(request['width'],request['height']),(17,29,41)).save(path);path.chmod(0o600)
             return {'seed':request['seed'],'width':request['width'],'height':request['height'],
+                    'image_phase':request['image_phase'],'versions':{'mlx':'fixture'},'child_wall_seconds':.001,
                     'stage_seconds':{'generating':.001},'mlx_peak_bytes':1,'child_peak_rss_bytes':2}
     owner=Owner();assets=AssetStore()
     service=GenerativeService(assets,manager,owner,session_parent=lambda:tmp_path/'sessions',host_provider=lambda:host)
@@ -89,7 +97,7 @@ def test_text_generation_without_source_uses_exact_dimensions_and_releases_lease
             detail=job.snapshot()['result_details'][0]
             assert detail['seed']==42 and detail['runtime']=='mlx' and detail['provider'] is None
             assert detail['original_prompt']==request.prompt and detail['used_prompt']=='Create a white cat.'
-            assert [r['operation'] for r in owner.requests]==['translate','generate']
+            assert [r['operation'] for r in owner.requests]==['translate','generate','generate']
             assert all(v['in_use']==0 for v in manager.list_models()['models'])
             assert not list((tmp_path/'sessions').iterdir())
             adopted=assets.adopt_image(result);queue.delete(job.job_id);assets.delete(adopted.asset_id)
@@ -136,13 +144,13 @@ def test_text_edit_retains_source_paint_mask_alpha_and_drops_cancelled_candidate
             result=next(iter(job.results.values()));source=assets.get_image(id)
             assert result.rgb[0,0].tolist()==source.rgb[0,0].tolist()
             np.testing.assert_array_equal(result.alpha,source.alpha)
-            assert len(owner.requests)==1 and owner.requests[0]['operation']=='edit'
+            assert len(owner.requests)==2 and all(r['operation']=='edit' for r in owner.requests)
             assert all(v['in_use']==0 for v in manager.list_models()['models'])
             queue.delete(job.job_id)
             # Cancel while queued: no child or candidate may be published.
             cancelled=queue.submit_generative(request);queue.cancel(cancelled.job_id)
             await queue.join();assert cancelled.status=='cancelled' and cancelled.results=={}
-            assert len(owner.requests)==1 and not list((tmp_path/'sessions').iterdir())
+            assert len(owner.requests)==2 and not list((tmp_path/'sessions').iterdir())
         assets.delete(id);await manager.close()
     asyncio.run(check())
 

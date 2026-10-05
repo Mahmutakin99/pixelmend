@@ -109,8 +109,18 @@ import diagnosis, `PIXELMEND_GENERATIVE_DIAGNOSTICS=1` enables a traceback only
 for `probe`. Synthetic evaluation evidence, weights, and generated binaries
 remain in the Git-ignored `.local-notes` directory.
 
-Image workers use the pinned MFLUX one-seed MemorySaver callbacks to release the
-text encoder and transformer before VAE decoding. Klein opts out of implicit VAE
+Image workers load the pinned Klein components in phases: encode and materialize
+the prompt, release the text encoder, encode and materialize reference images,
+then load the diffusion transformer. Native MFLUX prediction and one-seed
+MemorySaver callbacks release the transformer after denoising. The parent engine
+then waits for that worker to exit before starting a VAE-only decode worker.
+The bounded BF16 latent file is private, validated and removed after the job;
+physical memory peaks are reported per phase and combined with max, never sum.
+This process boundary also releases native tensors retained beyond Python object
+finalization. Both image phases share the original 300-second deadline.
+`sequential_klein.py` changes component lifetimes, not weights, dimensions or
+the native numerical operations. Pixel equality and physical-footprint budgets
+must be measured again when this loading strategy changes. Klein opts out of implicit VAE
 tiling because of tile colour offsets. The original VAE and 1 GiB cache limit are
 preserved; no system GPU or wired-memory settings are changed. See
 `../../tools/generative/README.md` for isolated Mac app packaging and signing.

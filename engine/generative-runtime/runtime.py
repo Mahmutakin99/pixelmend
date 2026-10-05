@@ -243,24 +243,36 @@ def generate(request):
             raise ValueError('invalid_input')
         kwargs['image_paths'] = [str(source)]
     emit({'event': 'stage', 'stage': 'loading_image_model'})
-    cls = Flux2KleinEdit if edit else Flux2Klein
-    model = cls(model_path=model_path, model_config=ModelConfig.flux2_klein_4b())
-    from mlx.utils import tree_flatten
-    mx.eval(*[value for _, value in tree_flatten(model.parameters())])
-    # MFLUX truncates by default; reject rather than silently losing conditions.
-    validate_image_prompt(model.tokenizers['qwen3'], prompt)
-    configure_memory_saving(model)
-    model.callbacks.register(StepProgress(mx.eval))
-    emit({'event': 'stage', 'stage': 'generating'})
-    image = model.generate_image(seed=seed, prompt=prompt, width=width, height=height,
-                                 num_inference_steps=4, guidance=1.0, **kwargs).image
+    phase=request.get('image_phase')
+    if phase not in {None,'denoise','decode'}:raise ValueError('invalid_request')
+    from split_klein import decode_latents,intercept_decode,DenoiseComplete
+    if phase=='decode':
+        emit({'event':'stage','stage':'generating'})
+        image=decode_latents(model_path,session,width,height,request.get('latent_sha256'))
+    else:
+        from sequential_klein import create_sequential_klein
+        model = create_sequential_klein(model_path=model_path,
+                                        model_config=ModelConfig.flux2_klein_4b(), edit=edit)
+        from mlx.utils import tree_flatten
+        mx.eval(*[value for _, value in tree_flatten(model.parameters())])
+        # Reject rather than silently truncating MFLUX's formatted prompt.
+        validate_image_prompt(model.tokenizers['qwen3'], prompt)
+        configure_memory_saving(model)
+        model.callbacks.register(StepProgress(mx.eval))
+        if phase=='denoise':intercept_decode(model,session,width,height)
+        emit({'event': 'stage', 'stage': 'generating'})
+        try:
+            image = model.generate_image(seed=seed, prompt=prompt, width=width, height=height,
+                                         num_inference_steps=4, guidance=1.0, **kwargs).image
+        except DenoiseComplete:
+            return {'seed':seed,'width':width,'height':height,'image_phase':'denoise'}
     if image.size != (width, height):
         raise ValueError('invalid_output')
     # Save bare opaque pixels: MFLUX's save method also writes prompt metadata.
     with output.open('xb') as stream:
         os.chmod(output, 0o600)
         image.convert('RGB').save(stream, format='PNG')
-    return {'seed': seed, 'width': width, 'height': height}
+    return {'seed': seed, 'width': width, 'height': height, **({'image_phase':phase} if phase else {})}
 
 
 def main():
