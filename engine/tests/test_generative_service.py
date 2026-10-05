@@ -196,3 +196,15 @@ def test_preflight_reports_dynamic_available_and_required_memory_without_loading
     host['available_memory_bytes']=12*GIB
     assert service.preflight(request)['ready'] is True
     assert owner.requests==[]
+
+def test_successful_generation_clears_old_deferred_loading_warning(tmp_path):
+    async def check():
+        service,manager,owner,assets,host,_=fixtures(tmp_path);await manager.start()
+        for id in manager.catalog:manager._change(id,last_check={'status':'deferred','code':'memory_insufficient'})
+        request=GenerativeRequest.parse(payload());reservations=service.reserve(request)
+        try:await asyncio.to_thread(service.execute,request,reservations,threading.Event(),lambda _:None)
+        finally:
+            for reservation in reservations:reservation.release()
+        assert all(view['last_check'] is None for view in manager.list_models()['models'])
+        await manager.close()
+    asyncio.run(check())

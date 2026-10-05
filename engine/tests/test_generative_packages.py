@@ -222,3 +222,31 @@ def test_corrupt_probe_remains_a_package_error(tmp_path):
         view=await settle(manager);assert view['state']=='failed' and view['error']['code']=='package_invalid'
         await manager.close()
     asyncio.run(check())
+
+@pytest.mark.parametrize('failure', ['bad_hash','missing_part','disk'])
+def test_download_fault_never_activates_partial_package_and_retry_is_atomic(tmp_path,monkeypatch,failure):
+    import pixelmend_engine.generative_packages as packages
+    from types import SimpleNamespace
+    async def check():
+        old=tmp_path/'test-package'/('c'*40);old.mkdir(parents=True);(old/'working').write_bytes(b'healthy')
+        broken=[True];files={'weights.part0':b'abc','weights.part1':b'def','tokenizer/config.json':b'cfg'}
+        def download(part,destination,*_):
+            if broken[0] and part.index==1:
+                if failure=='bad_hash':destination.write_bytes(b'BAD');return
+                if failure=='missing_part':raise FileNotFoundError('missing remote part')
+            destination.write_bytes(files[part.local_path])
+        actual_disk=packages.shutil.disk_usage
+        if failure=='disk':monkeypatch.setattr(packages.shutil,'disk_usage',lambda _:SimpleNamespace(free=1))
+        manager=PackageManager(tmp_path,catalog=[definition()],downloader=download)
+        await manager.start();await manager.install('test-package');view=await settle(manager)
+        assert view['state']=='failed'
+        assert view['error']['code']==('package_invalid' if failure=='bad_hash' else 'disk_insufficient' if failure=='disk' else 'transport_error')
+        assert (old/'working').read_bytes()==b'healthy'
+        assert not (tmp_path/'test-package'/('a'*40)).exists()
+        assert not list(tmp_path.rglob('*.partial'))
+        broken[0]=False;monkeypatch.setattr(packages.shutil,'disk_usage',actual_disk)
+        await manager.retry('test-package');view=await settle(manager)
+        assert view['state']=='installed' and view['probe'] is None
+        assert (tmp_path/'test-package'/('a'*40)/'weights.safetensors').read_bytes()==b'abcdef'
+        await manager.close()
+    asyncio.run(check())

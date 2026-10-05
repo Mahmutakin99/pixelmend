@@ -19,3 +19,11 @@ test('only authorized IPC and owned generative jobs/assets can be disposed',asyn
  await handlers.get('pixelmend:dispose-asset')({sender:'window'},asset);
  await assert.rejects(handlers.get('pixelmend:dispose-asset')({sender:'window'},'d'.repeat(32)));
 });
+test('memory snapshots use authorized read-only admission and never submit a job',async()=>{
+ const handlers=new Map(),calls=[];
+ registerGenerativeIpc({handle:(id,fn)=>handlers.set(id,fn)},async(route,options)=>{calls.push({route,body:JSON.parse(options.body)});return {json:async()=>({ready:false,available_memory_bytes:6,required_available_memory_bytes:7})};},sender=>sender==='window',new Map());
+ await assert.rejects(handlers.get('pixelmend:generative-memory')({sender:'foreign'},request));
+ const report=await handlers.get('pixelmend:generative-memory')({sender:'window'},request);
+ assert.equal(report.available_memory_bytes,6);assert.equal(report.required_available_memory_bytes,7);
+ assert.deepEqual(calls.map(c=>c.route),['/generative/memory']);assert.equal(calls[0].body.prompt_language,'tr');
+});
