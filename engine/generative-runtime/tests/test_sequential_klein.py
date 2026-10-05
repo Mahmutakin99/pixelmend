@@ -57,3 +57,16 @@ class SequentialTests(unittest.TestCase):
         self.assertEqual(model.transformer,'transformer')
 
 if __name__=='__main__':unittest.main()
+
+class ProbeTests(unittest.TestCase):
+    def test_loading_probe_materializes_and_releases_each_component_before_next(self):
+        import weakref
+        module=SequentialTests().module();refs=[];seen=[]
+        class Component:pass
+        def load(name):
+            self.assertTrue(all(ref() is None for ref in refs))
+            value=Component();refs.append(weakref.ref(value));seen.append(name);return value
+        def evaluate(value):self.assertIs(refs[-1](),value)
+        module.probe_components(load,evaluate,lambda:None)
+        self.assertEqual(seen,['text_encoder','vae','transformer'])
+        self.assertTrue(all(ref() is None for ref in refs))

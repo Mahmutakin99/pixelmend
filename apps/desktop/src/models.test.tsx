@@ -9,8 +9,8 @@ describe('model availability and performance facts',()=>{
     const packageModel={...model,id:'flux2-klein-4b-mlx-q4',runtime:'mlx' as const,
       source:'local' as const,verified_manifest:true,state:'installed',name:'Klein'};
     const html=renderToStaticMarkup(<ModelCard model={packageModel} refresh={()=>{}}/>);
-    expect(html).toContain('Kurulu; ilk işlemde yüklenecek');
-    expect(html).toContain('Sına');
+    expect(html).toContain('Kurulu');
+    expect(html).toContain('Modeli kontrol et');
     expect(html).not.toContain('Yerel ONNX');
     const absent=renderToStaticMarkup(<ModelCard model={{...packageModel,state:'absent'}} refresh={()=>{}}/>);
     expect(absent).toContain('Yerel paket klasörü seç');
@@ -52,4 +52,14 @@ describe('model availability and performance facts',()=>{
     expect(html).toContain('settings-content');
     expect(html).toContain('Bitti');
   });
+});
+
+it('published packages offer download first and local installation second',()=>{
+ const packageModel={...model,runtime:'mlx' as const,source:'published' as const,verified_manifest:true,published:true,state:'absent'};
+ const html=renderToStaticMarkup(<ModelCard model={packageModel} refresh={()=>{}}/>);
+ expect(html).toContain('Modeli indir');expect(html).toContain('Yerel paket klasörü seç');
+ expect(html.indexOf('Modeli indir')).toBeLessThan(html.indexOf('Yerel paket klasörü seç'));
+ const installed=renderToStaticMarkup(<ModelCard model={{...packageModel,state:'installed',last_check:{status:'deferred',code:'memory_insufficient',message:'Bellek yetersiz.'}}} refresh={()=>{}}/>);
+ expect(installed).toContain('Kurulu');expect(installed).toContain('Kontrol ertelendi — şu an bellek yetersiz');
+ expect(installed).not.toContain('Başarısız');expect(installed).not.toContain('Yeniden kurun');
 });

@@ -191,3 +191,34 @@ def test_native_probe_releases_idle_adapters_only_inside_compute_slot(tmp_path):
         assert order==['release','probe']
         await manager.close()
     asyncio.run(check())
+
+@pytest.mark.parametrize('failure,status', [('memory_insufficient','deferred'),('cancel','cancelled'),('runtime_crashed','failed')])
+def test_verified_package_survives_temporary_probe_result_and_rechecks(tmp_path,failure,status):
+    from pixelmend_engine.generative_process import RuntimeErrorCode
+    async def check():
+        d=definition();target=tmp_path/d.manifest.model_id/d.manifest.revision
+        (target/'tokenizer').mkdir(parents=True);(target/'weights.safetensors').write_bytes(b'abcdef');(target/'tokenizer/config.json').write_bytes(b'cfg')
+        def probe(*_):
+            if failure=='cancel':raise InterruptedError()
+            raise RuntimeErrorCode(failure)
+        manager=PackageManager(tmp_path,catalog=[d],prober=probe);await manager.start()
+        await manager.probe(d.manifest.model_id);view=await settle(manager)
+        assert view['state']=='installed'
+        assert view['package_verified'] is True and view['error'] is None
+        assert view['last_check']['status']==status
+        assert (target/'weights.safetensors').read_bytes()==b'abcdef'
+        manager.prober=lambda *_:{'status':'passed'}
+        await manager.probe(d.manifest.model_id);view=await settle(manager)
+        assert view['last_check']['status']=='passed' and view['error'] is None
+        await manager.close()
+    asyncio.run(check())
+
+def test_corrupt_probe_remains_a_package_error(tmp_path):
+    async def check():
+        d=definition();target=tmp_path/d.manifest.model_id/d.manifest.revision
+        (target/'tokenizer').mkdir(parents=True);(target/'weights.safetensors').write_bytes(b'broken');(target/'tokenizer/config.json').write_bytes(b'cfg')
+        manager=PackageManager(tmp_path,catalog=[d],prober=lambda *_:pytest.fail('corrupt package must not load'))
+        await manager.start();await manager.probe(d.manifest.model_id)
+        view=await settle(manager);assert view['state']=='failed' and view['error']['code']=='package_invalid'
+        await manager.close()
+    asyncio.run(check())

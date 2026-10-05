@@ -33,7 +33,7 @@ MESSAGES={
     'invalid_request':'Üretim isteği geçersiz. Komut, profil, oran ve seed değerlerini kontrol edin.',
     'probe_not_accepted':'Bu cihaz için model sınamasının bellek ölçümü henüz doğrulanmadı.',
     'profile_not_accepted':'Bu cihaz için seçilen çalışma profilinin kalite ve kaynak kabulü tamamlanmadı.',
-    'memory_insufficient':'Kullanılabilir bellek yetersiz. Düşük kaynak profilini seçin veya diğer uygulamaları kapatın.',
+    'memory_insufficient':'Kullanılabilir bellek yetersiz. Diğer uygulamaları kapatıp yeniden deneyin.',
     'disk_insufficient':'Geçici görsel dosyaları için disk alanı yetersiz.',
     'result_budget':'Sonuç belleği dolu. Önceki adayları kapatıp yeniden deneyin.',
     'asset_capacity':'Düzenleyici belleği dolu. Kullanılmayan görselleri kapatın.',

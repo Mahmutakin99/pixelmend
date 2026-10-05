@@ -1,6 +1,6 @@
 import type {AssetView,DesktopBridge,GenerationInfo,GenerativeRequest,JobSnapshot} from './bridge';
 export type GenerativeCandidate={asset:AssetView;info:GenerationInfo};
-export type GenerativeState={busy:boolean;phase:string;candidate?:GenerativeCandidate;error?:string};
+export type GenerativeState={busy:boolean;phase:string;candidate?:GenerativeCandidate;error?:string;errorCode?:string};
 const phases:Record<string,string>={validating_models:'Model doğrulanıyor…',preparing_edit:'Seçili alan hazırlanıyor…',preparing_prompt:'Komut hazırlanıyor…',translating:'Komut çevriliyor…',loading_image_model:'Görsel modeli yükleniyor…',generating:'Görsel üretiliyor…',compositing:'Sonuç birleştiriliyor…',releasing_resources:'Kaynaklar bırakılıyor…'};
 export function generationPhase(job:JobSnapshot){
  if(job.status==='cancelling')return 'İptal bekleniyor…';if(job.status==='queued')return 'İş sırada bekliyor…';
@@ -27,7 +27,7 @@ export class GenerativeSession{
  async start(request:GenerativeRequest){
   if(this.state.busy||this.closed)return;
   this.cancelRequested=false;
-  this.update({busy:true,error:undefined,phase:'İşlem kontrol ediliyor…'});
+  this.update({busy:true,error:undefined,errorCode:undefined,phase:'İşlem kontrol ediliyor…'});
   const previousSeed=this.state.candidate?.info.seed;
   let adopted:AssetView|undefined;
   try{
@@ -35,9 +35,11 @@ export class GenerativeSession{
    if(this.cancelRequested){this.update({phase:'İşlem iptal edildi.'});return;}
    const check=await this.bridge.generativePreflight(request);
    if(this.cancelRequested){this.update({phase:'İşlem iptal edildi.'});return;}
-   if(!check.ready)throw new Error(check.reason?.message??'İşlem başlatılamadı.');
+   this.update({phase:'Kontrol tamamlandı.'});
+   if(!check.ready){this.update({errorCode:check.reason?.code});throw new Error(check.reason?.message??'İşlem başlatılamadı.');}
    if(this.closed)return;
    const seed=request.seed??(check.seed===previousSeed?(check.seed+1)>>>0:check.seed);
+   this.update({phase:'Model hazırlanıyor; işlem zaman alabilir.'});
    const job=await this.bridge.startGenerativeJob({...request,seed});this.jobId=job.job_id;
    if(this.closed){await this.bridge.disposeGenerativeJob(job.job_id);this.jobId=undefined;return;}
    if(this.cancelRequested)await this.bridge.cancel(job.job_id);
@@ -62,7 +64,7 @@ export class GenerativeSession{
    }
   }catch(error){
    if(this.jobId){await this.bridge.disposeGenerativeJob(this.jobId).catch(()=>{});this.jobId=undefined;}
-   this.update({error:error instanceof Error?error.message:'İşlem tamamlanamadı.'});
+   this.update({phase:this.state.phase==='Kontrol tamamlandı.'?'Kontrol tamamlandı.':'İşlem tamamlanamadı.',error:error instanceof Error?error.message:'İşlem tamamlanamadı.'});
   }finally{this.update({busy:false});}
  }
  async cancel(){if(!this.state.busy)return;this.cancelRequested=true;this.update({phase:'İptal bekleniyor…'});if(this.jobId)await this.bridge.cancel(this.jobId);}

@@ -4,6 +4,7 @@ ipcRenderer.on('pixelmend:models-event', (_event, snapshot) => {
   for (const callback of modelListeners) callback(snapshot);
 });
 contextBridge.exposeInMainWorld('pixelmend', {
+  generativeMemory: request => ipcRenderer.invoke('pixelmend:generative-memory', request),
   generativePreflight: request => ipcRenderer.invoke('pixelmend:generative-preflight', request),
   startGenerativeJob: request => ipcRenderer.invoke('pixelmend:start-generative-job', request),
   disposeAsset: id => ipcRenderer.invoke('pixelmend:dispose-asset', id),

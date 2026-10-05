@@ -3,7 +3,7 @@ import {allowedActions, formatBytes, type Capabilities, type ModelAction, type M
 import {normalizePreferences, type PixelMendPreferences} from './preferences';
 import type {Preferences} from './bridge';
 
-const stateLabels: Record<string, string> = {waiting:'Hazırlık sırasında', cancelling:'İptal ediliyor', cancelled:'İptal edildi', absent: 'Kurulum gerekli', unavailable: 'Doğrulama bekliyor', missing: 'Kurulum gerekli', downloading: 'İndiriliyor', verifying: 'Doğrulanıyor', installed: 'Sınanmadı', ready: 'Hazır', failed: 'Başarısız', error: 'Başarısız', probing: 'Sınanıyor', deleting: 'Siliniyor'};
+const stateLabels: Record<string, string> = {waiting:'Hazırlık sırasında', cancelling:'İptal ediliyor', cancelled:'İptal edildi', absent: 'Kurulum gerekli', unavailable: 'Doğrulama bekliyor', missing: 'Kurulum gerekli', downloading: 'İndiriliyor', verifying: 'Doğrulanıyor', installed: 'Kurulu', ready: 'Hazır', failed: 'Başarısız', error: 'Başarısız', probing: 'Kontrol ediliyor', deleting: 'Siliniyor'};
 const tierCopy = {
   fast: {title: 'Hızlı', copy: 'Daha düşük sistem gereksinimleri ve kısa bekleme süresi için önerilir.'},
   balanced: {title: 'Dengeli', copy: 'Günlük kullanım için önerilir. İşlem süresi ve ayrıntı kalitesini dengeler.'},
@@ -21,19 +21,23 @@ export function ModelCard({model, refresh}: {model: ModelView; refresh: () => vo
     catch (cause) { setError(String(cause)); }
     finally { setPending(false); }
   };
-  const primary = allowed.includes('install-local') ? ['install-local', isPackage ? 'Yerel paket klasörü seç' : 'Yerel ONNX seç'] as const
-    : allowed.includes('install') ? ['install', 'Modeli indir'] as const
-    : allowed.includes('probe') ? ['probe', isPackage ? 'Sına' : 'Yeniden ölç'] as const : null;
+  const primary = allowed.includes('install') ? ['install', 'Modeli indir'] as const
+    : allowed.includes('retry') ? ['retry', 'Yeniden dene'] as const
+    : allowed.includes('install-local') ? ['install-local', isPackage ? 'Yerel paket klasörü seç' : 'Yerel ONNX seç'] as const
+    : allowed.includes('probe') ? ['probe', 'Modeli kontrol et'] as const : null;
   return <article className="model-card" aria-label={`${model.name} modeli`}>
-    <div><h3>{model.name}</h3><p>{isPackage && model.state === 'installed' ? 'Kurulu; ilk işlemde yüklenecek' : stateLabels[model.state] || model.state}{model.in_use ? ' · Kullanımda' : ''}</p></div>
-    <p className="model-summary">{model.description || (model.state === 'ready' ? 'Bu Mac’te doğrulandı ve kullanıma hazır.' : 'Kurulum ve kısa bir çalışma sınaması tamamlanınca kullanılabilir.')}</p>
+    <div><h3>{model.name}</h3><p>{stateLabels[model.state] || model.state}{model.in_use ? ' · Kullanımda' : ''}</p></div>
+    <p className="model-summary">{model.description || (model.state === 'ready' ? 'Bu Mac’te doğrulandı ve kullanıma hazır.' : isPackage ? 'Kurulumdan sonra model ilk işlemde yüklenecek.' : 'Kurulum ve kısa bir çalışma sınaması tamamlanınca kullanılabilir.')}</p>
     <div className="model-meta"><span>{model.size_bytes ? formatBytes(model.size_bytes) : 'Boyut henüz doğrulanmadı'}</span><span>{model.source === 'local' ? isPackage ? 'Yerel doğrulanmış paket' : 'Yerel doğrulanmış dosya' : model.verified_manifest ? 'Yayımlanmış model' : 'Kurulum henüz sunulmuyor'}</span></div>
     {['downloading', 'verifying'].includes(model.state) && <progress aria-label={`${model.name} kurulumu`} value={model.downloaded_bytes} max={model.size_bytes || 1}/>} 
     <div className="model-actions">
       {primary && <button className="primary" disabled={pending} onClick={() => act(primary[0])}>{primary[1]}</button>}
+      {allowed.includes('install-local') && primary?.[0] !== 'install-local' && <button disabled={pending} onClick={() => act('install-local')}>{isPackage ? 'Yerel paket klasörü seç' : 'Yerel ONNX seç'}</button>}
       {allowed.includes('delete') && <button disabled={pending} onClick={() => act('delete')}>Kaldır</button>}
       {allowed.includes('cancel') && <button disabled={pending} onClick={() => act('cancel')}>İptal</button>}
     </div>
+    {allowed.includes('probe') && <p className="hint">{isPackage ? 'Paket bütünlüğünü ve modelin bu bilgisayarda yüklenmesini kontrol eder. Model işlem sonunda bellekten bırakılır.' : 'Modeli kısa bir işlemle çalıştırır, bu bilgisayardaki çalışma yolunu ve hızını ölçer.'}</p>}
+    {isPackage && model.last_check && <p role="status">{model.last_check.status === 'passed' ? 'Kontrol tamamlandı' : model.last_check.status === 'deferred' ? 'Kontrol ertelendi — şu an bellek yetersiz' : model.last_check.status === 'cancelled' ? 'Kontrol iptal edildi' : `Kontrol tamamlanamadı: ${model.last_check.message || 'Yeniden deneyin.'}`}</p>}
     {(error || model.error) && <p className="inline-error" role="alert">{error || model.error?.message}</p>}
     <details><summary>Teknik ayrıntılar</summary><dl className="technical-facts"><dt>{isPackage ? 'Çalışma motoru' : 'Sağlayıcı'}</dt><dd>{isPackage ? model.runtime === 'mlx' ? 'MLX' : 'Yerel CPU çevirisi' : model.probe?.selected_provider || 'Henüz ölçülmedi'}</dd><dt>En az bellek</dt><dd>{model.minimum_memory_bytes ? formatBytes(model.minimum_memory_bytes) : 'Ölçüm tamamlanmadı'}</dd><dt>Önerilen bellek</dt><dd>{model.recommended_memory_bytes ? formatBytes(model.recommended_memory_bytes) : 'Ölçüm tamamlanmadı'}</dd><dt>Lisans</dt><dd>{model.license_id || 'Doğrulama bekliyor'}</dd><dt>Revision</dt><dd>{model.revision || 'Doğrulama bekliyor'}</dd><dt>SHA-256</dt><dd>{model.sha256 || 'Doğrulama bekliyor'}</dd></dl></details>
   </article>;

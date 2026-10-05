@@ -107,3 +107,26 @@ def create_sequential_klein(*,model_path,model_config,edit=False):
             return predict
 
     return SequentialKlein()
+
+
+def probe_components(load,materialize,clear):
+    """Load-only check; each component ends its lifetime before the next load."""
+    for name in ('text_encoder','vae','transformer'):
+        component=load(name)
+        try:materialize(component)
+        finally:
+            del component
+            clear()
+
+
+def probe_klein_loading(model_path):
+    import mlx.core as mx
+    from mlx.utils import tree_flatten
+    from mflux.models.common.config.model_config import ModelConfig
+    model=create_sequential_klein(model_path=model_path,model_config=ModelConfig.flux2_klein_4b())
+    phases=model._component_phases
+    def load(name):
+        if name=='text_encoder':
+            component=model.text_encoder;model.text_encoder=None;return component
+        return phases.load(name)
+    probe_components(load,lambda module:mx.eval(*[value for _,value in tree_flatten(module.parameters())]),phases.clear)

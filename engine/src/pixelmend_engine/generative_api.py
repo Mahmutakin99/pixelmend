@@ -38,6 +38,13 @@ def generative_router(queue,service,auth):
             return await run_in_threadpool(service.preflight,parsed,
                 result_bytes=sum(job.result_bytes for job in queue.jobs.values()),result_budget=queue.result_budget)
         except AssetNotFoundError:raise HTTPException(404,'Kaynak görsel bulunamadı.') from None
+    @router.post('/memory')
+    async def memory(request:Request):
+        parsed=await parse_request(request)
+        try:
+            return await run_in_threadpool(service.preflight,parsed,check_selection=False,
+                result_bytes=sum(job.result_bytes for job in queue.jobs.values()),result_budget=queue.result_budget)
+        except AssetNotFoundError:raise HTTPException(404,'Kaynak görsel bulunamadı.') from None
     @router.post('/jobs',status_code=201)
     async def submit(request:Request):
         parsed=await parse_request(request)

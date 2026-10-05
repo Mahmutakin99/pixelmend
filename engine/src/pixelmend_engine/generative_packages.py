@@ -174,7 +174,7 @@ class PackageManager:
                 'size_bytes':d.size_bytes,'downloaded_bytes':0,'revision':m.revision,'package_revision':m.revision,
                 'source_revision':d.source_revision,'sha256':None,'license_id':m.license_id,'license_url':m.license_url,
                 'source_repository':d.source_repository,'package_verified':False,
-                'error':None,'probe':None,'in_use':0,'stored_bytes':0,'active_revision':None,'loaded':False,
+                'error':None,'probe':None,'last_check':None,'in_use':0,'stored_bytes':0,'active_revision':None,'loaded':False,
                 'accepted_profiles':list(d.accepted_profiles),'last_used_at':None,'stale_revisions':[],
                 'description':('Fotoğrafa komutla nesne ekleme ve yeni görsel üretme.' if d.runtime=='mlx' else
                                'Türkçe komutları bu bilgisayarda İngilizceye çevirir.')}
@@ -212,6 +212,7 @@ class PackageManager:
         with self._mutex:
             if self._closed or self._views[id]['in_use'] or id in self._tasks:
                 raise ModelManagerError('package_in_use','Model kullanımda; işlem bitmesini bekleyin.')
+            previous=dict(self._views[id])
             cancel=threading.Event();self._cancels[id]=cancel
             self._change(id,state='waiting',error=None)
             async def work():
@@ -219,7 +220,10 @@ class PackageManager:
                 try:
                     async with self._io:
                         values=await asyncio.to_thread(self._operate,d,operation,cancel,source)
-                except InterruptedError:values={'state':'cancelled','error':None}
+                except InterruptedError:
+                    values={'state':'cancelled','error':None}
+                    if operation=='probe' and (previous['state']=='installed' or self._views[id]['package_verified']):
+                        values.update(state='installed',last_check={'status':'cancelled','message':'Kontrol iptal edildi.'})
                 except Exception as error:
                     if isinstance(error,ModelManagerError):code,message=error.code,str(error)
                     elif isinstance(error,ModelPackageError):code,message='package_invalid','Paket eksik veya değiştirilmiş. Doğrulanmış paketi yeniden kurun.'
@@ -227,6 +231,11 @@ class PackageManager:
                     elif isinstance(error,PermissionError):code,message='permission_denied','Model klasörüne yazılamadı.'
                     else:code,message='transport_error','Model işlemi tamamlanamadı. Yeniden deneyin.'
                     values={'state':'failed','error':{'code':code,'message':message}}
+                    if operation=='probe' and code!='package_invalid' and self._views[id]['package_verified']:
+                        values.update(state='installed',error=None,last_check={
+                            'status':'deferred' if code=='memory_insufficient' else 'failed',
+                            'code':code,'message':message})
+                    elif code=='package_invalid':values.update(package_verified=False,last_check=None)
                 finally:
                     with self._mutex:
                         self._tasks.pop(id,None);self._cancels.pop(id,None)
@@ -256,9 +265,10 @@ class PackageManager:
                 if target.exists():shutil.rmtree(target)
                 cache=parent/f'.{d.manifest.revision}.staging'
                 if cache.exists():shutil.rmtree(safe_directory(cache))
-                return dict(state='absent',stored_bytes=0,active_revision=None,probe=None,package_verified=False)
+                return dict(state='absent',stored_bytes=0,active_revision=None,probe=None,last_check=None,package_verified=False)
             if operation=='probe':
                 self._change(id,state='verifying');verify_package(target,d.manifest,cancel=cancel)
+                self._change(id,package_verified=True)
                 if self.prober is None:raise ModelManagerError('runtime_unavailable','Yerel çalışma paketi bulunamadı.')
                 with self.coordinator.operation('probe',cancel):
                     if self.before_probe is not None:self.before_probe()
@@ -266,10 +276,10 @@ class PackageManager:
                     self._change(id,state='probing')
                     evidence=self.prober(d,target,cancel)
                 check_cancel(cancel)
-                return dict(state='installed',probe=evidence,loaded=False,package_verified=True)
+                return dict(state='installed',probe=evidence,loaded=False,package_verified=True,last_check={'status':'passed'})
             self._install(d,parent,target,cancel,source)
             return dict(state='installed',stored_bytes=d.size_bytes,active_revision=d.manifest.revision,
-                        downloaded_bytes=d.size_bytes,probe=None,loaded=False,package_verified=True)
+                        downloaded_bytes=d.size_bytes,probe=None,last_check=None,loaded=False,package_verified=True)
 
     def _install(self,d,parent,target,cancel,source):
         id=d.manifest.model_id

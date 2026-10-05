@@ -4,6 +4,7 @@ export type ModelView = {
   downloaded_bytes:number;revision:string|null;sha256:string|null;license_id:string|null;license_url:string|null;
   error:{code:string;message:string}|null;
   probe:{status:'unmeasured'|'running'|'passed'|'failed';selected_provider:string|null;providers:string[];measured_at:string|null}|null;
+  last_check?:{status:'passed'|'deferred'|'cancelled'|'failed';code?:string;message?:string}|null;
   in_use:boolean|number;
   stored_bytes:number;active_revision:string|null;last_used_at:string|null;stale_revisions:string[];
   operation?:'remove'|'upscale'|'generative';tier?:'fast'|'balanced'|'advanced';description?:string;
@@ -30,11 +31,12 @@ export function allowedActions(model:ModelView):ModelAction[] {
   if (!(model.verified_manifest ?? model.published) || model.in_use) return [];
   if (['waiting','cancelling','deleting'].includes(model.state)) return [];
   if (['downloading','verifying','installing'].includes(model.state)) return ['cancel'];
-  if (model.state === 'probing' || model.probe?.status === 'running') return [];
+  if (model.state === 'probing') return model.runtime ? ['cancel'] : [];
+  if (model.probe?.status === 'running') return [];
   if (model.state === 'ready') return ['probe','delete'];
-  if (['failed','error','cancelled','corrupt'].includes(model.state)) return [model.source === 'local' ? 'install-local' : 'retry','delete'];
+  if (['failed','error','cancelled','corrupt'].includes(model.state)) return model.runtime && model.published ? ['retry','install-local','delete'] : [model.source === 'local' ? 'install-local' : 'retry','delete'];
   if (model.state === 'installed') return ['probe','delete'];
-  return [model.source === 'local' ? 'install-local' : 'install'];
+  return model.runtime && model.published ? ['install','install-local'] : [model.source === 'local' ? 'install-local' : 'install'];
 }
 export function formatBytes(value:number|null|undefined) {
   return value == null ? 'Ölçülmedi' : `${(value/1024/1024).toFixed(1)} MiB`;

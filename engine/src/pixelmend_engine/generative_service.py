@@ -108,6 +108,7 @@ class GenerativeService:
         def reject(code):
             error=RuntimeErrorCode(code);report['reason']={'code':error.code,'message':str(error)};return report
         host=self.host_provider()
+        report['available_memory_bytes']=host['available_memory_bytes']
         if not host['platform_supported']:return reject('unsupported_platform')
         if not host['runtime_installed']:return reject('runtime_unavailable')
         profile=self._profile(request,host)
@@ -226,6 +227,7 @@ class GenerativeService:
                          'mlx_peak_bytes':result.get('mlx_peak_bytes'),
                          'child_peak_footprint_bytes':result.get('child_peak_footprint_bytes'),
                          'phase_resources':result.get('phase_resources')}}
+        for id in paths:self.packages._change(id,last_check=None,error=None)
         return output,metadata
 
     def close(self):self.prompts.clear()

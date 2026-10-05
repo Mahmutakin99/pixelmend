@@ -183,3 +183,16 @@ def test_translation_loaded_flag_clears_before_image_child(tmp_path):
             assert job.status=='completed',job.error
         await manager.close()
     asyncio.run(check())
+
+def test_preflight_reports_dynamic_available_and_required_memory_without_loading(tmp_path):
+    service,manager,owner,assets,host,_=fixtures(tmp_path)
+    request=GenerativeRequest.parse(payload())
+    host['available_memory_bytes']=GIB
+    report=service.preflight(request)
+    assert report['available_memory_bytes']==GIB
+    assert report['required_available_memory_bytes']>GIB
+    assert report['reason']['code']=='memory_insufficient'
+    assert 'Düşük kaynak profilini seçin' not in report['reason']['message']
+    host['available_memory_bytes']=12*GIB
+    assert service.preflight(request)['ready'] is True
+    assert owner.requests==[]

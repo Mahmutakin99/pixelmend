@@ -293,7 +293,6 @@ def main():
         # Third-party libraries may print prompts or progress; keep them off pipes/logs.
         with open(os.devnull, 'w') as sink, contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
             if operation == 'probe':
-                from mflux.models.flux2 import Flux2Klein
                 values = mx.array([1, 2, 3]) * 2
                 mx.eval(values)
                 result = {'versions': VERSIONS, 'metal': True, 'gpu_result': values.tolist()}
@@ -302,11 +301,8 @@ def main():
                         model, tokenizer = load_translator(request['model_dir'])
                         result['translation_model_loaded'] = True
                     elif request['model_kind'] == 'image':
-                        from mflux.models.common.config.model_config import ModelConfig
-                        from mlx.utils import tree_flatten
-                        model = Flux2Klein(model_path=local_model(request['model_dir']),
-                                           model_config=ModelConfig.flux2_klein_4b())
-                        mx.eval(*[value for _, value in tree_flatten(model.parameters())])
+                        from sequential_klein import probe_klein_loading
+                        probe_klein_loading(local_model(request['model_dir']))
                         result['image_model_loaded'] = True
                     else:
                         raise ValueError('invalid_request')

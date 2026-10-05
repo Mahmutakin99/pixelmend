@@ -19,6 +19,9 @@ it('previews without applying and frees the previous candidate before regenerati
 it('preflight failure starts no model and exposes its specific reason',async()=>{
  const {bridge,session}=fixture();bridge.generativePreflight.mockResolvedValue({ready:false,seed:7,reason:{code:'memory_insufficient',message:'Bellek yetersiz.'}} as never);
  await session.start(request);expect(bridge.startGenerativeJob).not.toHaveBeenCalled();expect(session.getSnapshot().error).toBe('Bellek yetersiz.');
+ expect(session.getSnapshot().phase).toBe('Kontrol tamamlandı.');
+ bridge.generativePreflight.mockResolvedValue({ready:true,seed:7});await session.start(request);
+ expect(session.getSnapshot().error).toBeUndefined();expect(session.getSnapshot().phase).toBe('Önizleme hazır.');
 });
 it('cancellation appears before IPC responds and releases terminal jobs',async()=>{
  const {bridge,session}=fixture();let resolve:any;bridge.job.mockImplementation(()=>new Promise(r=>{resolve=r}));

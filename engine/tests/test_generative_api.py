@@ -56,3 +56,24 @@ def test_malformed_json_and_unicode_are_rejected_without_content(tmp_path,body):
         response=client.post('/generative/preflight',headers={'X-PixelMend-Token':TOKEN,'Content-Type':'application/json'},content=body)
         assert response.status_code==422
         assert owner.requests==[]
+
+def test_memory_query_skips_selection_work_but_job_admission_keeps_it(tmp_path):
+    from io import BytesIO
+    from PIL import Image
+    service,manager,owner,assets,host,_=fixtures(tmp_path)
+    buffer=BytesIO();Image.new('RGB',(512,512)).save(buffer,format='PNG');buffer.seek(0)
+    from pixelmend_engine.imageio import load_image
+    asset=assets.adopt_image(load_image(buffer))
+    edit=payload(operation='text_edit',asset_id=asset.asset_id,selection_strokes=[],paint_strokes=[])
+    edit.pop('aspect')
+    queue=JobQueue(assets,generative_service=service)
+    app=FastAPI();app.include_router(generative_router(queue,service,require_session_token(TOKEN)))
+    with TestClient(app) as client:
+        headers={'X-PixelMend-Token':TOKEN}
+        report=client.post('/generative/memory',headers=headers,json=edit)
+        assert report.status_code==200 and report.json()['ready']
+        full=client.post('/generative/preflight',headers=headers,json=edit)
+        assert not full.json()['ready'] and full.json()['reason']['code']=='selection_empty'
+        job=client.post('/generative/jobs',headers=headers,json=edit)
+        assert job.status_code!=201
+        assert owner.requests==[]

@@ -1,8 +1,9 @@
 import {useEffect,useState} from 'react';
-import type {GenerativeRequest} from './bridge';
+import type {GenerativeRequest,GenerativePreflight} from './bridge';
 import type {GenerativeState} from './generative-session';
 import type {Capabilities,ModelView} from './models';
 import type {Stroke} from './document';
+import {GenerativeMemoryMonitor,memoryMessage,memoryGiB} from './generative-memory';
 type Props={kind:'text_edit'|'text_to_image';state:GenerativeState;capabilities:Capabilities|null|undefined;models:ModelView[];
  source?:{assetId:string;selectionStrokes:Stroke[];paintStrokes:Stroke[]};locked?:boolean;
  start:(request:GenerativeRequest)=>void;cancel:()=>void;discard:()=>void;accept:()=>void;settings:()=>void;
@@ -12,6 +13,7 @@ export function GenerativePanel(props:Props){
  const [prompt,setPrompt]=useState(''),[language,setLanguage]=useState<'tr'|'en'>('tr'),[override,setOverride]=useState(''),
  [overrideEdited,setOverrideEdited]=useState(false),[profile,setProfile]=useState<'low-resource'|'balanced'>('low-resource'),[aspect,setAspect]=useState<'square'|'landscape'|'portrait'>('square');
  useEffect(()=>{if(state.candidate?.info.original_prompt===prompt){setOverride(state.candidate.info.translated_prompt);setOverrideEdited(false);}},[state.candidate?.asset.asset_id]);
+ const [memory,setMemory]=useState<GenerativePreflight>(),[memoryError,setMemoryError]=useState('');
  const accepted=capabilities?.generative?.accepted_profiles??[];
  useEffect(()=>{if(!accepted.includes(profile)&&accepted.length)setProfile(accepted.includes('balanced')?'balanced':'low-resource');},[accepted.join(','),profile]);
  const installed=['flux2-klein-4b-mlx-q4',...(language==='tr'&&!(overrideEdited&&override.trim())?['opus-mt-tc-big-tr-en-f16']:[])].every(id=>models.some(m=>m.id===id&&['installed','ready'].includes(m.state)));
@@ -19,6 +21,15 @@ export function GenerativePanel(props:Props){
  const reason=!capabilities?.generative?.platform_supported?'macOS 15+, Apple Silicon ve en az 16 GB RAM gerekir.':
  !capabilities.generative.runtime_installed?'Yerel çalışma paketi kurulu değil.':!installed?'Gerekli model paketlerini Ayarlar’dan kurun.':
  !accepted.includes(profile)?'Bu cihaz için üretim kalite ve kaynak kabulü henüz tamamlanmadı.':'';
+ useEffect(()=>{
+  setMemory(undefined);setMemoryError('');
+  if(busy||reason)return;
+  const common={prompt:'Bellek kontrolü.',promptLanguage:language,profile,seed:0,
+   ...(overrideEdited&&override.trim()?{englishOverride:'Memory check.'}: {})};
+  const request:GenerativeRequest=kind==='text_edit'&&props.source ? {...common,operation:kind,...props.source} : {...common,operation:'text_to_image',aspect};
+  const monitor=new GenerativeMemoryMonitor(()=>window.pixelmend.generativeMemory(request),report=>{setMemory(report);setMemoryError('');},()=>{setMemory(undefined);setMemoryError('Bellek bilgisi yenilenemedi. Üret’e bastığınızda tekrar kontrol edilecek.');});
+  monitor.start();return ()=>monitor.stop();
+ },[busy,reason,kind,language,profile,aspect,overrideEdited,!!override.trim(),props.source?.assetId,props.source?.selectionStrokes,props.source?.paintStrokes]);
  const run=()=>{
   const common={prompt,promptLanguage:language,profile,...(overrideEdited&&override.trim()?{englishOverride:override.trim()}: {})};
   if(kind==='text_edit'&&props.source)props.start({...common,operation:kind,...props.source});
@@ -42,7 +53,9 @@ export function GenerativePanel(props:Props){
   </details>
   {reason&&<p role="note">{reason}</p>}
   {!installed&&<button disabled={busy} onClick={props.settings}>Model kurulumunu aç</button>}
-  {state.error&&<p role="alert" className="error">{state.error}</p>}
+  {!busy&&memory&&<div aria-live="polite"><p>{memoryMessage(memory)}</p>{memory.available_memory_bytes!==undefined&&<p className="hint">Kullanılabilir bellek: {memoryGiB(memory.available_memory_bytes)}{memory.required_available_memory_bytes!==undefined&&` · Gereken: ${memoryGiB(memory.required_available_memory_bytes)}`}</p>}</div>}
+  {memoryError&&<p role="status">{memoryError}</p>}
+  {state.error&&!(state.errorCode==='memory_insufficient'&&memory?.ready)&&<p role="alert" className="error">{state.error}</p>}
   <p role="status" aria-live="polite">{state.phase}</p>
   {state.busy?<><progress aria-label="Yerel üretim sürüyor"/><button onClick={props.cancel}>İptal</button></>:
    <button disabled={busy||!!reason||!prompt.trim()||[...prompt].length>1000} onClick={run}>{state.candidate?'Başka sonuç üret':'Üret'}</button>}

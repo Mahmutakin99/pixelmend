@@ -54,6 +54,7 @@ function registerGenerativeIpc(ipcMain,api,authorized,sources){
   await removeJob(id);
  };
  ipcMain.handle('pixelmend:generative-preflight',async(e,request)=>{requireSender(e);return (await api('/generative/preflight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generativeBody(request))})).json();});
+ ipcMain.handle('pixelmend:generative-memory',async(e,request)=>{requireSender(e);return (await api('/generative/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generativeBody(request))})).json();});
  ipcMain.handle('pixelmend:start-generative-job',async(e,request)=>{requireSender(e);const job=await (await api('/generative/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(generativeBody(request))})).json();jobs.add(job.job_id);return job;});
  ipcMain.handle('pixelmend:dispose-generative-job',async(e,id)=>{requireSender(e);await abandon(id);});
  ipcMain.handle('pixelmend:dispose-asset',async(e,id)=>{requireSender(e);if(!opaqueId(id)||!assets.has(id))throw new Error('Geçersiz aday görsel');await api(`/assets/${id}`,{method:'DELETE'});sources.delete(`asset/${id}`);assets.delete(id);});
