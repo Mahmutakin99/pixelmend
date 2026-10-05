@@ -118,7 +118,7 @@
           "sha256": "ca02bc51900ab07789d1b70283329e7137f5af98f5161c23a1c81fc38a4af1fe",
           "index": 0,
           "local_path": "LICENSE.md",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/ca02bc51900ab07789d1b70283329e7137f5af98f5161c23a1c81fc38a4af1fe"
         },
         {
           "path": "README.md",
@@ -126,7 +126,7 @@
           "sha256": "bd447051cf2db4bf67b992e563d89c35ebf1123f009c063361a222ab14e1c4f7",
           "index": 0,
           "local_path": "README.md",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/bd447051cf2db4bf67b992e563d89c35ebf1123f009c063361a222ab14e1c4f7"
         },
         {
           "path": "text_encoder/0.safetensors",
@@ -134,7 +134,7 @@
           "sha256": "4d7bdd82be0624daff467831b33afdd3ed2215c43415918aa36834fbf367a597",
           "index": 0,
           "local_path": "text_encoder/0.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/4d7bdd82be0624daff467831b33afdd3ed2215c43415918aa36834fbf367a597"
         },
         {
           "path": "text_encoder/1.safetensors",
@@ -142,7 +142,7 @@
           "sha256": "1919dbc81d6fc976615635ab6f5a1ce1817c0219c7739f99ae2a3b3a6ead3dbf",
           "index": 0,
           "local_path": "text_encoder/1.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/1919dbc81d6fc976615635ab6f5a1ce1817c0219c7739f99ae2a3b3a6ead3dbf"
         },
         {
           "path": "text_encoder/2.safetensors",
@@ -150,7 +150,7 @@
           "sha256": "a606a1df3a46e56a7f0a80806d020a40a9014374ff1afec6d4abcde50684a010",
           "index": 0,
           "local_path": "text_encoder/2.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/a606a1df3a46e56a7f0a80806d020a40a9014374ff1afec6d4abcde50684a010"
         },
         {
           "path": "text_encoder/model.safetensors.index.json",
@@ -158,7 +158,7 @@
           "sha256": "18a0dba5a0b4a42b2bed81c9d2842680b9f81e4b16d1a4843399b270de7266a9",
           "index": 0,
           "local_path": "text_encoder/model.safetensors.index.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/18a0dba5a0b4a42b2bed81c9d2842680b9f81e4b16d1a4843399b270de7266a9"
         },
         {
           "path": "tokenizer/added_tokens.json",
@@ -166,7 +166,7 @@
           "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680",
           "index": 0,
           "local_path": "tokenizer/added_tokens.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680"
         },
         {
           "path": "tokenizer/chat_template.jinja",
@@ -174,7 +174,7 @@
           "sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
           "index": 0,
           "local_path": "tokenizer/chat_template.jinja",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8"
         },
         {
           "path": "tokenizer/merges.txt",
@@ -182,7 +182,7 @@
           "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
           "index": 0,
           "local_path": "tokenizer/merges.txt",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
         },
         {
           "path": "tokenizer/special_tokens_map.json",
@@ -190,7 +190,7 @@
           "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
           "index": 0,
           "local_path": "tokenizer/special_tokens_map.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"
         },
         {
           "path": "tokenizer/tokenizer.json",
@@ -198,7 +198,7 @@
           "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
           "index": 0,
           "local_path": "tokenizer/tokenizer.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
         },
         {
           "path": "tokenizer/tokenizer_config.json",
@@ -206,7 +206,7 @@
           "sha256": "443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0",
           "index": 0,
           "local_path": "tokenizer/tokenizer_config.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0"
         },
         {
           "path": "tokenizer/vocab.json",
@@ -214,7 +214,7 @@
           "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
           "index": 0,
           "local_path": "tokenizer/vocab.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
         },
         {
           "path": "transformer/0.safetensors",
@@ -222,7 +222,7 @@
           "sha256": "67683bbf880f10b3f01e227df3d28b0ca60b95f943632d8e62099c2398a36c7d",
           "index": 0,
           "local_path": "transformer/0.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/67683bbf880f10b3f01e227df3d28b0ca60b95f943632d8e62099c2398a36c7d"
         },
         {
           "path": "transformer/1.safetensors",
@@ -230,7 +230,7 @@
           "sha256": "45e1d9a25f1a0f754005b3887953371cfc56dbe2a1b0d93237ef1de489f708f2",
           "index": 0,
           "local_path": "transformer/1.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/45e1d9a25f1a0f754005b3887953371cfc56dbe2a1b0d93237ef1de489f708f2"
         },
         {
           "path": "transformer/2.safetensors",
@@ -238,7 +238,7 @@
           "sha256": "52ef1a79ddb010bebcd0f02ec12991b4cb59923d20f86e4307a6dbcb60f23e4a",
           "index": 0,
           "local_path": "transformer/2.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/52ef1a79ddb010bebcd0f02ec12991b4cb59923d20f86e4307a6dbcb60f23e4a"
         },
         {
           "path": "transformer/model.safetensors.index.json",
@@ -246,7 +246,7 @@
           "sha256": "207d2daf1618167a6ad7554e1fe56c2a94f8301f20739982cdfbcad747963076",
           "index": 0,
           "local_path": "transformer/model.safetensors.index.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/207d2daf1618167a6ad7554e1fe56c2a94f8301f20739982cdfbcad747963076"
         },
         {
           "path": "vae/config.json",
@@ -254,7 +254,7 @@
           "sha256": "0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948",
           "index": 0,
           "local_path": "vae/config.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948"
         },
         {
           "path": "vae/diffusion_pytorch_model.safetensors",
@@ -262,7 +262,7 @@
           "sha256": "ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04",
           "index": 0,
           "local_path": "vae/diffusion_pytorch_model.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/ca70d2202afe6415bdbcb8793ba8cd99fd159cfe6192381504d6c4d3036e0f04"
         }
       ],
       "accepted_profiles": [
@@ -383,7 +383,7 @@
           "sha256": "f4a38373b2a524a47a65c516f51dfab9f5558617331f61097e33dfe068b4979d",
           "index": 0,
           "local_path": "NOTICE.md",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/f4a38373b2a524a47a65c516f51dfab9f5558617331f61097e33dfe068b4979d"
         },
         {
           "path": "README.md",
@@ -391,7 +391,7 @@
           "sha256": "9055d3b933b97a28e46d9574262ab8a49d6ed34fef2cafa6bd4fcffc2720b80d",
           "index": 0,
           "local_path": "README.md",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/9055d3b933b97a28e46d9574262ab8a49d6ed34fef2cafa6bd4fcffc2720b80d"
         },
         {
           "path": "config.json",
@@ -399,7 +399,7 @@
           "sha256": "9e03c439d75b5166feb31a01eeedb2befdc01eb41b3541ce37dc8e61eebd9d93",
           "index": 0,
           "local_path": "config.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/9e03c439d75b5166feb31a01eeedb2befdc01eb41b3541ce37dc8e61eebd9d93"
         },
         {
           "path": "generation_config.json",
@@ -407,7 +407,7 @@
           "sha256": "8cdf53889db9c60b7c62056f5a6e50825379f1d0f6e7ff00fb7916d42af09137",
           "index": 0,
           "local_path": "generation_config.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/8cdf53889db9c60b7c62056f5a6e50825379f1d0f6e7ff00fb7916d42af09137"
         },
         {
           "path": "model.safetensors",
@@ -415,7 +415,7 @@
           "sha256": "fbb0eb4c56cf9a6248adbda79c2bbce72cd8969b4b794fbbc434d4b7d995549d",
           "index": 0,
           "local_path": "model.safetensors",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/fbb0eb4c56cf9a6248adbda79c2bbce72cd8969b4b794fbbc434d4b7d995549d"
         },
         {
           "path": "source.spm",
@@ -423,7 +423,7 @@
           "sha256": "a6946a00a5cbd04044bb1c25b48ea798561a2fd12d872e5d1452bdc3dc076e77",
           "index": 0,
           "local_path": "source.spm",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/a6946a00a5cbd04044bb1c25b48ea798561a2fd12d872e5d1452bdc3dc076e77"
         },
         {
           "path": "special_tokens_map.json",
@@ -431,7 +431,7 @@
           "sha256": "09059cedc26bc46bc09a52f05b92d4922e11917e87f3b92059bb1a63a59ab2c4",
           "index": 0,
           "local_path": "special_tokens_map.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/09059cedc26bc46bc09a52f05b92d4922e11917e87f3b92059bb1a63a59ab2c4"
         },
         {
           "path": "target.spm",
@@ -439,7 +439,7 @@
           "sha256": "cfd9506b675c3f26850ae08995f5a7c8baf56db49d9784a80f418fb8a9210d48",
           "index": 0,
           "local_path": "target.spm",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/cfd9506b675c3f26850ae08995f5a7c8baf56db49d9784a80f418fb8a9210d48"
         },
         {
           "path": "tokenizer_config.json",
@@ -447,7 +447,7 @@
           "sha256": "923ca4a80543f39d3dde8fbb00b7af31dd7363d460e622b7a3159258f7693e4a",
           "index": 0,
           "local_path": "tokenizer_config.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/923ca4a80543f39d3dde8fbb00b7af31dd7363d460e622b7a3159258f7693e4a"
         },
         {
           "path": "vocab.json",
@@ -455,7 +455,7 @@
           "sha256": "01ef522455d2bf22b0716416ee34688cc2b3f5fa257f742665d21b6acc450ac1",
           "index": 0,
           "local_path": "vocab.json",
-          "url": null
+          "url": "https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/01ef522455d2bf22b0716416ee34688cc2b3f5fa257f742665d21b6acc450ac1"
         }
       ],
       "accepted_profiles": [],

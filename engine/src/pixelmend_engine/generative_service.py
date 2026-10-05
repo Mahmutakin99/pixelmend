@@ -184,6 +184,7 @@ class GenerativeService:
             prepared=self.prompts.prepare(request.prompt,request.prompt_language,request.english_override,
                 paths.get(TRANSLATION_PACKAGE),self.packages.catalog[TRANSLATION_PACKAGE].manifest.revision,
                 cancel,on_event)
+            if TRANSLATION_PACKAGE in paths:self.packages._change(TRANSLATION_PACKAGE,last_check=None,error=None)
         finally:
             if TRANSLATION_PACKAGE in paths:self.packages._change(TRANSLATION_PACKAGE,loaded=False)
         timings['translation']=prepared.seconds

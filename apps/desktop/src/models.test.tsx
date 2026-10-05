@@ -63,3 +63,8 @@ it('published packages offer download first and local installation second',()=>{
  expect(installed).toContain('Kurulu');expect(installed).toContain('Kontrol ertelendi — şu an bellek yetersiz');
  expect(installed).not.toContain('Başarısız');expect(installed).not.toContain('Yeniden kurun');
 });
+it('keeps installation visible during a package integrity/loading check',()=>{
+ const html=renderToStaticMarkup(<ModelCard model={{...model,runtime:'mlx',source:'local',verified_manifest:true,state:'verifying',active_revision:'a'.repeat(40),checking:true}} refresh={()=>{}}/>);
+ expect(html).toContain('Kurulu');expect(html).toContain('Kontrol ediliyor');
+ expect(html).toContain('Model kontrolü');
+});

@@ -52,7 +52,9 @@ def test_catalog_has_real_hashes_and_never_claims_unaccepted_profiles():
             assert profile['human_quality']=={'edit_usable':12,'edit_total':12,'generation_usable':12,'generation_total':12}
         else:assert d.accepted_profiles==()
         assert sum(f.size_bytes for f in d.manifest.files) > 400_000_000
-        assert all(p.size_bytes <= 1024**3 and p.url is None for p in d.parts)
+        assert all(p.size_bytes <= 1024**3 and p.url ==
+                   f'https://github.com/Mahmutakin99/pixelmend-models/releases/download/models-2026-10-05-alpha2/{p.sha256}'
+                   for p in d.parts)
         assert d.source_revision != d.manifest.revision
 
 
@@ -248,5 +250,20 @@ def test_download_fault_never_activates_partial_package_and_retry_is_atomic(tmp_
         await manager.retry('test-package');view=await settle(manager)
         assert view['state']=='installed' and view['probe'] is None
         assert (tmp_path/'test-package'/('a'*40)/'weights.safetensors').read_bytes()==b'abcdef'
+        await manager.close()
+    asyncio.run(check())
+
+def test_running_check_is_distinct_from_installation_and_cancellation_keeps_install(tmp_path):
+    async def check():
+        d=definition();target=tmp_path/d.manifest.model_id/d.manifest.revision
+        (target/'tokenizer').mkdir(parents=True);(target/'weights.safetensors').write_bytes(b'abcdef');(target/'tokenizer/config.json').write_bytes(b'cfg')
+        entered=threading.Event()
+        def probe(_definition,_path,cancel):entered.set();cancel.wait(3);raise InterruptedError()
+        manager=PackageManager(tmp_path,catalog=[d],prober=probe);await manager.start();await manager.probe(d.manifest.model_id)
+        assert await asyncio.to_thread(entered.wait,3)
+        view=manager.list_models()['models'][0]
+        assert view['checking'] is True and view['active_revision']==d.manifest.revision
+        await manager.cancel(d.manifest.model_id);view=await settle(manager)
+        assert view['state']=='installed' and view['checking'] is False
         await manager.close()
     asyncio.run(check())

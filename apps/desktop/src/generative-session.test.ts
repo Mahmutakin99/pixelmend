@@ -63,3 +63,9 @@ it('cancel during result adoption disposes the transferred asset without preview
  resolve({asset_id:'a',preview:'pixelmend://asset/a',width:512,height:512});await running;
  expect(session.getSnapshot().candidate).toBeUndefined();expect(bridge.disposeAsset).toHaveBeenCalledWith('a');
 });
+it('keeps the memory error code from a job so the idle panel can clear a recovered warning',async()=>{
+ const {bridge,session}=fixture();bridge.job.mockResolvedValue({job_id:'j',status:'failed',result_ids:[],error:{code:'memory_insufficient',message:'Bellek yetersiz.'}} as never);
+ await session.start(request);expect(session.getSnapshot().errorCode).toBe('memory_insufficient');
+ expect(session.getSnapshot().busy).toBe(false);expect(session.getSnapshot().phase).toBe('İşlem tamamlanamadı.');
+ expect(bridge.disposeGenerativeJob).toHaveBeenCalledWith('j');
+});

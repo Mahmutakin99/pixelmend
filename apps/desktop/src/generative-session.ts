@@ -57,7 +57,7 @@ export class GenerativeSession{
     }
     if(['failed','cancelled'].includes(current.status)){
      await this.bridge.disposeGenerativeJob(job.job_id);this.jobId=undefined;
-     if(current.status==='failed')throw new Error(current.error?.message??'Üretim tamamlanamadı.');
+     if(current.status==='failed'){this.update({errorCode:current.error?.code});throw new Error(current.error?.message??'Üretim tamamlanamadı.');}
      this.update({phase:'İşlem iptal edildi.'});break;
     }
     await new Promise(r=>setTimeout(r,150));

@@ -208,3 +208,23 @@ def test_successful_generation_clears_old_deferred_loading_warning(tmp_path):
         assert all(view['last_check'] is None for view in manager.list_models()['models'])
         await manager.close()
     asyncio.run(check())
+
+def test_successful_translation_clears_its_warning_even_when_image_memory_changes(tmp_path):
+    async def check():
+        service,manager,owner,assets,host,_=fixtures(tmp_path);await manager.start()
+        for id in manager.catalog:manager._change(id,last_check={'status':'deferred','code':'memory_insufficient'})
+        run=owner.run
+        def translate(*args,**kwargs):
+            result=run(*args,**kwargs);host['available_memory_bytes']=GIB;return result
+        owner.run=translate
+        request=GenerativeRequest.parse(payload());reservations=service.reserve(request)
+        try:
+            with pytest.raises(RuntimeErrorCode,match='bellek'):
+                await asyncio.to_thread(service.execute,request,reservations,threading.Event(),lambda _:None)
+        finally:
+            for reservation in reservations:reservation.release()
+        views={v['id']:v for v in manager.list_models()['models']}
+        assert views[TRANSLATION_PACKAGE]['last_check'] is None
+        assert views[IMAGE_PACKAGE]['last_check']['status']=='deferred'
+        await manager.close()
+    asyncio.run(check())

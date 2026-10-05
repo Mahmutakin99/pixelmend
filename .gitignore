@@ -28,6 +28,7 @@ build/
 
 # --- Node / Electron (apps/desktop/) ---
 node_modules/
+.pnpm-store/
 apps/desktop/dist/
 apps/desktop/dist-electron/
 apps/desktop/release/

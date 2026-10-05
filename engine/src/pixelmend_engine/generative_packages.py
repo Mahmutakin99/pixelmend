@@ -174,7 +174,7 @@ class PackageManager:
                 'size_bytes':d.size_bytes,'downloaded_bytes':0,'revision':m.revision,'package_revision':m.revision,
                 'source_revision':d.source_revision,'sha256':None,'license_id':m.license_id,'license_url':m.license_url,
                 'source_repository':d.source_repository,'package_verified':False,
-                'error':None,'probe':None,'last_check':None,'in_use':0,'stored_bytes':0,'active_revision':None,'loaded':False,
+                'error':None,'probe':None,'last_check':None,'checking':False,'in_use':0,'stored_bytes':0,'active_revision':None,'loaded':False,
                 'accepted_profiles':list(d.accepted_profiles),'last_used_at':None,'stale_revisions':[],
                 'description':('Fotoğrafa komutla nesne ekleme ve yeni görsel üretme.' if d.runtime=='mlx' else
                                'Türkçe komutları bu bilgisayarda İngilizceye çevirir.')}
@@ -214,7 +214,7 @@ class PackageManager:
                 raise ModelManagerError('package_in_use','Model kullanımda; işlem bitmesini bekleyin.')
             previous=dict(self._views[id])
             cancel=threading.Event();self._cancels[id]=cancel
-            self._change(id,state='waiting',error=None)
+            self._change(id,state='waiting',error=None,checking=operation=='probe')
             async def work():
                 values={}
                 try:
@@ -239,6 +239,7 @@ class PackageManager:
                 finally:
                     with self._mutex:
                         self._tasks.pop(id,None);self._cancels.pop(id,None)
+                        values['checking']=False
                         self._change(id,**values)
             self._tasks[id]=asyncio.create_task(work())
         return self.list_models()

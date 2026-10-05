@@ -47,7 +47,7 @@ Uygulama `apps/desktop`, motor `engine/src`, testler `apps/desktop/e2e` ve `engi
 
 Kaynak kod [Apache-2.0](LICENSE) lisanslıdır. Bağımlılıklar ve model lisansları ayrıca geçerlidir: [üçüncü taraf bildirimleri](THIRD_PARTY_NOTICES.md).
 
-## Türkçe komutla üretim — 1.1.0-alpha.1
+## Türkçe komutla üretim — 1.1.0-alpha.2
 
 Yazıyla Düzenle seçili alana komutla nesne ekler veya değiştirir; Yazıyla Oluştur
 fotoğraf açmadan yeni görsel üretir. Türkçe komutlar ayrı yerel OPUS-MT çeviri
@@ -59,11 +59,11 @@ cihaz sınıfında kalite ve kaynak kabulünü geçmelidir; kabul edilmemiş pro
 başlatılmaz. Kullanılabilir bellek işlem başında yeniden kontrol edilir. Modelin
 kurulu olması profil kabulü veya her Mac'te çalışma garantisi değildir.
 
-İlk kurulumda Ayarlar → Modeller'den doğrulanmış Klein ve OPUS-MT paket
-klasörlerini seçin. Paket boyutu ve SHA-256 dosya listesi kurulum sırasında
-kontrol edilir. Üretken paketlerin varsayılan yeri Application Support altındaki
-uygulama model-paket dizinidir; mevcut ONNX önbelleği taşınmaz. Paket yayın
-adresleri hazırlanıp doğrulanmadan otomatik indirme sunulmaz.
+İlk kurulumda Ayarlar → AI modelleri → Modeli indir üzerinden Klein ve OPUS-MT
+paketlerini kurun. Yerel paket klasörü seçeneği de kullanılabilir. Parçaların ve
+birleştirilen dosyaların boyutları ve SHA-256 değerleri doğrulanmadan paket
+etkinleştirilmez. Üretken paketlerin varsayılan yeri Application Support altındaki
+uygulama model-paket dizinidir; mevcut ONNX önbelleği taşınmaz.
 
 Kurulumdan sonra işlemler çevrim dışıdır; fotoğraf ve komutlar sunucuya
 aktarılmaz, çalışma sırasında otomatik model indirilmez. Çeviri ve görsel

@@ -6,6 +6,7 @@ export type ModelView = {
   probe:{status:'unmeasured'|'running'|'passed'|'failed';selected_provider:string|null;providers:string[];measured_at:string|null}|null;
   last_check?:{status:'passed'|'deferred'|'cancelled'|'failed';code?:string;message?:string}|null;
   in_use:boolean|number;
+  checking?:boolean;
   stored_bytes:number;active_revision:string|null;last_used_at:string|null;stale_revisions:string[];
   operation?:'remove'|'upscale'|'generative';tier?:'fast'|'balanced'|'advanced';description?:string;
   runtime?:'mlx'|'torch-cpu';operations?:string[];loaded?:boolean;package_revision?:string;source_revision?:string;

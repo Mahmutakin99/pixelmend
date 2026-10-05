@@ -15,6 +15,7 @@ export function ModelCard({model, refresh}: {model: ModelView; refresh: () => vo
   const [error, setError] = useState('');
   const allowed = allowedActions(model);
   const isPackage = !!model.runtime;
+  const checkingInstalled = isPackage && model.checking && !!model.active_revision;
   const act = async (action: ModelAction) => {
     setPending(true); setError('');
     try { await window.pixelmend.modelAction(model.id, action); refresh(); }
@@ -26,10 +27,11 @@ export function ModelCard({model, refresh}: {model: ModelView; refresh: () => vo
     : allowed.includes('install-local') ? ['install-local', isPackage ? 'Yerel paket klasörü seç' : 'Yerel ONNX seç'] as const
     : allowed.includes('probe') ? ['probe', 'Modeli kontrol et'] as const : null;
   return <article className="model-card" aria-label={`${model.name} modeli`}>
-    <div><h3>{model.name}</h3><p>{stateLabels[model.state] || model.state}{model.in_use ? ' · Kullanımda' : ''}</p></div>
+    <div><h3>{model.name}</h3><p>{checkingInstalled ? 'Kurulu' : stateLabels[model.state] || model.state}{model.in_use ? ' · Kullanımda' : ''}</p></div>
+    {checkingInstalled && <p role="status">Kontrol ediliyor</p>}
     <p className="model-summary">{model.description || (model.state === 'ready' ? 'Bu Mac’te doğrulandı ve kullanıma hazır.' : isPackage ? 'Kurulumdan sonra model ilk işlemde yüklenecek.' : 'Kurulum ve kısa bir çalışma sınaması tamamlanınca kullanılabilir.')}</p>
     <div className="model-meta"><span>{model.size_bytes ? formatBytes(model.size_bytes) : 'Boyut henüz doğrulanmadı'}</span><span>{model.source === 'local' ? isPackage ? 'Yerel doğrulanmış paket' : 'Yerel doğrulanmış dosya' : model.verified_manifest ? 'Yayımlanmış model' : 'Kurulum henüz sunulmuyor'}</span></div>
-    {['downloading', 'verifying'].includes(model.state) && <progress aria-label={`${model.name} kurulumu`} value={model.downloaded_bytes} max={model.size_bytes || 1}/>} 
+    {['downloading', 'verifying'].includes(model.state) && <progress aria-label={`${model.name} ${checkingInstalled ? 'Model kontrolü' : 'kurulumu'}`} value={model.downloaded_bytes} max={model.size_bytes || 1}/>}
     <div className="model-actions">
       {primary && <button className="primary" disabled={pending} onClick={() => act(primary[0])}>{primary[1]}</button>}
       {allowed.includes('install-local') && primary?.[0] !== 'install-local' && <button disabled={pending} onClick={() => act('install-local')}>{isPackage ? 'Yerel paket klasörü seç' : 'Yerel ONNX seç'}</button>}
