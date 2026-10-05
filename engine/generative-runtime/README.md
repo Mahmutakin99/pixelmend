@@ -76,7 +76,7 @@ pixels outside the binary selection.
 This internal protocol must not be exposed directly to Electron's renderer.
 
 The harness disables Hugging Face online access and telemetry before imports,
-never downloads during execution, limits the MLX cache to 1 GiB, and only loads
+never downloads during execution, limits the worker MLX cache to 256 MiB (within the 1 GiB upper bound), and only loads
 one model per process. Translation uses Marian's Turkish-to-English encoder-decoder
 on CPU, with four beams, no sampling, and at most 511 new tokens. It has no chat
 or reasoning mode and receives text directly without instruction prompts. The
@@ -116,11 +116,13 @@ MemorySaver callbacks release the transformer after denoising. The parent engine
 then waits for that worker to exit before starting a VAE-only decode worker.
 The bounded BF16 latent file is private, validated and removed after the job;
 physical memory peaks are reported per phase and combined with max, never sum.
+After reference conditions are evaluated, the denoise worker also releases its
+original VAE before loading diffusion weights; a decode-only handoff replaces it.
 This process boundary also releases native tensors retained beyond Python object
 finalization. Both image phases share the original 300-second deadline.
 `sequential_klein.py` changes component lifetimes, not weights, dimensions or
 the native numerical operations. Pixel equality and physical-footprint budgets
 must be measured again when this loading strategy changes. Klein opts out of implicit VAE
-tiling because of tile colour offsets. The original VAE and 1 GiB cache limit are
+tiling because of tile colour offsets. The original VAE and 256 MiB worker cache limit are
 preserved; no system GPU or wired-memory settings are changed. See
 `../../tools/generative/README.md` for isolated Mac app packaging and signing.

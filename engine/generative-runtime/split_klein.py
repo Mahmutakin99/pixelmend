@@ -3,6 +3,7 @@ import hashlib
 import os
 from pathlib import Path
 import stat
+from types import SimpleNamespace
 
 
 class DenoiseComplete(Exception):
@@ -14,7 +15,6 @@ def _latent_shape(width,height):return (1,128,height//16,width//16)
 
 def intercept_decode(model,session,width,height):
     import mlx.core as mx
-    native_finish=model._component_phases.finish_prompt
     path=Path(session)/'latents.safetensors'
     def save_latents(packed_latents,**_):
         mx.eval(packed_latents)
@@ -26,10 +26,9 @@ def intercept_decode(model,session,width,height):
         mx.save_safetensors(str(path),{'packed_latents':packed_latents})
         os.chmod(path,0o600)
         raise DenoiseComplete()
-    def finish(encoded):
-        native_finish(encoded)
-        model.vae.decode_packed_latents=save_latents
-    model._component_phases.finish_prompt=finish
+    # Reference encoding uses the original VAE. Once its arrays are evaluated,
+    # denoising only needs this bounded handoff; decoding belongs to the next worker.
+    model._component_phases.vae_after_conditioning=SimpleNamespace(decode_packed_latents=save_latents)
 
 
 def decode_latents(model_path,session,width,height,digest):

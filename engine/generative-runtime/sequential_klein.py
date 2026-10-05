@@ -8,6 +8,7 @@ class ComponentPhases:
     def __init__(self,model,load,evaluate,clear):
         self.model=model;self.load=load;self.evaluate=evaluate;self.clear=clear
         self.prompt_ready=False;self.loop_ready=False
+        self.vae_after_conditioning=None
 
     def initialize(self):
         self.model.text_encoder=self.load('text_encoder')
@@ -31,6 +32,8 @@ class ComponentPhases:
             # Materialize the complete VAE reference graph before diffusion weights
             # consume memory. No tiling or numerical operation is changed.
             self.evaluate(*conditions)
+            if self.vae_after_conditioning is not None:
+                self.model.vae=self.vae_after_conditioning
             self.clear()
             self.model.transformer=self.load('transformer')
 

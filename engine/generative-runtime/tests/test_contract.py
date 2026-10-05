@@ -12,6 +12,21 @@ spec.loader.exec_module(runtime)
 
 
 class ContractTests(unittest.TestCase):
+    def test_supported_runtime_limits_only_its_own_unused_gpu_cache(self):
+        from types import ModuleType,SimpleNamespace
+        from unittest.mock import Mock,patch
+        core=ModuleType('mlx.core');core.metal=SimpleNamespace(is_available=lambda:True)
+        core.set_cache_limit=Mock();core.set_memory_limit=Mock();core.set_wired_limit=Mock()
+        mlx=ModuleType('mlx');mlx.core=core
+        with patch.dict(sys.modules,{'mlx':mlx,'mlx.core':core}), \
+                patch('platform.machine',return_value='arm64'), \
+                patch('platform.mac_ver',return_value=('15.0',(),'')), \
+                patch.object(runtime.sys,'platform','darwin'), \
+                patch.object(runtime.importlib.metadata,'version',side_effect=lambda name:runtime.VERSIONS[name]):
+            self.assertIs(runtime.check_runtime(),core)
+        core.set_cache_limit.assert_called_once_with(256*1024**2)
+        core.set_memory_limit.assert_not_called();core.set_wired_limit.assert_not_called()
+
     def test_one_shot_memory_saver_preserves_global_peak_and_never_forces_vae_tiling(self):
         from types import SimpleNamespace
         from unittest.mock import patch

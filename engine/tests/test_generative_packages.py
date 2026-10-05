@@ -45,8 +45,10 @@ def test_catalog_has_real_hashes_and_never_claims_unaccepted_profiles():
             assert len(d.accepted_profiles)==1
             profile=d.accepted_profiles[0]
             assert profile['profile']=='low-resource' and profile['hardware_class']=='Mac16,10'
-            assert profile['working_memory_bytes']==4_934_716_560
-            assert profile['execution_strategy']=='serial-denoise-decode-v1'
+            assert profile['working_memory_bytes']==4_188_458_104
+            assert profile['execution_strategy']=='serial-denoise-decode-v2'
+            assert profile['mlx_cache_limit_bytes']==256*1024**2
+            assert profile['reference_vae_released_before_denoise'] is True
             assert profile['human_quality']=={'edit_usable':12,'edit_total':12,'generation_usable':12,'generation_total':12}
         else:assert d.accepted_profiles==()
         assert sum(f.size_bytes for f in d.manifest.files) > 400_000_000

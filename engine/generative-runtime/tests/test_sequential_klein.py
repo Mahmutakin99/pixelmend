@@ -27,6 +27,25 @@ class SequentialTests(unittest.TestCase):
         self.assertLess(events.index(('clear',)),events.index(('load','vae')))
         self.assertLess(events.index(('eval',('reference','grid'))),events.index(('load','transformer')))
 
+    def test_denoise_only_decoder_replaces_vae_after_reference_evaluation_before_load(self):
+        module=self.module();model=SimpleNamespace(text_encoder=None,vae=None,transformer=None)
+        decoder=SimpleNamespace(decode_packed_latents=lambda *args:None)
+        events=[]
+        def load(name):
+            if name=='transformer':self.assertIs(model.vae,decoder)
+            events.append(('load',name));return name
+        def evaluate(*values):
+            if values==('references',):self.assertEqual(model.vae,'vae')
+            events.append(('eval',values))
+        phases=module.ComponentPhases(model,load,evaluate,lambda:events.append(('clear',)))
+        phases.vae_after_conditioning=decoder
+        phases.initialize();phases.finish_prompt(('prompt',));phases.call_before_loop(latents='noise')
+        phases.start_prediction(('references',))
+        self.assertIs(model.vae,decoder)
+        self.assertLess(events.index(('eval',('references',))),events.index(('load','transformer')))
+        phases.start_prediction(('references',))
+        self.assertEqual(events.count(('load','transformer')),1)
+
     def test_early_denoise_and_encoder_reuse_are_rejected(self):
         module=self.module();model=SimpleNamespace(text_encoder=None,vae=None,transformer=None)
         phases=module.ComponentPhases(model,lambda name:name,lambda *args:None,lambda:None)

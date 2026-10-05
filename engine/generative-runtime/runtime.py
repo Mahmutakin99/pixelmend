@@ -173,7 +173,7 @@ def check_runtime():
     import mlx.core as mx
     if not mx.metal.is_available():
         raise ValueError('unsupported_platform')
-    mx.set_cache_limit(1024**3)
+    mx.set_cache_limit(256*1024**2)
     return mx
 
 
