@@ -14,3 +14,7 @@ test('signing skips source/data resources and retains every native entry point',
  for(const file of ['generative-runtime/pixelmend-generative-runtime','generative-runtime/_internal/mlx/core.cpython-312-darwin.so','generative-runtime/_internal/libmlx.dylib','generative-runtime/_internal/Python.framework/Versions/3.12/Python','generative-runtime/_internal/Python.framework','generative-runtime/_internal/mlx/metal.metallib','engine/pixelmend-engine'])assert(!ignored(base+file),file);
  assert(!ignored('/tmp/PixelMend.app/Contents/MacOS/PixelMend'));
 });
+
+test('alpha DMG is explicitly signed before notarization and Gatekeeper assessment',()=>{
+ const config=require('./electron-builder.cjs');assert.equal(config.dmg?.sign,true);
+});

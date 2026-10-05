@@ -3,6 +3,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'../..'),desktop=require('../../apps/desktop/package.json');
 module.exports={...desktop.build,
  directories:{...desktop.build.directories,output:path.join(root,'.local-notes/generative/releases',desktop.version)},
+ dmg:{...desktop.build.dmg,sign:true},
  artifactName:'PixelMend-${version}-${arch}.${ext}',
  extraResources:[...desktop.build.extraResources,
   {from:path.join(root,'.local-notes/generative/dist/pixelmend-generative-runtime'),to:'generative-runtime'},
