@@ -162,3 +162,23 @@ def test_queued_reservations_pin_package_without_hashing_or_loading(tmp_path,mon
         await manager.delete(d.manifest.model_id);assert (await settle(manager))['state']=='absent'
         await manager.close()
     asyncio.run(check())
+
+
+def test_native_probe_releases_idle_adapters_only_inside_compute_slot(tmp_path):
+    async def check():
+        from pixelmend_engine.compute import ComputeCoordinator
+        coordinator=ComputeCoordinator();order=[];d=definition()
+        target=tmp_path/d.manifest.model_id/d.manifest.revision
+        (target/'tokenizer').mkdir(parents=True);(target/'weights.safetensors').write_bytes(b'abcdef');(target/'tokenizer/config.json').write_bytes(b'cfg')
+        def release():
+            assert coordinator._active
+            order.append('release')
+        def probe(*_):
+            assert coordinator._active and order==['release']
+            order.append('probe');return {'status':'passed'}
+        manager=PackageManager(tmp_path,catalog=[d],coordinator=coordinator,prober=probe,before_probe=release)
+        await manager.start();await manager.probe(d.manifest.model_id)
+        view=await settle(manager);assert view['state']=='installed',view
+        assert order==['release','probe']
+        await manager.close()
+    asyncio.run(check())

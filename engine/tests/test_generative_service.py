@@ -156,3 +156,22 @@ def test_preflight_rejects_disk_and_result_or_asset_capacity(tmp_path):
     assert service.preflight(request,result_bytes=1024**3)['reason']['code']=='result_budget'
     assets.max_assets=0
     assert service.preflight(request)['reason']['code']=='asset_capacity'
+
+
+def test_translation_loaded_flag_clears_before_image_child(tmp_path):
+    async def check():
+        service,manager,owner,assets,host,coordinator=fixtures(tmp_path)
+        original=owner.run
+        def run(request,cancel,progress,timeout):
+            if request['operation']=='generate':
+                assert not manager._views[TRANSLATION_PACKAGE]['loaded']
+                progress({'event':'stage','stage':'loading_image_model'})
+                assert manager._views[IMAGE_PACKAGE]['loaded']
+            return original(request,cancel,progress,timeout)
+        owner.run=run
+        await manager.start()
+        async with JobQueue(assets,generative_service=service,coordinator=coordinator) as queue:
+            job=queue.submit_generative(GenerativeRequest.parse(payload()));await queue.join()
+            assert job.status=='completed',job.error
+        await manager.close()
+    asyncio.run(check())

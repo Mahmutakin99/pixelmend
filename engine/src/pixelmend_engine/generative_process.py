@@ -31,6 +31,7 @@ MESSAGES={
     'selection_too_small':'Seçim çalışma çözünürlüğünde çok küçük kalıyor. Daha geniş bir alan seçin.',
     'selection_invalid':'Seçim veya boyama çizimleri geçersiz.',
     'invalid_request':'Üretim isteği geçersiz. Komut, profil, oran ve seed değerlerini kontrol edin.',
+    'probe_not_accepted':'Bu cihaz için model sınamasının bellek ölçümü henüz doğrulanmadı.',
     'profile_not_accepted':'Bu cihaz için seçilen çalışma profilinin kalite ve kaynak kabulü tamamlanmadı.',
     'memory_insufficient':'Kullanılabilir bellek yetersiz. Düşük kaynak profilini seçin veya diğer uygulamaları kapatın.',
     'disk_insufficient':'Geçici görsel dosyaları için disk alanı yetersiz.',
@@ -214,9 +215,20 @@ class RuntimeOwner:
                 self._condition.notify_all()
 
     def probe(self,definition,model_dir,cancel):
-        from .capabilities import generative_capabilities
-        if not generative_capabilities(psutil.virtual_memory().total,self.executable is not None)['platform_supported']:
+        from .capabilities import generative_capabilities, _mac_sysctl
+        memory=psutil.virtual_memory()
+        if not generative_capabilities(memory.total,self.executable is not None)['platform_supported']:
             raise RuntimeErrorCode('unsupported_platform')
+        # Loading-only measurements are separate from generation/quality acceptance.
+        hardware=_mac_sysctl('hw.model')
+        measured=next((entry for entry in definition.probe_memory
+            if entry['hardware_class']==hardware and entry['package_revision']==definition.manifest.revision),None)
+        if measured is None:raise RuntimeErrorCode('probe_not_accepted')
+        budget=measured['working_memory_bytes']
+        if type(budget) is not int or budget<=0:raise RuntimeErrorCode('probe_not_accepted')
+        if memory.available < (budget*6+4)//5+2*1024**3:
+            raise RuntimeErrorCode('memory_insufficient')
+        if cancel.is_set():raise InterruptedError()
         request={'operation':'probe','model_dir':str(model_dir),
                  'model_kind':'translation' if definition.runtime=='torch-cpu' else 'image'}
         result=self.run(request,cancel,lambda _:None,timeout=30)
@@ -228,6 +240,7 @@ class RuntimeOwner:
             raise RuntimeErrorCode('output_invalid')
         return {'status':'passed','runtime':definition.runtime,'measured_at':datetime.now(timezone.utc).isoformat(),
                 'seconds':result['child_wall_seconds'],'child_peak_rss_bytes':result['child_peak_rss_bytes'],
+                'child_peak_footprint_bytes':result.get('child_peak_footprint_bytes'),
                 'mlx_peak_bytes':result.get('mlx_peak_bytes'),'stage_seconds':result['stage_seconds'],
                 'versions':result.get('versions')}
 

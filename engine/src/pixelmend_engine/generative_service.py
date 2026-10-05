@@ -178,9 +178,12 @@ class GenerativeService:
             plan=prepare_edit(source,request.selection_strokes,request.paint_strokes,request.profile)
             timings['preparing_edit']=time.monotonic()-prepare_started
         on_event({'event':'stage','stage':'preparing_prompt'})
-        prepared=self.prompts.prepare(request.prompt,request.prompt_language,request.english_override,
-            paths.get(TRANSLATION_PACKAGE),self.packages.catalog[TRANSLATION_PACKAGE].manifest.revision,
-            cancel,on_event)
+        try:
+            prepared=self.prompts.prepare(request.prompt,request.prompt_language,request.english_override,
+                paths.get(TRANSLATION_PACKAGE),self.packages.catalog[TRANSLATION_PACKAGE].manifest.revision,
+                cancel,on_event)
+        finally:
+            if TRANSLATION_PACKAGE in paths:self.packages._change(TRANSLATION_PACKAGE,loaded=False)
         timings['translation']=prepared.seconds
         if cancel.is_set():raise InterruptedError()
         # Recheck mutable resources after cold translation, before image loading.

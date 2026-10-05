@@ -14,7 +14,7 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   const interactiveMilliseconds=Date.now()-startupStarted;assert(interactiveMilliseconds<5000,'interactive startup exceeded 5 seconds');
   const facts=await page.evaluate(()=>window.pixelmend.capabilities());
   assert(facts.generative?.accepted_profiles.includes('low-resource'),'explicit low-resource profile acceptance required');
-  const source=path.resolve('../../engine/bench/fixtures/original-coffee.png'),project=path.join(temp,'test.pixelmend'),png=path.join(temp,'test.png');
+  const source=path.resolve('../../engine/bench/fixtures/original-coffee.png'),project=path.join(temp,'test.pixelmend'),generatedProject=path.join(temp,'generated.pixelmend'),png=path.join(temp,'test.png');
   await app.evaluate(({dialog},files)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[files.source]});dialog.showSaveDialog=async (...args)=>({canceled:false,filePath:args.at(-1).defaultPath.endsWith('.pixelmend')?files.project:files.png});},{source,project,png});
   await page.getByRole('button',{name:'Görsel Aç',exact:true}).click();
   await page.getByRole('button',{name:'Yazıyla Düzenle',exact:true}).click();
@@ -34,7 +34,7 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   await page.getByRole('button',{name:'Geri al',exact:true}).click();expect(await page.locator('.canvas img').getAttribute('src')).toBe(original);
   await page.getByRole('button',{name:'Yinele',exact:true}).click();expect(await page.locator('.canvas img').getAttribute('src')).toBe(applied);
   await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Projeyi kaydet (.pixelmend)',exact:true}).click();
-  await expect.poll(()=>fs.stat(project).then(s=>s.size).catch(()=>0)).toBeGreaterThan(100);const saved=JSON.parse(await fs.readFile(project,'utf8'));assert.equal(saved.version,1);assert.equal(saved.document.history.present.generation.operation,'text_edit');
+  await expect.poll(()=>fs.stat(project).then(s=>s.size).catch(()=>0)).toBeGreaterThan(100);const saved=JSON.parse(await fs.readFile(project,'utf8'));assert.equal(saved.version,1);assert.equal(saved.document.history.present.generation.operation,'text_edit');const originalProjectBytes=await fs.readFile(project);
   await page.getByRole('button',{name:'Çizim',exact:true}).click();await page.mouse.click(rect.x+rect.width*.2,rect.y+rect.height*.2);
   await page.getByRole('button',{name:'Yazıyla Oluştur',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Yazıyla Oluştur',exact:true});
   await dialog.getByLabel('Komut',{exact:true}).fill('Yağmurlu bir sokakta yürüyen beyaz bir kedi.');
@@ -45,6 +45,11 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   await page.screenshot({path:path.join(output,'generated-preview.png')});await dialog.getByRole('button',{name:'Düzenleyicide Aç',exact:true}).click();
   const guard=page.getByRole('alertdialog',{name:'Değişiklikler kaydedilsin mi?'});await expect(guard).toBeVisible();expect(await page.locator('.canvas img').getAttribute('src')).toBe(applied);await guard.getByRole('button',{name:'Vazgeç',exact:true}).click();await expect(dialog).toBeVisible();await dialog.getByRole('button',{name:'Düzenleyicide Aç',exact:true}).click();await guard.getByRole('button',{name:'Kaydetmeden çık',exact:true}).click();
   await expect(page.locator('.canvas img')).toBeVisible();await expect(page.getByRole('button',{name:'Geri al',exact:true})).toBeDisabled();
+  await app.evaluate(({dialog},files)=>{dialog.showSaveDialog=async(...args)=>({canceled:false,filePath:args.at(-1).defaultPath.endsWith('.pixelmend')?files.generatedProject:files.png});},{generatedProject,png});
+  await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Projeyi kaydet (.pixelmend)',exact:true}).click();
+  await expect.poll(()=>fs.stat(generatedProject).then(s=>s.size).catch(()=>0)).toBeGreaterThan(100);
+  assert((await fs.readFile(project)).equals(originalProjectBytes),'generated document must preserve the prior project bytes');
+  assert.equal(JSON.parse(await fs.readFile(generatedProject,'utf8')).document.history.present.generation.operation,'text_to_image');
   await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Görsel olarak kaydet (PNG)',exact:true}).click();await expect.poll(()=>fs.stat(png).then(s=>s.size).catch(()=>0)).toBeGreaterThan(1000);
   await page.getByRole('button',{name:'Başlangıç',exact:true}).click();await app.evaluate(({dialog},project)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[project]});},project);await page.getByRole('button',{name:'Proje Aç',exact:true}).click();await expect(page.locator('.canvas img')).toBeVisible();await expect.poll(()=>page.locator('.canvas img').evaluate(img=>[img.naturalWidth,img.naturalHeight])).toEqual([600,400]);
   assert.deepEqual(errors,[]);await fs.writeFile(path.join(output,'result.json'),JSON.stringify({passed:true,cancelUiMilliseconds,interactiveMilliseconds,profileAcceptanceBypass:process.env.PIXELMEND_NATIVE_MEASUREMENT==='1'}));

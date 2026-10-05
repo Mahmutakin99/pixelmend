@@ -321,7 +321,7 @@ class JobQueue:
             job.emit('progress', **progress)
         def on_event(event):
             stage = event.get('stage')
-            if stage in {'translating', 'generating'}:
+            if stage in {'translating', 'loading_image_model', 'generating'}:
                 from .generative_service import TRANSLATION_PACKAGE, IMAGE_PACKAGE
                 self.generative_service.packages._change(
                     TRANSLATION_PACKAGE if stage == 'translating' else IMAGE_PACKAGE, loaded=True)

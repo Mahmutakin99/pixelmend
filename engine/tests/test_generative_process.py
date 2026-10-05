@@ -120,3 +120,39 @@ def test_dead_group_permission_error_cannot_leave_a_stale_active_owner(tmp_path,
     finally:
         assert owner.active_pid is None
     owner.close()
+
+
+@pytest.mark.parametrize('available,hardware,expected',[(1,'Mac16,10','memory_insufficient'),(16*1024**3,'other','probe_not_accepted')])
+def test_probe_rejects_unavailable_memory_or_unmeasured_hardware(monkeypatch,available,hardware,expected):
+    from types import SimpleNamespace
+    from pixelmend_engine import capabilities
+    from pixelmend_engine.generative_packages import load_catalog
+    import pixelmend_engine.generative_process as module
+    owner=RuntimeOwner('/unused/runtime');calls=[]
+    monkeypatch.setattr(capabilities,'generative_capabilities',lambda *_:{'platform_supported':True})
+    monkeypatch.setattr(capabilities,'_mac_sysctl',lambda *_:hardware)
+    monkeypatch.setattr(module.psutil,'virtual_memory',lambda:SimpleNamespace(total=16*1024**3,available=available))
+    monkeypatch.setattr(owner,'run',lambda *a,**k:calls.append(a))
+    with pytest.raises(RuntimeErrorCode) as error:owner.probe(load_catalog()[0],'/unused/model',threading.Event())
+    assert error.value.code==expected
+    assert calls==[]
+
+
+def test_probe_accepts_measured_budget_with_reserve_without_enabling_profile(monkeypatch):
+    from types import SimpleNamespace
+    from pixelmend_engine import capabilities
+    from pixelmend_engine.generative_packages import load_catalog
+    import pixelmend_engine.generative_process as module
+    definition=load_catalog()[0];budget=definition.probe_memory[0]['working_memory_bytes']
+    assert definition.accepted_profiles==()
+    owner=RuntimeOwner('/unused/runtime');calls=[]
+    monkeypatch.setattr(capabilities,'generative_capabilities',lambda *_:{'platform_supported':True})
+    monkeypatch.setattr(capabilities,'_mac_sysctl',lambda *_:'Mac16,10')
+    monkeypatch.setattr(module.psutil,'virtual_memory',lambda:SimpleNamespace(total=16*1024**3,available=(budget*6+4)//5+2*1024**3))
+    def run(request,*a,**k):
+        calls.append(request);return {'metal':True,'gpu_result':[2,4,6],'image_model_loaded':True,
+            'child_wall_seconds':1,'child_peak_rss_bytes':2,'child_peak_footprint_bytes':3,'stage_seconds':{}}
+    monkeypatch.setattr(owner,'run',run)
+    result=owner.probe(definition,'/unused/model',threading.Event())
+    assert result['status']=='passed' and result['child_peak_footprint_bytes']==3
+    assert len(calls)==1 and calls[0]['operation']=='probe'

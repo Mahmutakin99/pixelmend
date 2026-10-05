@@ -3,7 +3,7 @@
   "packages": [
     {
       "id": "flux2-klein-4b-mlx-q4",
-      "name": "Görsel üretme ve düzenleme — Klein 4B",
+      "name": "G\u00f6rsel \u00fcretme ve d\u00fczenleme \u2014 Klein 4B",
       "runtime": "mlx",
       "operations": [
         "text_edit",
@@ -265,11 +265,19 @@
           "url": null
         }
       ],
-      "accepted_profiles": []
+      "accepted_profiles": [],
+      "probe_memory": [
+        {
+          "hardware_class": "Mac16,10",
+          "package_revision": "10d3313312213b5298647a0a5d9577fe11c89f5f",
+          "working_memory_bytes": 4880584880,
+          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint, loading-only; M4 16GiB; macOS27.0.1; Python3.12.13/MFLUX0.21.0/MLX0.32.2/MLX-LM0.32.0 macOS15 wheels; 2026-10-05"
+        }
+      ]
     },
     {
       "id": "opus-mt-tc-big-tr-en-f16",
-      "name": "Türkçe komut çevirisi — OPUS-MT",
+      "name": "T\u00fcrk\u00e7e komut \u00e7evirisi \u2014 OPUS-MT",
       "runtime": "torch-cpu",
       "operations": [
         "translate"
@@ -413,7 +421,15 @@
           "url": null
         }
       ],
-      "accepted_profiles": []
+      "accepted_profiles": [],
+      "probe_memory": [
+        {
+          "hardware_class": "Mac16,10",
+          "package_revision": "f017f49f8278f1cb3c6b2ec9d12f4bfdf18858c6",
+          "working_memory_bytes": 1333872584,
+          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint, loading-only; M4 16GiB; macOS27.0.1; Python3.12.13/MFLUX0.21.0/MLX0.32.2/MLX-LM0.32.0 macOS15 wheels; 2026-10-05"
+        }
+      ]
     }
   ]
 }

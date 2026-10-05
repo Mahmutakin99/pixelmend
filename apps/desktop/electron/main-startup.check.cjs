@@ -8,7 +8,7 @@ const {createRequire} = require('node:module');
 
 // Exercise the real main process and IPC registration. Electron/child I/O are
 // boundaries here; the native E2E suite additionally exercises real windows.
-function launch({smoke = false, fail = false, diagnosticFailure = false, stallShutdown = false} = {}) {
+function launch({smoke = false, fail = false, diagnosticFailure = false, stallShutdown = false, projectFixture} = {}) {
   const app = new EventEmitter();
   const windows = [], handlers = new Map(), errors = [], exits = [];
   let readyCallback, releaseHealth;
@@ -31,13 +31,13 @@ function launch({smoke = false, fail = false, diagnosticFailure = false, stallSh
   Object.assign(child, {exitCode:null,signalCode:null,stdout:new EventEmitter(),stderr:new EventEmitter()});
   child.stdout.resume = () => {};
   child.kill = signal => {child.signalCode=signal;child.emit('exit');};
-  const electron = {app,BrowserWindow,dialog:{showErrorBox(){},showMessageBox:async()=>{}},
+  const electron = {app,BrowserWindow,dialog:{showErrorBox(){},showMessageBox:async()=>{},...projectFixture?.dialog},
     ipcMain:{handle:(name,fn)=>handlers.set(name,fn),on(){}},protocol:{handle(){}},Menu:{buildFromTemplate:x=>x,setApplicationMenu(){}}};
   const filename = path.join(__dirname,'main.cjs'), localRequire = createRequire(filename);
   const diagnosticHost={ready:async()=>{throw Object.assign(new Error('preparation timeout'),{name:'TimeoutError'});},
     failed:async()=>{failureRecorded=true;},report:{artifact(){}}};
   const context = {require:name => name==='electron' ? electron : name==='child_process' ? {spawn:()=>child}
-    : name==='./diagnostic-host.cjs'&&diagnosticFailure ? {createDiagnosticHost:async()=>diagnosticHost} : localRequire(name),
+    : name==='fs'&&projectFixture ? {...fs,...projectFixture.fs} : name==='./diagnostic-host.cjs'&&diagnosticFailure ? {createDiagnosticHost:async()=>diagnosticHost} : localRequire(name),
     __dirname,Buffer,Response,FormData,Blob,AbortSignal,setTimeout,clearTimeout,console,
     process:{argv:diagnosticFailure?['--self-test','--self-test-auto']:[],env:smoke?{PIXELMEND_CI_SMOKE:'1'}:{},platform:'darwin',resourcesPath:'/app/resources'},
     fetch:async url=>{
@@ -109,3 +109,19 @@ test('closing during startup terminates only the owned child and rejects pending
     assert(fixture.exits.includes('quit'));
   } finally {fixture.port();fixture.release();await fixture.startup;}
 });
+
+ test('a new generated document asks for its own project destination and preserves the saved photo project',async()=>{
+  const files=new Map();let chosen=0;
+  const fixture=launch({projectFixture:{dialog:{showSaveDialog:async()=>({canceled:false,filePath:++chosen===1?'/test/old.pixelmend':'/test/generated.pixelmend'})},
+   fs:{writeFileSync:(file,data)=>files.set(file,data),renameSync:(source,target)=>{files.set(target,files.get(source));files.delete(source);}}}});
+  fixture.port();fixture.release();await fixture.startup;
+  const save=fixture.handlers.get('pixelmend:save-project');
+  const previous={version:1,original:{id:'a'.repeat(32)},history:{present:{photo:{id:'a'.repeat(32)}}}};
+  const generated={version:1,original:{id:'b'.repeat(32)},history:{present:{photo:{id:'b'.repeat(32)}}}};
+  await save({},previous,false);const originalBytes=files.get('/test/old.pixelmend');
+  await save({},generated,false);
+  assert.equal(chosen,2,'new document must request a new project path');
+  assert.equal(files.get('/test/old.pixelmend'),originalBytes,'old project must remain byte-identical');
+  assert.equal(JSON.parse(files.get('/test/generated.pixelmend')).document.original.id,generated.original.id);
+  await save({},generated,false);assert.equal(chosen,2,'saving the same document reuses its own destination');
+ });

@@ -60,6 +60,7 @@ class PackageDefinition:
     source_revision: str
     parts: tuple[PackagePart, ...]
     accepted_profiles: tuple[dict, ...] = ()
+    probe_memory: tuple[dict, ...] = ()
 
     def __post_init__(self):
         if self.runtime not in {'mlx', 'torch-cpu'} or not self.operations:
@@ -90,7 +91,7 @@ def load_catalog():
             row['license_url'],tuple(ModelPackageFile(**f) for f in row['files']))
         definitions.append(PackageDefinition(manifest,row['name'],row['runtime'],tuple(row['operations']),
             row['source_repository'],row['source_revision'],tuple(PackagePart(**p) for p in row['parts']),
-            tuple(row['accepted_profiles'])))
+            tuple(row['accepted_profiles']),tuple(row.get('probe_memory',()))))
     return tuple(definitions)
 
 
@@ -155,13 +156,13 @@ class PackageReservation:
 
 
 class PackageManager:
-    def __init__(self, models_dir, *, catalog=None, downloader=download_part, prober=None, coordinator=None):
+    def __init__(self, models_dir, *, catalog=None, downloader=download_part, prober=None, coordinator=None, before_probe=None):
         definitions=load_catalog() if catalog is None else tuple(catalog)
         self.catalog={d.manifest.model_id:d for d in definitions}
         if len(self.catalog)!=len(definitions):
             raise ValueError('duplicate package id')
         self.models_dir=Path(models_dir).absolute()
-        self.downloader=downloader;self.prober=prober
+        self.downloader=downloader;self.prober=prober;self.before_probe=before_probe
         self.coordinator=coordinator or ComputeCoordinator()
         self._mutex=threading.RLock();self._tasks={};self._cancels={};self._lease_locks={};self._closed=False
         self._io=asyncio.Semaphore(2);self._version=0;self._views={}
@@ -260,6 +261,8 @@ class PackageManager:
                 self._change(id,state='verifying');verify_package(target,d.manifest,cancel=cancel)
                 if self.prober is None:raise ModelManagerError('runtime_unavailable','Yerel çalışma paketi bulunamadı.')
                 with self.coordinator.operation('probe',cancel):
+                    if self.before_probe is not None:self.before_probe()
+                    check_cancel(cancel)
                     self._change(id,state='probing')
                     evidence=self.prober(d,target,cancel)
                 check_cancel(cancel)

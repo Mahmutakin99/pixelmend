@@ -36,6 +36,7 @@ def create_app(*, session_token: str, diagnostics: bool = False) -> FastAPI:
     session_dir = None
     generative = GenerativeService(assets, packages, runtime, session_parent=lambda: session_dir)
     queue = JobQueue(assets, model_manager=manager, coordinator=coordinator, generative_service=generative)
+    packages.before_probe = queue.adapter_cache.close
 
     @asynccontextmanager
     async def lifespan(app):
