@@ -45,9 +45,11 @@ def test_catalog_has_real_hashes_and_never_claims_unaccepted_profiles():
             assert len(d.accepted_profiles)==1
             profile=d.accepted_profiles[0]
             assert profile['profile']=='low-resource' and profile['hardware_class']=='Mac16,10'
-            assert profile['working_memory_bytes']==4_188_458_104
-            assert profile['execution_strategy']=='serial-denoise-decode-v2'
-            assert profile['mlx_cache_limit_bytes']==256*1024**2
+            assert profile['working_memory_bytes']==3_944_467_576
+            assert profile['execution_strategy']=='serial-denoise-decode-vae-eval-v3'
+            assert profile['mlx_cache_limit_bytes']==0
+            assert profile['vae_block_evaluation'] is True
+            assert d.probe_memory[0]['working_memory_bytes']==2_526_349_832
             assert profile['reference_vae_released_before_denoise'] is True
             assert profile['human_quality']=={'edit_usable':12,'edit_total':12,'generation_usable':12,'generation_total':12}
         else:assert d.accepted_profiles==()

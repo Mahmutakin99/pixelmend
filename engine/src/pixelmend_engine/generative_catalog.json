@@ -269,7 +269,7 @@
         {
           "profile": "low-resource",
           "hardware_class": "Mac16,10",
-          "working_memory_bytes": 4188458104,
+          "working_memory_bytes": 3944467576,
           "accepted_at": "2026-10-05",
           "human_quality": {
             "edit_usable": 12,
@@ -297,18 +297,19 @@
             "mlx-lm": "0.32.0"
           },
           "scope": "M4 Mac mini /16GiB; current macOS27.0.1; same pinned macOS15-compatible runtime wheels; macOS15 actual-device execution remains pending",
-          "execution_strategy": "serial-denoise-decode-v2",
-          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint; maximum of serial denoise/decode workers over all24 source and all24 frozen outputs (12 edits,12 generation per run; all low-resource dimensions); both phases measured; pixel-identical to human-approved outputs; 256MiB worker cache; reference VAE released after materialized conditioning; no swap; 2026-10-05",
-          "mlx_cache_limit_bytes": 268435456,
-          "reference_vae_released_before_denoise": true
+          "execution_strategy": "serial-denoise-decode-vae-eval-v3",
+          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint; maximum of serial denoise/decode workers over all24 source and all24 frozen outputs (12 edits,12 generation per run; all low-resource dimensions); both phases measured; all48 pixel-identical to human-approved outputs; zero unused MLX cache; native full-spatial VAE block materialization; reference VAE released after materialized conditioning; system swap recorded separately; 2026-10-05",
+          "mlx_cache_limit_bytes": 0,
+          "reference_vae_released_before_denoise": true,
+          "vae_block_evaluation": true
         }
       ],
       "probe_memory": [
         {
           "hardware_class": "Mac16,10",
           "package_revision": "10d3313312213b5298647a0a5d9577fe11c89f5f",
-          "working_memory_bytes": 4922445976,
-          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint, frozen loading-only probe; 256MiB worker cache; M4 16GiB; macOS27.0.1; Python3.12.13/MFLUX0.21.0/MLX0.32.2/MLX-LM0.32.0 macOS15 wheels; 2026-10-05"
+          "working_memory_bytes": 2526349832,
+          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint; maximum of3 source and3 frozen phased loading-only probes; components materialized and released in sequence; zero unused MLX cache; M4 16GiB; macOS27.0.1; Python3.12.13/MFLUX0.21.0/MLX0.32.2/MLX-LM0.32.0 macOS15 wheels; 2026-10-05"
         }
       ]
     },
