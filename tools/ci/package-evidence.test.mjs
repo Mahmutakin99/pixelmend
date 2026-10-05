@@ -32,7 +32,7 @@ test('manifest binds the isolated runtime and immutable generative packages with
  assert.match(manifest.generative.catalog_sha256,/^[a-f0-9]{64}$/);
  assert.equal(manifest.generative.runtime_included,false);
  assert.deepEqual(manifest.generative.versions,{mflux:'0.21.0',mlx:'0.32.2','mlx-lm':'0.32.0'});
- for(const p of manifest.generative.packages){assert.match(p.source_revision,/^[a-f0-9]{40}$/);assert.match(p.package_revision,/^[a-f0-9]{40}$/);assert.deepEqual(p.accepted_profiles,[]);}
+ for(const p of manifest.generative.packages){assert.match(p.source_revision,/^[a-f0-9]{40}$/);assert.match(p.package_revision,/^[a-f0-9]{40}$/);assert.deepEqual(p.accepted_profiles.map(x=>x.profile),p.runtime==='mlx'?['low-resource']:[]);}
 });
 
 test('manifest fingerprints native runtime siblings as well as its executable',async()=>{

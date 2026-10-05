@@ -41,7 +41,13 @@ def test_catalog_has_real_hashes_and_never_claims_unaccepted_profiles():
     assert len(catalog) == 2
     assert {d.manifest.model_id for d in catalog} == {'flux2-klein-4b-mlx-q4', 'opus-mt-tc-big-tr-en-f16'}
     for d in catalog:
-        assert d.accepted_profiles == ()
+        if d.runtime=='mlx':
+            assert len(d.accepted_profiles)==1
+            profile=d.accepted_profiles[0]
+            assert profile['profile']=='low-resource' and profile['hardware_class']=='Mac16,10'
+            assert profile['working_memory_bytes']>=6_126_375_088
+            assert profile['human_quality']=={'edit_usable':12,'edit_total':12,'generation_usable':12,'generation_total':12}
+        else:assert d.accepted_profiles==()
         assert sum(f.size_bytes for f in d.manifest.files) > 400_000_000
         assert all(p.size_bytes <= 1024**3 and p.url is None for p in d.parts)
         assert d.source_revision != d.manifest.revision

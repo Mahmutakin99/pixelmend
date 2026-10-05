@@ -143,7 +143,8 @@ def test_probe_accepts_measured_budget_with_reserve_without_enabling_profile(mon
     from pixelmend_engine import capabilities
     from pixelmend_engine.generative_packages import load_catalog
     import pixelmend_engine.generative_process as module
-    definition=load_catalog()[0];budget=definition.probe_memory[0]['working_memory_bytes']
+    from dataclasses import replace
+    definition=replace(load_catalog()[0],accepted_profiles=());budget=definition.probe_memory[0]['working_memory_bytes']
     assert definition.accepted_profiles==()
     owner=RuntimeOwner('/unused/runtime');calls=[]
     monkeypatch.setattr(capabilities,'generative_capabilities',lambda *_:{'platform_supported':True})

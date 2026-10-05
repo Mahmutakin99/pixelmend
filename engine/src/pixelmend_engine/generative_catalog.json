@@ -3,7 +3,7 @@
   "packages": [
     {
       "id": "flux2-klein-4b-mlx-q4",
-      "name": "G\u00f6rsel \u00fcretme ve d\u00fczenleme \u2014 Klein 4B",
+      "name": "Görsel üretme ve düzenleme — Klein 4B",
       "runtime": "mlx",
       "operations": [
         "text_edit",
@@ -265,7 +265,40 @@
           "url": null
         }
       ],
-      "accepted_profiles": [],
+      "accepted_profiles": [
+        {
+          "profile": "low-resource",
+          "hardware_class": "Mac16,10",
+          "working_memory_bytes": 6126375088,
+          "accepted_at": "2026-10-05",
+          "human_quality": {
+            "edit_usable": 12,
+            "edit_total": 12,
+            "generation_usable": 12,
+            "generation_total": 12
+          },
+          "measured_dimensions": [
+            [
+              512,
+              512
+            ],
+            [
+              640,
+              480
+            ],
+            [
+              480,
+              640
+            ]
+          ],
+          "runtime_versions": {
+            "mflux": "0.21.0",
+            "mlx": "0.32.2",
+            "mlx-lm": "0.32.0"
+          },
+          "scope": "M4 Mac mini /16GiB; current macOS27.0.1; same pinned macOS15-compatible runtime wheels; macOS15 actual-device execution remains pending"
+        }
+      ],
       "probe_memory": [
         {
           "hardware_class": "Mac16,10",
@@ -277,7 +310,7 @@
     },
     {
       "id": "opus-mt-tc-big-tr-en-f16",
-      "name": "T\u00fcrk\u00e7e komut \u00e7evirisi \u2014 OPUS-MT",
+      "name": "Türkçe komut çevirisi — OPUS-MT",
       "runtime": "torch-cpu",
       "operations": [
         "translate"
