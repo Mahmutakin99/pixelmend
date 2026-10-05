@@ -9,5 +9,8 @@ module.exports={...desktop.build,
   {from:path.join(root,'THIRD_PARTY_NOTICES.md'),to:'THIRD_PARTY_NOTICES.md'},
  ],
  mac:{...desktop.build.mac,identity:process.env.CSC_NAME||null,hardenedRuntime:true,notarize:false,
+  // osx-sign's binary heuristic mistakes emoji-heavy Python text for binary code.
+  // These resources remain protected by the outer app seal; native code is signed.
+  signIgnore:['/Contents/Resources/(?:generative-runtime|engine)/.*\\.(?:py|pyi|pyc|pyo|pyz|h|hpp|c|cc|cpp|json|txt|md|rst|safetensors|npy|npz|zip|a|cmake|html|css|js|svg|png|jpg|jpeg|gif|xml|yaml|yml|csv|map|dat|tiktoken)$'],
   entitlements:'build/entitlements.generative.plist',entitlementsInherit:'build/entitlements.generative.plist'},
 };

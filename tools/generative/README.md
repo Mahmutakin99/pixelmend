@@ -7,7 +7,9 @@ separately; neither source weights nor evaluation reports enter the application.
 From `apps/desktop`, `corepack pnpm package:mac:generative` prepares
 `1.1.0-alpha.1` in an isolated local output directory. It requires an installed
 Developer ID Application identity in `CSC_NAME` and an existing notarytool
-Keychain profile in `PIXELMEND_NOTARY_PROFILE`. Keep credentials in Keychain;
+Keychain profile in `PIXELMEND_NOTARY_PROFILE`. For `CSC_NAME`, use the name and
+Team ID portion, for example `Ad Soyad (TEAMID)`; electron-builder rejects the
+`Developer ID Application:` prefix. Keep credentials in Keychain;
 the command does not accept passwords or API keys on the command line.
 The signed app is notarized and stapled before the final ZIP and DMG are made;
 the DMG is then notarized and stapled separately. Invalid notarization responses
