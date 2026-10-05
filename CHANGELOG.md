@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0-alpha.2
+
+- Keep verified generative packages installed when a loading check is deferred or cancelled.
+- Show current and required generation memory in the idle panel and finish failed preflight states.
+- Use one “Modeli kontrol et” action with separate package integrity and loading results.
+- Prepare verified ZIP64 development backups and versioned model download assets.
+- Preserve alpha.1 and previous RC artifacts in separate release directories.
+
 PixelMend uses Semantic Versioning. Release candidates use `1.0.0-rc.N`; model artifacts and release signing are published separately.
 
 ## 1.0.0-rc.4
