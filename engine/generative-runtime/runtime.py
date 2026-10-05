@@ -173,7 +173,7 @@ def check_runtime():
     import mlx.core as mx
     if not mx.metal.is_available():
         raise ValueError('unsupported_platform')
-    mx.set_cache_limit(256*1024**2)
+    mx.set_cache_limit(0)
     return mx
 
 
@@ -243,6 +243,8 @@ def generate(request):
             raise ValueError('invalid_input')
         kwargs['image_paths'] = [str(source)]
     emit({'event': 'stage', 'stage': 'loading_image_model'})
+    from vae_memory import configure_vae_evaluation
+    configure_vae_evaluation(mx)
     phase=request.get('image_phase')
     if phase not in {None,'denoise','decode'}:raise ValueError('invalid_request')
     from split_klein import decode_latents,intercept_decode,DenoiseComplete

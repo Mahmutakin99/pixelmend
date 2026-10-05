@@ -24,7 +24,7 @@ class ContractTests(unittest.TestCase):
                 patch.object(runtime.sys,'platform','darwin'), \
                 patch.object(runtime.importlib.metadata,'version',side_effect=lambda name:runtime.VERSIONS[name]):
             self.assertIs(runtime.check_runtime(),core)
-        core.set_cache_limit.assert_called_once_with(256*1024**2)
+        core.set_cache_limit.assert_called_once_with(0)
         core.set_memory_limit.assert_not_called();core.set_wired_limit.assert_not_called()
 
     def test_one_shot_memory_saver_preserves_global_peak_and_never_forces_vae_tiling(self):

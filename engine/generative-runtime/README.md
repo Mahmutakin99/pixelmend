@@ -126,3 +126,13 @@ must be measured again when this loading strategy changes. Klein opts out of imp
 tiling because of tile colour offsets. The original VAE and 256 MiB worker cache limit are
 preserved; no system GPU or wired-memory settings are changed. See
 `../../tools/generative/README.md` for isolated Mac app packaging and signing.
+
+## Bounded image calculation
+
+Each one-shot image worker uses a zero unused MLX cache limit. Native VAE residual,
+attention, upsampling and downsampling blocks are evaluated before the next
+block runs, releasing their completed lazy graphs. This uses the original full
+spatial VAE operations and weights; tiling remains disabled. Profile budgets
+come from complete source and frozen-worker measurements, with the existing
+20% working margin and 2 GiB system reserve. Loading probes still release
+each component before the next one loads.
