@@ -44,3 +44,12 @@ def test_stored_zip_never_uses_a_compressed_size_for_disk_admission(tmp_path,mon
     monkeypatch.setattr(backup.shutil,'disk_usage',lambda _:SimpleNamespace(free=128*1024))
     with pytest.raises(OSError):backup.archive([(source,'weights')],tmp_path/'b.zip',reserve_bytes=0,compression=zipfile.ZIP_STORED)
     assert not (tmp_path/'b.zip').exists()
+
+def test_archive_preserves_another_attempts_partial_and_cleans_only_its_own(tmp_path):
+    source=tmp_path/'weights';source.write_bytes(b'verified model')
+    other=tmp_path/'backup.zip.partial';other.write_bytes(b'another attempt')
+    output=tmp_path/'backup.zip'
+    report=backup.archive([(source,'weights')],output,reserve_bytes=0)
+    assert report['zip_integrity'] is True
+    assert other.read_bytes()==b'another attempt'
+    assert not list(tmp_path.glob('backup.zip.partial-*'))

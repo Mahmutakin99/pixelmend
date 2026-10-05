@@ -9,6 +9,7 @@ import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
+import tempfile
 import zipfile
 import zlib
 
@@ -57,9 +58,11 @@ def archive(files,output,*,reserve_bytes=2*1024**3,compression=zipfile.ZIP_DEFLA
         manifest['measured_compressed_bytes']=compressed
         if shutil.disk_usage(output.parent).free<required:
             raise OSError(28,f'backup needs {required} bytes; available {shutil.disk_usage(output.parent).free}')
-    temporary=output.with_name(output.name+'.partial')
+    descriptor,name=tempfile.mkstemp(prefix=output.name+'.partial-',dir=output.parent)
+    os.close(descriptor)
+    temporary=Path(name)
     try:
-        with zipfile.ZipFile(temporary,'x',compression=compression,compresslevel=1 if compression==zipfile.ZIP_DEFLATED else None,allowZip64=True) as z:
+        with zipfile.ZipFile(temporary,'w',compression=compression,compresslevel=1 if compression==zipfile.ZIP_DEFLATED else None,allowZip64=True) as z:
             for source,name in unique.values():
                 if shutil.disk_usage(output.parent).free<reserve_bytes:raise OSError(28,'backup reserve exhausted')
                 with source.open('rb') as incoming,z.open(name,'w',force_zip64=True) as target:
