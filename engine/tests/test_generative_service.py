@@ -228,3 +228,63 @@ def test_successful_translation_clears_its_warning_even_when_image_memory_change
         assert views[IMAGE_PACKAGE]['last_check']['status']=='deferred'
         await manager.close()
     asyncio.run(check())
+
+
+def test_confirmed_host_identity_survives_transient_sysctl_failure_with_live_ram(tmp_path,monkeypatch):
+    from types import SimpleNamespace
+    import pixelmend_engine.generative_service as module
+    service,_,owner,_,_,_=fixtures(tmp_path)
+    owner.executable=Path(__file__)
+    memory=SimpleNamespace(total=16*GIB,available=12*GIB)
+    monkeypatch.setattr(module.psutil,'virtual_memory',lambda:memory)
+    monkeypatch.setattr(module,'generative_capabilities',lambda *_:{'platform_supported':True,'runtime_installed':True})
+    observed=iter(['Mac16,10',None,None])
+    monkeypatch.setattr(module,'_mac_sysctl',lambda _:next(observed,None))
+    service.host_provider=service._host
+    request=GenerativeRequest.parse(payload())
+    assert service.preflight(request)['ready']
+    memory.available=GIB
+    denied=service.preflight(request)
+    assert denied['reason']['code']=='memory_insufficient'
+    assert denied['available_memory_bytes']==GIB
+    memory.available=12*GIB
+    assert service.preflight(request)['ready']
+
+
+def test_unknown_host_identity_is_retried_without_assuming_an_accepted_device(tmp_path,monkeypatch):
+    import pixelmend_engine.generative_service as module
+    service,_,owner,_,_,_=fixtures(tmp_path)
+    owner.executable=Path(__file__)
+    monkeypatch.setattr(module,'generative_capabilities',lambda *_:{'platform_supported':True,'runtime_installed':True})
+    observed=iter([None,'Mac16,10'])
+    monkeypatch.setattr(module,'_mac_sysctl',lambda _:next(observed,None))
+    service.host_provider=service._host
+    request=GenerativeRequest.parse(payload())
+    assert service.preflight(request)['reason']['code']=='profile_not_accepted'
+    # RAM/disk remain real; inspect profile selection without assuming resources.
+    host=service._host()
+    assert host['hardware_class']=='Mac16,10'
+    assert service._profile(request,host) is not None
+
+
+def test_delayed_unknown_host_query_cannot_erase_concurrently_confirmed_identity(tmp_path,monkeypatch):
+    import pixelmend_engine.generative_service as module
+    service,_,owner,_,_,_=fixtures(tmp_path)
+    owner.executable=Path(__file__)
+    entered=threading.Event();release=threading.Event();delayed=[]
+    def query(_):
+        if threading.current_thread().name=='delayed-host-query':
+            entered.set()
+            assert release.wait(2)
+            return None
+        return 'Mac16,10'
+    monkeypatch.setattr(module,'_mac_sysctl',query)
+    thread=threading.Thread(target=lambda:delayed.append(service._host()),name='delayed-host-query')
+    thread.start()
+    try:
+        assert entered.wait(2)
+        assert service._host()['hardware_class']=='Mac16,10'
+    finally:
+        release.set();thread.join(2)
+    assert not thread.is_alive()
+    assert delayed[0]['hardware_class']=='Mac16,10'

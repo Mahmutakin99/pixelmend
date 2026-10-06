@@ -82,6 +82,7 @@ class GenerativeService:
     def __init__(self,assets,packages,owner,*,session_parent,host_provider=None):
         self.assets=assets;self.packages=packages;self.owner=owner
         self.session_parent=session_parent;self.host_provider=host_provider or self._host
+        self._hardware_class=None
         self.prompts=PromptPreparer(owner)
 
     def _host(self):
@@ -89,7 +90,12 @@ class GenerativeService:
         facts=generative_capabilities(memory.total,executable is not None and executable.is_file())
         parent=Path(self.session_parent() or tempfile.gettempdir())
         while not parent.exists():parent=parent.parent
-        facts.update(hardware_class=_mac_sysctl('hw.model'),available_memory_bytes=memory.available,
+        # A confirmed host model cannot change during this service's lifetime.
+        # Retry unknown identity, but do not revoke acceptance on a later sysctl timeout.
+        if self._hardware_class is None:
+            candidate=_mac_sysctl('hw.model')
+            if candidate:self._hardware_class=candidate
+        facts.update(hardware_class=self._hardware_class,available_memory_bytes=memory.available,
                      disk_free_bytes=shutil.disk_usage(parent).free)
         return facts
 
