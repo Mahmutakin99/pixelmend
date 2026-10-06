@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0-alpha.3
+
+- Enable the existing Balanced generative profile on the measured M4 Mac mini at the owner’s explicit request after visual review.
+- Retain the 28/36 edit quality result and measured memory requirements, live resource checks and original 768/1024 resolutions.
+- Preserve Alpha2 installers in their existing directory.
+
 ## 1.1.0-alpha.2
 
 - Keep verified generative packages installed when a loading check is deferred or cancelled.

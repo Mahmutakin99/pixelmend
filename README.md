@@ -47,7 +47,7 @@ Uygulama `apps/desktop`, motor `engine/src`, testler `apps/desktop/e2e` ve `engi
 
 Kaynak kod [Apache-2.0](LICENSE) lisanslıdır. Bağımlılıklar ve model lisansları ayrıca geçerlidir: [üçüncü taraf bildirimleri](THIRD_PARTY_NOTICES.md).
 
-## Türkçe komutla üretim — 1.1.0-alpha.2
+## Türkçe komutla üretim — 1.1.0-alpha.3
 
 Yazıyla Düzenle seçili alana komutla nesne ekler veya değiştirir; Yazıyla Oluştur
 fotoğraf açmadan yeni görsel üretir. Türkçe komutlar ayrı yerel OPUS-MT çeviri
@@ -55,8 +55,9 @@ modeliyle hazırlanır; İngilizce karşılığı gelişmiş bölümden düzelte
 Görsel modeli FLUX.2 Klein distilled 4B'nin MLX 4-bit paketidir.
 
 Bu özellik macOS 15+, Apple Silicon ve en az 16 GB RAM ister. Her profil ayrıca
-cihaz sınıfında kalite ve kaynak kabulünü geçmelidir; kabul edilmemiş profil
-başlatılmaz. Kullanılabilir bellek işlem başında yeniden kontrol edilir. Modelin
+cihaz sınıfında etkinleştirilmiş olmalıdır. M4 Mac mini /16 GB üzerinde Dengeli,
+görsel incelemeden sonra kullanıcının açık tercihiyle etkinleştirildi. Düzenlemede
+28/36 sonuç uygun bulundu; başlangıçtaki29/36 kalite eşiği geçilmedi. Kullanılabilir bellek işlem başında yeniden kontrol edilir. Modelin
 kurulu olması profil kabulü veya her Mac'te çalışma garantisi değildir.
 
 İlk kurulumda Ayarlar → AI modelleri → Modeli indir üzerinden Klein ve OPUS-MT

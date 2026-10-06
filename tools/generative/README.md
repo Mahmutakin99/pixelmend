@@ -5,7 +5,7 @@ The generative runtime is a separate, locked Python project. Build it using
 separately; neither source weights nor evaluation reports enter the application.
 
 From `apps/desktop`, `corepack pnpm package:mac:generative` prepares
-`1.1.0-alpha.2` in an isolated local output directory. It requires an installed
+`1.1.0-alpha.3` in an isolated local output directory. It requires an installed
 Developer ID Application identity in `CSC_NAME` and an existing notarytool
 Keychain profile in `PIXELMEND_NOTARY_PROFILE`. For `CSC_NAME`, use the name and
 Team ID portion, for example `Ad Soyad (TEAMID)`; electron-builder rejects the

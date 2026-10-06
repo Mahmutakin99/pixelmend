@@ -42,8 +42,8 @@ def test_catalog_has_real_hashes_and_never_claims_unaccepted_profiles():
     assert {d.manifest.model_id for d in catalog} == {'flux2-klein-4b-mlx-q4', 'opus-mt-tc-big-tr-en-f16'}
     for d in catalog:
         if d.runtime=='mlx':
-            assert len(d.accepted_profiles)==1
-            profile=d.accepted_profiles[0]
+            assert {p['profile'] for p in d.accepted_profiles}=={'low-resource','balanced'}
+            profile=next(p for p in d.accepted_profiles if p['profile']=='low-resource')
             assert profile['profile']=='low-resource' and profile['hardware_class']=='Mac16,10'
             assert profile['working_memory_bytes']==3_944_467_576
             assert profile['execution_strategy']=='serial-denoise-decode-vae-eval-v3'

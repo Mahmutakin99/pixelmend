@@ -288,3 +288,30 @@ def test_delayed_unknown_host_query_cannot_erase_concurrently_confirmed_identity
         release.set();thread.join(2)
     assert not thread.is_alive()
     assert delayed[0]['hardware_class']=='Mac16,10'
+
+
+@pytest.mark.parametrize('aspect,size', [('square',(768,768)),('landscape',(1024,768)),('portrait',(768,1024))])
+def test_shipped_balanced_profile_is_enabled_by_owner_with_live_memory_guard(tmp_path,aspect,size):
+    from dataclasses import replace
+    import math
+    from pixelmend_engine.generative_packages import load_catalog
+    service,manager,owner,assets,host,_=fixtures(tmp_path)
+    shipped=next(d for d in load_catalog() if d.manifest.model_id==IMAGE_PACKAGE)
+    manager.catalog[IMAGE_PACKAGE]=replace(manager.catalog[IMAGE_PACKAGE],accepted_profiles=shipped.accepted_profiles)
+    request=GenerativeRequest.parse(payload(profile='balanced',aspect=aspect))
+    result=service.preflight(request)
+    assert result['ready'],result
+    assert (result['width'],result['height'])==size
+    profile=service._profile(request,host)
+    assert profile['acceptance_basis']=='owner_override'
+    assert profile['human_quality_gate_passed'] is False
+    assert profile['human_quality']['edit_usable']==28
+    required=math.ceil(profile['working_memory_bytes']*1.2)+2*GIB+64*1024**2
+    assert result['required_available_memory_bytes']==required
+    host['available_memory_bytes']=required-1
+    assert service.preflight(request)['reason']['code']=='memory_insufficient'
+    host['available_memory_bytes']=required
+    assert service.preflight(request)['ready']
+    host['hardware_class']='unknown'
+    assert service.preflight(request)['reason']['code']=='profile_not_accepted'
+    assert owner.requests==[]

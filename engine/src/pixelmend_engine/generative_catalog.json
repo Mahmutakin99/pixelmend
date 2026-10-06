@@ -302,6 +302,45 @@
           "mlx_cache_limit_bytes": 0,
           "reference_vae_released_before_denoise": true,
           "vae_block_evaluation": true
+        },
+        {
+          "profile": "balanced",
+          "hardware_class": "Mac16,10",
+          "working_memory_bytes": 5210555376,
+          "accepted_at": "2026-10-06",
+          "human_quality": {
+            "edit_usable": 28,
+            "edit_total": 36,
+            "generation_usable": 24,
+            "generation_total": 24
+          },
+          "measured_dimensions": [
+            [
+              768,
+              768
+            ],
+            [
+              1024,
+              768
+            ],
+            [
+              768,
+              1024
+            ]
+          ],
+          "runtime_versions": {
+            "mflux": "0.21.0",
+            "mlx": "0.32.2",
+            "mlx-lm": "0.32.0"
+          },
+          "scope": "M4 Mac mini /16GiB; current macOS27.0.1; same pinned macOS15-compatible runtime wheels; macOS15 actual-device execution remains pending",
+          "execution_strategy": "serial-denoise-decode-vae-eval-v3",
+          "measurement": "Darwin RUSAGE_INFO_V4 lifetime physical footprint; maximum over60 full frozen outputs (36 edits,24 generation) and9 full source verification outputs covering all three ratios; same pinned serial-denoise-decode-vae-eval-v3 runtime; source/frozen pixel parity; model child physical footprint only, not RSS+MLX; 2026-10-06. Profile enabled by explicit owner request after review; original29/36 edit quality gate not passed.",
+          "mlx_cache_limit_bytes": 0,
+          "reference_vae_released_before_denoise": true,
+          "vae_block_evaluation": true,
+          "acceptance_basis": "owner_override",
+          "human_quality_gate_passed": false
         }
       ],
       "probe_memory": [
