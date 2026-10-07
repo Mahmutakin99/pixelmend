@@ -106,7 +106,7 @@ def test_text_generation_without_source_uses_exact_dimensions_and_releases_lease
     asyncio.run(check())
 
 
-def test_profile_admission_repeats_at_execution_after_memory_falls(tmp_path):
+def test_profile_execution_keeps_quality_after_memory_falls(tmp_path):
     async def check():
         service,manager,owner,assets,host,coordinator=fixtures(tmp_path);await manager.start()
         async with JobQueue(assets,generative_service=service,coordinator=coordinator) as queue:
@@ -114,8 +114,8 @@ def test_profile_admission_repeats_at_execution_after_memory_falls(tmp_path):
             assert service.preflight(request)['ready']
             job=queue.submit_generative(request);host['available_memory_bytes']=GIB
             await queue.join()
-            assert job.status=='failed' and job.error['code']=='memory_insufficient'
-            assert owner.requests==[] and job.results=={}
+            assert job.status=='completed',job.error
+            assert len(owner.requests)==3 and job.results
             assert all(v['in_use']==0 for v in manager.list_models()['models'])
         await manager.close()
     asyncio.run(check())
@@ -191,8 +191,7 @@ def test_preflight_reports_dynamic_available_and_required_memory_without_loading
     report=service.preflight(request)
     assert report['available_memory_bytes']==GIB
     assert report['required_available_memory_bytes']>GIB
-    assert report['reason']['code']=='memory_insufficient'
-    assert 'Düşük kaynak profilini seçin' not in report['reason']['message']
+    assert report['ready'] and report['execution_mode']=='adaptive'
     host['available_memory_bytes']=12*GIB
     assert service.preflight(request)['ready'] is True
     assert owner.requests==[]
@@ -219,13 +218,12 @@ def test_successful_translation_clears_its_warning_even_when_image_memory_change
         owner.run=translate
         request=GenerativeRequest.parse(payload());reservations=service.reserve(request)
         try:
-            with pytest.raises(RuntimeErrorCode,match='bellek'):
-                await asyncio.to_thread(service.execute,request,reservations,threading.Event(),lambda _:None)
+            await asyncio.to_thread(service.execute,request,reservations,threading.Event(),lambda _:None)
         finally:
             for reservation in reservations:reservation.release()
         views={v['id']:v for v in manager.list_models()['models']}
         assert views[TRANSLATION_PACKAGE]['last_check'] is None
-        assert views[IMAGE_PACKAGE]['last_check']['status']=='deferred'
+        assert views[IMAGE_PACKAGE]['last_check'] is None
         await manager.close()
     asyncio.run(check())
 
@@ -245,7 +243,7 @@ def test_confirmed_host_identity_survives_transient_sysctl_failure_with_live_ram
     assert service.preflight(request)['ready']
     memory.available=GIB
     denied=service.preflight(request)
-    assert denied['reason']['code']=='memory_insufficient'
+    assert denied['ready'] and denied['execution_mode']=='adaptive'
     assert denied['available_memory_bytes']==GIB
     memory.available=12*GIB
     assert service.preflight(request)['ready']
@@ -309,7 +307,8 @@ def test_shipped_balanced_profile_is_enabled_by_owner_with_live_memory_guard(tmp
     required=math.ceil(profile['working_memory_bytes']*1.2)+2*GIB+64*1024**2
     assert result['required_available_memory_bytes']==required
     host['available_memory_bytes']=required-1
-    assert service.preflight(request)['reason']['code']=='memory_insufficient'
+    assert service.preflight(request)['ready']
+    assert service.preflight(request)['execution_mode']=='adaptive'
     host['available_memory_bytes']=required
     assert service.preflight(request)['ready']
     host['hardware_class']='unknown'

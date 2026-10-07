@@ -18,6 +18,7 @@ from .capabilities import generative_capabilities, _mac_sysctl
 from .generative_edit import prepare_edit,composite_edit
 from .generative_image_pipeline import run_image_pipeline
 from .generative_process import RuntimeErrorCode,validate_output
+from .generative_memory import MemoryGate,memory_pressure,should_wait
 from .generative_prompts import PromptPreparer,validate_user_prompt
 from .model_manager import ModelManagerError
 from .model_package import ModelPackageError
@@ -83,6 +84,7 @@ class GenerativeService:
         self.assets=assets;self.packages=packages;self.owner=owner
         self.session_parent=session_parent;self.host_provider=host_provider or self._host
         self._hardware_class=None
+        self.memory_gate=MemoryGate(lambda:self.host_provider())
         self.prompts=PromptPreparer(owner)
 
     def _host(self):
@@ -96,7 +98,9 @@ class GenerativeService:
             candidate=_mac_sysctl('hw.model')
             if candidate:self._hardware_class=candidate
         facts.update(hardware_class=self._hardware_class,available_memory_bytes=memory.available,
-                     disk_free_bytes=shutil.disk_usage(parent).free)
+                     disk_free_bytes=shutil.disk_usage(parent).free,
+                     memory_pressure=memory_pressure(),
+                     swap_disk_free_bytes=shutil.disk_usage('/').free)
         return facts
 
     def required_packages(self,request):
@@ -145,7 +149,9 @@ class GenerativeService:
         compose_required=pixels*48 if source is not None else pixels*12
         required=max(model_required,compose_required)+2*GIB+64*1024**2
         report['required_available_memory_bytes']=required
-        if host['available_memory_bytes']<required:return reject('memory_insufficient')
+        report['memory_pressure']=host.get('memory_pressure','unknown')
+        report['execution_mode']='adaptive' if host['available_memory_bytes']<required or report['memory_pressure'] in {'warning','critical'} else 'fast'
+        report['waiting_for_memory']=should_wait(host)
         if host['disk_free_bytes']<width*height*12+64*1024**2:return reject('disk_insufficient')
         if source is not None and check_selection:
             try:
@@ -174,6 +180,7 @@ class GenerativeService:
     def execute(self,request,reservations,cancel,on_event,*,result_bytes=0,result_budget=None):
         started=time.monotonic();timings={}
         self.ensure_ready(request,result_bytes=result_bytes,result_budget=result_budget,check_selection=False)
+        self.memory_gate.wait(cancel,on_event)
         if cancel.is_set():raise InterruptedError()
         on_event({'event':'stage','stage':'validating_models'})
         verify_started=time.monotonic()
@@ -197,6 +204,7 @@ class GenerativeService:
         if cancel.is_set():raise InterruptedError()
         # Recheck mutable resources after cold translation, before image loading.
         self.ensure_ready(request,result_bytes=result_bytes,result_budget=result_budget,check_selection=False)
+        self.memory_gate.wait(cancel,on_event)
         parent=Path(self.session_parent() or tempfile.gettempdir())
         parent.mkdir(mode=0o700,parents=True,exist_ok=True)
         used_prompt=plan.model_prompt(prepared.english) if plan else prepared.english
@@ -209,7 +217,7 @@ class GenerativeService:
             try:
                 result=run_image_pipeline(self.owner,{'operation':'edit' if plan else 'generate','model_dir':str(paths[IMAGE_PACKAGE]),
                     'session_dir':str(session),'prompt':used_prompt,'seed':request.seed,'width':width,'height':height},
-                    cancel,on_event,timeout=300)
+                    cancel,on_event,timeout=None,memory_gate=self.memory_gate)
                 generated=validate_output(session,(width,height))
             finally:
                 for id in paths:self.packages._change(id,loaded=False)

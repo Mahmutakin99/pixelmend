@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import shutil
 import signal
 import stat
 import subprocess
@@ -20,7 +21,8 @@ MESSAGES={
     'runtime_unavailable':'Yerel çalışma paketi kurulu değil.',
     'runtime_crashed':'Yerel model süreci kapandı. Komutu yeniden deneyin.',
     'output_invalid':'Model çıktısı doğrulanamadı; kaynak fotoğraf korunuyor.',
-    'timeout':'Model zaman sınırını aştı. Daha kısa bir komut veya düşük kaynak profilini deneyin.',
+    'timeout':'Model uzun süredir ilerleme kaydetmedi. İşlemi yeniden deneyin.',
+    'memory_exhausted':'Model için bellek ayrılamadı; belleğin rahatlaması bekleniyor.',
     'invalid_prompt':'Komut boş olamaz ve en fazla 1000 karakter içerebilir.',
     'invalid_translation':'Komut çevrilemedi. Yeniden yazın veya İngilizce karşılığını girin.',
     'prompt_token_limit':'Komut modelin metin sınırını aşıyor. Komutu kısaltın.',
@@ -55,9 +57,10 @@ def _unique(pairs):
 
 
 class RuntimeOwner:
-    def __init__(self,executable,*,cooperative_seconds=2,terminate_seconds=.75):
+    def __init__(self,executable,*,cooperative_seconds=2,terminate_seconds=.75,idle_seconds=600):
         self.executable=Path(executable) if executable else None
         self.cooperative_seconds=cooperative_seconds;self.terminate_seconds=terminate_seconds
+        self.idle_seconds=idle_seconds
         self._condition=threading.Condition();self._process=None;self._closed=False
         self._shutdown=threading.Event()
 
@@ -120,7 +123,8 @@ class RuntimeOwner:
             self._process=process
         lines=queue.Queue(maxsize=16);bad=threading.Event();done=threading.Event()
         write_lock=threading.Lock();write_error=threading.Event();result=None;child_error=None
-        started=time.monotonic();deadline=started+timeout
+        started=time.monotonic();deadline=started+timeout if timeout is not None else None
+        last_progress=started;completed_step=-1;activity_sequence=0
         peak_rss=0;phase='starting_process';phase_start=started;stage_seconds={};group_cleaned=False
         observed=psutil.Process(process.pid);footprint=MacFootprint();peak_footprint=None
         def read_stdout():
@@ -161,7 +165,7 @@ class RuntimeOwner:
                 if measured is not None:peak_footprint=max(peak_footprint or 0,measured)
                 if cancel.is_set() or self._shutdown.is_set():
                     self._stop(process,write_lock);raise InterruptedError()
-                if time.monotonic()>=deadline:
+                if (deadline is not None and time.monotonic()>=deadline) or (deadline is None and time.monotonic()-last_progress>=self.idle_seconds):
                     self._stop(process,write_lock);raise RuntimeErrorCode('timeout')
                 if bad.is_set():
                     self._stop(process,write_lock);raise RuntimeErrorCode('output_invalid')
@@ -180,6 +184,10 @@ class RuntimeOwner:
                         if child_error is not None or result is not None:raise ValueError()
                         code=event.get('code')
                         child_error='runtime_crashed' if code=='runtime_failed' else code if code in MESSAGES else 'output_invalid'
+                    elif kind=='activity' and result is None and child_error is None:
+                        sequence=event.get('sequence')
+                        if set(event)!={'event','sequence'} or type(sequence) is not int or not activity_sequence<sequence<=100000:raise ValueError()
+                        activity_sequence=sequence;last_progress=time.monotonic()
                     elif kind in {'stage','progress'} and result is None and child_error is None:
                         if kind=='stage' and event.get('stage') not in {'translating','loading_image_model','generating','releasing_resources'}:
                             raise ValueError()
@@ -187,7 +195,10 @@ class RuntimeOwner:
                                 and 0<=event['completed']<=event['total']<=4 and event['total']>0):raise ValueError()
                         if kind=='stage':
                             now=time.monotonic();stage_seconds[phase]=now-phase_start
+                            if event['stage']!=phase:last_progress=now
                             phase=event['stage'];phase_start=now
+                        elif event['completed']>completed_step:
+                            completed_step=event['completed'];last_progress=time.monotonic()
                         on_event(event)
                     else:raise ValueError()
                 except (ValueError,UnicodeError,TypeError):
@@ -226,8 +237,11 @@ class RuntimeOwner:
         if measured is None:raise RuntimeErrorCode('probe_not_accepted')
         budget=measured['working_memory_bytes']
         if type(budget) is not int or budget<=0:raise RuntimeErrorCode('probe_not_accepted')
-        if memory.available < (budget*6+4)//5+2*1024**3:
-            raise RuntimeErrorCode('memory_insufficient')
+        from .generative_memory import MemoryGate,memory_pressure
+        gate=MemoryGate(lambda:{'available_memory_bytes':psutil.virtual_memory().available,
+                               'memory_pressure':memory_pressure(),
+                               'swap_disk_free_bytes':shutil.disk_usage('/').free})
+        gate.wait(cancel,lambda _:None)
         if cancel.is_set():raise InterruptedError()
         request={'operation':'probe','model_dir':str(model_dir),
                  'model_kind':'translation' if definition.runtime=='torch-cpu' else 'image'}

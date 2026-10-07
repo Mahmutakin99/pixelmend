@@ -2,7 +2,7 @@
 from functools import wraps
 
 
-def materialize_block_calls(block_types,evaluate,clear):
+def materialize_block_calls(block_types,evaluate,clear,progress=None):
     for block in block_types:
         original=block.__call__
         if getattr(original,'_pixelmend_materialized',False):continue
@@ -11,15 +11,16 @@ def materialize_block_calls(block_types,evaluate,clear):
             value=_original(self,*args,**kwargs)
             evaluate(value)
             clear()
+            if progress is not None:progress()
             return value
         materialized._pixelmend_materialized=True
         block.__call__=materialized
 
 
-def configure_vae_evaluation(mx):
+def configure_vae_evaluation(mx,progress=None):
     from mflux.models.flux2.model.flux2_vae.common.resnet_block_2d import Flux2ResnetBlock2D
     from mflux.models.flux2.model.flux2_vae.common.attention import Flux2AttentionBlock
     from mflux.models.flux2.model.flux2_vae.common.upsample_2d import Flux2Upsample2D
     from mflux.models.flux2.model.flux2_vae.common.downsample_2d import Flux2Downsample2D
     materialize_block_calls((Flux2ResnetBlock2D,Flux2AttentionBlock,Flux2Upsample2D,Flux2Downsample2D),
-                            mx.eval,mx.clear_cache)
+                            mx.eval,mx.clear_cache,progress)

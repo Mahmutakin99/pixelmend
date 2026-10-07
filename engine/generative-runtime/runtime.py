@@ -125,6 +125,17 @@ class StepProgress:
         emit({'event': 'progress', 'completed': t + 1, 'total': config.num_inference_steps})
 
 
+class ActivityProgress:
+    """Called after completed work; never a timer-only liveness signal."""
+    def __init__(self,emit):
+        self.emit=emit;self.sequence=0;self.last=0
+    def __call__(self):
+        now=time.monotonic()
+        if now-self.last<2:return
+        self.sequence+=1;self.last=now
+        self.emit({'event':'activity','sequence':self.sequence})
+
+
 def validate_image_options(request):
     seed, width, height = (request.get(key) for key in ('seed', 'width', 'height'))
     if (type(seed) is not int or not 0 <= seed < 2**32
@@ -244,7 +255,8 @@ def generate(request):
         kwargs['image_paths'] = [str(source)]
     emit({'event': 'stage', 'stage': 'loading_image_model'})
     from vae_memory import configure_vae_evaluation
-    configure_vae_evaluation(mx)
+    activity=ActivityProgress(emit)
+    configure_vae_evaluation(mx,activity)
     phase=request.get('image_phase')
     if phase not in {None,'denoise','decode'}:raise ValueError('invalid_request')
     from split_klein import decode_latents,intercept_decode,DenoiseComplete
@@ -254,7 +266,7 @@ def generate(request):
     else:
         from sequential_klein import create_sequential_klein
         model = create_sequential_klein(model_path=model_path,
-                                        model_config=ModelConfig.flux2_klein_4b(), edit=edit)
+                                        model_config=ModelConfig.flux2_klein_4b(), edit=edit,progress=activity)
         from mlx.utils import tree_flatten
         mx.eval(*[value for _, value in tree_flatten(model.parameters())])
         # Reject rather than silently truncating MFLUX's formatted prompt.
@@ -309,8 +321,7 @@ def main():
                     else:
                         raise ValueError('invalid_request')
             else:
-                with deadline(300):
-                    result = translate(request) if operation == 'translate' else generate(request)
+                result = translate(request) if operation == 'translate' else generate(request)
         result.update(event='result', versions=VERSIONS, elapsed_seconds=time.monotonic() - started,
                       mlx_peak_bytes=mx.get_peak_memory())
         if operation in {'generate', 'edit'}:
@@ -323,11 +334,13 @@ def main():
             import traceback
             traceback.print_exc(file=sys.stderr)
         code = str(error) if isinstance(error, (ValueError, TimeoutError)) else 'runtime_failed'
+        if isinstance(error,MemoryError) or (isinstance(error,RuntimeError) and any(token in str(error).lower() for token in ('std::bad_alloc','out of memory','[metal::malloc]'))):
+            code='memory_exhausted'
         # Only identifiers we define are eligible to leave the runtime.
         allowed = {'invalid_prompt', 'invalid_translation', 'invalid_request', 'duplicate_json_key',
                    'invalid_image_options', 'model_not_installed', 'unsupported_platform',
                    'unsupported_runtime', 'invalid_session', 'invalid_output', 'invalid_input',
-                   'prompt_token_limit', 'invalid_operation', 'timeout'}
+                   'prompt_token_limit', 'invalid_operation', 'timeout','memory_exhausted'}
         emit({'event': 'error', 'code': code if code in allowed else 'runtime_failed'})
         return 1
 

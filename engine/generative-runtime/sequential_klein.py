@@ -38,7 +38,7 @@ class ComponentPhases:
             self.model.transformer=self.load('transformer')
 
 
-def create_sequential_klein(*,model_path,model_config,edit=False):
+def create_sequential_klein(*,model_path,model_config,edit=False,progress=None):
     import gc
     from pathlib import Path
     import mlx.core as mx
@@ -70,6 +70,7 @@ def create_sequential_klein(*,model_path,model_config,edit=False):
         WeightApplier.apply_and_quantize_single(weights=weights,model=module,component=component,
             quantize_arg=None,quantization_predicate=Flux2KleinWeightDefinition.quantization_predicate)
         mx.eval(*[value for _,value in tree_flatten(module.parameters())])
+        if progress is not None:progress()
         return module
 
     def clear():
@@ -91,6 +92,7 @@ def create_sequential_klein(*,model_path,model_config,edit=False):
         def _encode_prompt_pair(self,**kwargs):
             encoded=super()._encode_prompt_pair(**kwargs)
             self._component_phases.finish_prompt(encoded)
+            if progress is not None:progress()
             return encoded
 
         def _predict(self,transformer):

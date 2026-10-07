@@ -60,6 +60,15 @@ class ContractTests(unittest.TestCase):
             self.assertEqual(events,['evaluated',{'event':'progress','completed':2,'total':4}])
         finally:runtime.emit=original
 
+    def test_activity_counts_completed_work_without_timer_only_heartbeats(self):
+        from unittest.mock import patch
+        events=[]
+        self.assertTrue(hasattr(runtime,'ActivityProgress'))
+        callback=runtime.ActivityProgress(events.append)
+        with patch.object(runtime.time,'monotonic',side_effect=[100,101,103]):
+            callback();callback();callback()
+        self.assertEqual(events,[{'event':'activity','sequence':1},{'event':'activity','sequence':2}])
+
     def test_image_limit_includes_native_tokenizer_special_tokens(self):
         from types import SimpleNamespace
         class Tokenizer:

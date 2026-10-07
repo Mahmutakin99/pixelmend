@@ -12,6 +12,8 @@ export class GenerativeMemoryMonitor{
 }
 export const memoryGiB=(bytes:number)=>`${(bytes/1024**3).toFixed(1)} GiB`;
 export function memoryMessage(report:GenerativePreflight){
+ if(report.ready&&report.waiting_for_memory)return 'Belleğin rahatlaması bekleniyor. İşlem otomatik devam edecek.';
+ if(report.ready&&report.execution_mode==='adaptive')return 'Belleğe uyumlu üretim kullanılacak; işlem daha uzun sürebilir.';
  if(report.ready)return 'Şu an üretim için yeterli bellek var. Üretime devam edebilirsiniz.';
  if(report.reason?.code==='memory_insufficient')return `Üretim için ${memoryGiB(report.required_available_memory_bytes!)} gerekiyor; şu an ${memoryGiB(report.available_memory_bytes!)} kullanılabilir. Diğer uygulamaları kapatıp yeniden deneyin.`;
  return report.reason?.message??'';

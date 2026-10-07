@@ -15,6 +15,46 @@ def write_latents(session,width=512,height=512):
 def request(session):return {'operation':'generate','session_dir':str(session),'width':512,'height':512,'seed':7,'prompt':'synthetic'}
 
 
+def test_decode_memory_retry_keeps_denoise_checkpoint_and_waits_for_recovery(tmp_path):
+    tmp_path.chmod(0o700);calls=[];waits=[]
+    class Gate:
+        def resources(self):return {'available_memory_bytes':4*1024**3}
+        def wait(self,cancel,event,**kwargs):waits.append(kwargs)
+    class Owner:
+        active_pid=None
+        def run(self,r,c,event,timeout):
+            assert timeout is None
+            calls.append(r['image_phase'])
+            if r['image_phase']=='denoise':write_latents(tmp_path)
+            else:
+                assert (tmp_path/'latents.safetensors').is_file()
+                if calls.count('decode')==1:raise RuntimeErrorCode('memory_exhausted')
+            return {'image_phase':r['image_phase'],'seed':7,'width':512,'height':512,
+                    'versions':{},'child_wall_seconds':1,'stage_seconds':{}}
+    run_image_pipeline(Owner(),request(tmp_path),threading.Event(),lambda _:None,timeout=None,memory_gate=Gate())
+    assert calls==['denoise','decode','decode']
+    assert waits[-1]['minimum_available']==4*1024**3
+    assert waits[-1]['force_recovery'] is True
+    assert not (tmp_path/'latents.safetensors').exists()
+
+
+def test_cancelling_memory_wait_removes_checkpoint_before_new_phase(tmp_path):
+    tmp_path.chmod(0o700);cancel=threading.Event();calls=[]
+    class Gate:
+        def resources(self):return {'available_memory_bytes':4*1024**3}
+        def wait(self,cancel,event,**kwargs):
+            if calls:raise InterruptedError()
+    class Owner:
+        active_pid=None
+        def run(self,r,c,event,timeout):
+            calls.append(r['image_phase']);write_latents(tmp_path)
+            return {'image_phase':r['image_phase'],'seed':7,'width':512,'height':512,
+                    'versions':{},'child_wall_seconds':1,'stage_seconds':{}}
+    with pytest.raises(InterruptedError):
+        run_image_pipeline(Owner(),request(tmp_path),cancel,lambda _:None,timeout=None,memory_gate=Gate())
+    assert calls==['denoise'] and not (tmp_path/'latents.safetensors').exists()
+
+
 def test_phases_are_reaped_serial_and_memory_peaks_are_not_added(tmp_path):
     tmp_path.chmod(0o700);cancel=threading.Event()
     class Owner:

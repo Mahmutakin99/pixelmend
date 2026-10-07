@@ -13,6 +13,21 @@ Mac Apple Silicon (M1 ve sonrası) paketleri [Releases](https://github.com/Mahmu
 
 Windows/Linux ve Intel Mac bu yeni Mac dağıtımının kapsamında değildir. RC sürümleri ön sürümdür; AI çıktısını kaydetmeden önce inceleyin.
 
+Alpha4, Homebrew üzerinden de kurulabilir:
+
+```sh
+brew install --cask Mahmutakin99/pixelmend/pixelmend
+```
+
+Bu komut [PixelMend tap](https://github.com/Mahmutakin99/homebrew-pixelmend)
+deposundaki doğrulanmış ZIP paketini kullanır. Apple Silicon ve macOS 15+
+gerektirir. Alpha4 yerel ad-hoc imzalıdır; Developer ID imzası ve Apple
+notarizasyonu yoktur. Başka bir Mac'te ilk açılış için macOS onayı gerekebilir;
+[Apple'ın uygulama açma yönergelerini](https://support.apple.com/en-us/102445)
+izleyin. Homebrew kurulumu Apple notarizasyonunun yerini tutmaz.
+
+Sürüm ayrıntıları: [1.1.0-alpha.4](RELEASE_NOTES.md).
+
 ## İlk kullanım
 
 1. Uygulamayı açın ve Ayarlar → AI modelleri bölümünden ihtiyacınız olan modelleri kurun.
@@ -47,7 +62,7 @@ Uygulama `apps/desktop`, motor `engine/src`, testler `apps/desktop/e2e` ve `engi
 
 Kaynak kod [Apache-2.0](LICENSE) lisanslıdır. Bağımlılıklar ve model lisansları ayrıca geçerlidir: [üçüncü taraf bildirimleri](THIRD_PARTY_NOTICES.md).
 
-## Türkçe komutla üretim — 1.1.0-alpha.3
+## Türkçe komutla üretim — 1.1.0-alpha.4
 
 Yazıyla Düzenle seçili alana komutla nesne ekler veya değiştirir; Yazıyla Oluştur
 fotoğraf açmadan yeni görsel üretir. Türkçe komutlar ayrı yerel OPUS-MT çeviri
@@ -57,7 +72,13 @@ Görsel modeli FLUX.2 Klein distilled 4B'nin MLX 4-bit paketidir.
 Bu özellik macOS 15+, Apple Silicon ve en az 16 GB RAM ister. Her profil ayrıca
 cihaz sınıfında etkinleştirilmiş olmalıdır. M4 Mac mini /16 GB üzerinde Dengeli,
 görsel incelemeden sonra kullanıcının açık tercihiyle etkinleştirildi. Düzenlemede
-28/36 sonuç uygun bulundu; başlangıçtaki29/36 kalite eşiği geçilmedi. Kullanılabilir bellek işlem başında yeniden kontrol edilir. Modelin
+28/36 sonuç uygun bulundu; başlangıçtaki29/36 kalite eşiği geçilmedi. Kullanılabilir
+bellek ve bellek baskısı işlem başında yeniden kontrol edilir. Gösterilen bellek
+miktarı rahat çalışma önerisidir; bunun altında üretim başlatılabilir. Kritik
+bellek baskısında işlem aşamalar arasında bekler ve koşullar düzeldiğinde devam
+eder. Kalite ve çözünürlük otomatik düşürülmez; takas belleği kullanıldığında işlem
+daha uzun sürebilir. İlerleyen üretim toplam beş dakika sınırıyla kesilmez;
+gerçek ilerleme olmadan on dakika geçen model süreci durdurulur. Modelin
 kurulu olması profil kabulü veya her Mac'te çalışma garantisi değildir.
 
 İlk kurulumda Ayarlar → AI modelleri → Modeli indir üzerinden Klein ve OPUS-MT

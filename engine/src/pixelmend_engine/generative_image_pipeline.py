@@ -44,18 +44,34 @@ def validate_latents(session, dimensions):
         raise RuntimeErrorCode('output_invalid') from None
 
 
-def run_image_pipeline(owner,request,cancel,on_event,*,timeout=300):
+def run_image_pipeline(owner,request,cancel,on_event,*,timeout=300,memory_gate=None):
     started=time.monotonic();session=Path(request['session_dir']);latent=session/'latents.safetensors'
     if latent.exists() or latent.is_symlink():raise RuntimeErrorCode('output_invalid')
     phases=[]
     try:
         for phase in ('denoise','decode'):
             if cancel.is_set():raise InterruptedError()
-            remaining=timeout-(time.monotonic()-started)
-            if remaining<=0:raise RuntimeErrorCode('timeout')
+            if memory_gate is not None:memory_gate.wait(cancel,on_event)
+            remaining=timeout-(time.monotonic()-started) if timeout is not None else None
+            if remaining is not None and remaining<=0:raise RuntimeErrorCode('timeout')
             child=request|{'image_phase':phase}
             if phase=='decode':child['latent_sha256']=validate_latents(session,(request['width'],request['height']))
-            result=owner.run(child,cancel,on_event,timeout=remaining)
+            while True:
+                available=memory_gate.resources()['available_memory_bytes'] if memory_gate is not None else 0
+                try:
+                    result=owner.run(child,cancel,on_event,timeout=remaining)
+                    break
+                except RuntimeErrorCode as error:
+                    if error.code!='memory_exhausted' or memory_gate is None:raise
+                    # Retry only this phase, after a real increase in free resources.
+                    # A completed denoise checkpoint survives decode allocation failure.
+                    if phase=='denoise':latent.unlink(missing_ok=True)
+                    (session/'output.png').unlink(missing_ok=True)
+                    recovered=memory_gate.resources()['available_memory_bytes']
+                    # A return to the previously launchable baseline is enough.
+                    # Never demand more RAM than was available before the failure.
+                    minimum=min(available,recovered+256*1024**2)
+                    memory_gate.wait(cancel,on_event,minimum_available=minimum,force_recovery=True)
             if owner.active_pid is not None:raise RuntimeErrorCode('runtime_crashed')
             if (result.get('image_phase')!=phase or any(result.get(key)!=request[key]
                     for key in ('seed','width','height'))):raise RuntimeErrorCode('output_invalid')

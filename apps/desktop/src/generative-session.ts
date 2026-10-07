@@ -1,7 +1,7 @@
 import type {AssetView,DesktopBridge,GenerationInfo,GenerativeRequest,JobSnapshot} from './bridge';
 export type GenerativeCandidate={asset:AssetView;info:GenerationInfo};
 export type GenerativeState={busy:boolean;phase:string;candidate?:GenerativeCandidate;error?:string;errorCode?:string};
-const phases:Record<string,string>={validating_models:'Model doğrulanıyor…',preparing_edit:'Seçili alan hazırlanıyor…',preparing_prompt:'Komut hazırlanıyor…',translating:'Komut çevriliyor…',loading_image_model:'Görsel modeli yükleniyor…',generating:'Görsel üretiliyor…',compositing:'Sonuç birleştiriliyor…',releasing_resources:'Kaynaklar bırakılıyor…'};
+const phases:Record<string,string>={waiting_for_memory:'Belleğin rahatlaması bekleniyor…',validating_models:'Model doğrulanıyor…',preparing_edit:'Seçili alan hazırlanıyor…',preparing_prompt:'Komut hazırlanıyor…',translating:'Komut çevriliyor…',loading_image_model:'Görsel modeli yükleniyor…',generating:'Görsel üretiliyor…',compositing:'Sonuç birleştiriliyor…',releasing_resources:'Kaynaklar bırakılıyor…'};
 export function generationPhase(job:JobSnapshot){
  if(job.status==='cancelling')return 'İptal bekleniyor…';if(job.status==='queued')return 'İş sırada bekliyor…';
  const p=job.progress;if(p?.total===4&&p.phase==='generating')return `Görsel üretiliyor — ${p.completed}/4 adım`;

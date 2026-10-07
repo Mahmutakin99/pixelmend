@@ -119,7 +119,7 @@ physical memory peaks are reported per phase and combined with max, never sum.
 After reference conditions are evaluated, the denoise worker also releases its
 original VAE before loading diffusion weights; a decode-only handoff replaces it.
 This process boundary also releases native tensors retained beyond Python object
-finalization. Both image phases share the original 300-second deadline.
+finalization. Image phases have no total generation deadline; the owner detects ten minutes without completed work.
 `sequential_klein.py` changes component lifetimes, not weights, dimensions or
 the native numerical operations. Pixel equality and physical-footprint budgets
 must be measured again when this loading strategy changes. Klein opts out of implicit VAE
@@ -133,6 +133,6 @@ Each one-shot image worker uses a zero unused MLX cache limit. Native VAE residu
 attention, upsampling and downsampling blocks are evaluated before the next
 block runs, releasing their completed lazy graphs. This uses the original full
 spatial VAE operations and weights; tiling remains disabled. Profile budgets
-come from complete source and frozen-worker measurements, with the existing
-20% working margin and 2 GiB system reserve. Loading probes still release
+come from complete source and frozen-worker measurements, with a
+20% working margin and 2 GiB system reserve as comfortable-memory guidance, not admission limits. Loading probes still release
 each component before the next one loads.

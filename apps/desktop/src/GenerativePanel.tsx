@@ -53,7 +53,7 @@ export function GenerativePanel(props:Props){
   </details>
   {reason&&<p role="note">{reason}</p>}
   {!installed&&<button disabled={busy} onClick={props.settings}>Model kurulumunu aç</button>}
-  {!busy&&memory&&<div aria-live="polite"><p>{memoryMessage(memory)}</p>{memory.available_memory_bytes!==undefined&&<p className="hint">Kullanılabilir bellek: {memoryGiB(memory.available_memory_bytes)}{memory.required_available_memory_bytes!==undefined&&` · Gereken: ${memoryGiB(memory.required_available_memory_bytes)}`}</p>}</div>}
+  {!busy&&memory&&<div aria-live="polite"><p>{memoryMessage(memory)}</p>{memory.available_memory_bytes!==undefined&&<p className="hint">Kullanılabilir bellek: {memoryGiB(memory.available_memory_bytes)}{memory.required_available_memory_bytes!==undefined&&` · Rahat çalışma için: ${memoryGiB(memory.required_available_memory_bytes)}`}</p>}</div>}
   {memoryError&&<p role="status">{memoryError}</p>}
   {state.error&&!(state.errorCode==='memory_insufficient'&&memory?.ready)&&<p role="alert" className="error">{state.error}</p>}
   <p role="status" aria-live="polite">{state.phase}</p>

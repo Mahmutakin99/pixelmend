@@ -5,7 +5,7 @@ The generative runtime is a separate, locked Python project. Build it using
 separately; neither source weights nor evaluation reports enter the application.
 
 From `apps/desktop`, `corepack pnpm package:mac:generative` prepares
-`1.1.0-alpha.3` in an isolated local output directory. It requires an installed
+`1.1.0-alpha.4` in an isolated local output directory. It requires an installed
 Developer ID Application identity in `CSC_NAME` and an existing notarytool
 Keychain profile in `PIXELMEND_NOTARY_PROFILE`. For `CSC_NAME`, use the name and
 Team ID portion, for example `Ad Soyad (TEAMID)`; electron-builder rejects the
@@ -31,6 +31,6 @@ Klein's pinned VAE opts out of implicit tiling because separate GroupNorm
 statistics can offset tile colours. The runtime loads components in phases and
 finishes denoising before its process exits. The engine validates the private BF16
 latent file and starts a separate VAE-only worker after that exit. Both workers
-share a 300-second deadline; their measured physical peaks are combined with max,
-never sum. Native numerical operations, the original VAE and a 256 MiB worker MLX cache
+use an owner-enforced ten-minute idle deadline, with no total generation deadline; their measured physical peaks are combined with max,
+never sum. Native numerical operations, the original VAE and a zero unused worker MLX cache
 limit are preserved. No system wired-memory limits are changed.

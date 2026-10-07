@@ -3,6 +3,10 @@ import {GenerativeMemoryMonitor,memoryMessage} from './generative-memory';
 import type {GenerativePreflight} from './bridge';
 afterEach(()=>vi.useRealTimers());
 const report={ready:true,seed:1,width:512,height:512,profile:'low-resource',available_memory_bytes:8*1024**3,required_available_memory_bytes:7*1024**3} satisfies GenerativePreflight;
+it('explains adaptive generation and waiting without calling admitted memory insufficient',()=>{
+ expect(memoryMessage({...report,execution_mode:'adaptive',available_memory_bytes:4.2*1024**3})).toBe('Belleğe uyumlu üretim kullanılacak; işlem daha uzun sürebilir.');
+ expect(memoryMessage({...report,waiting_for_memory:true,memory_pressure:'critical'})).toBe('Belleğin rahatlaması bekleniyor. İşlem otomatik devam edecek.');
+});
 it('refreshes idle memory every two seconds and stops when panel closes',async()=>{
  vi.useFakeTimers();const values:GenerativePreflight[]=[];let calls=0;
  const monitor=new GenerativeMemoryMonitor(async()=>{calls++;return report;},value=>values.push(value));

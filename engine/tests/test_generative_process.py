@@ -6,12 +6,41 @@ import time
 
 import pytest
 
+def test_real_progress_refreshes_idle_deadline_without_total_deadline(tmp_path):
+    script=executable(tmp_path,"""
+        import json,sys,time
+        json.loads(sys.stdin.readline())
+        for step in range(4):
+            time.sleep(.08)
+            print(json.dumps({'event':'progress','completed':step+1,'total':4}),flush=True)
+        print(json.dumps({'event':'result','ok':True}),flush=True)
+    """)
+    owner=RuntimeOwner(script,idle_seconds=.2)
+    result=owner.run({},threading.Event(),lambda _:None,timeout=None)
+    assert result['ok'] and result['child_wall_seconds']>.3
+    assert owner.active_pid is None
+
+
+def test_repeated_progress_does_not_hide_a_stuck_child(tmp_path):
+    script=executable(tmp_path,"""
+        import json,sys,time
+        json.loads(sys.stdin.readline())
+        for step in range(30):
+            print(json.dumps({'event':'progress','completed':1,'total':4}),flush=True)
+            time.sleep(.03)
+    """)
+    owner=RuntimeOwner(script,idle_seconds=.1)
+    with pytest.raises(RuntimeErrorCode) as error:
+        owner.run({},threading.Event(),lambda _:None,timeout=None)
+    assert error.value.code=='timeout' and owner.active_pid is None
+
 from pixelmend_engine.generative_process import RuntimeOwner, RuntimeErrorCode
 
 
 def executable(tmp_path,body):
+    from textwrap import dedent
     path=tmp_path/'runtime'
-    path.write_text(f'#!{sys.executable}\n'+body)
+    path.write_text(f'#!{sys.executable}\n'+dedent(body))
     path.chmod(0o700)
     return path
 
@@ -122,7 +151,7 @@ def test_dead_group_permission_error_cannot_leave_a_stale_active_owner(tmp_path,
     owner.close()
 
 
-@pytest.mark.parametrize('available,hardware,expected',[(1,'Mac16,10','memory_insufficient'),(16*1024**3,'other','probe_not_accepted')])
+@pytest.mark.parametrize('available,hardware,expected',[(16*1024**3,'other','probe_not_accepted')])
 def test_probe_rejects_unavailable_memory_or_unmeasured_hardware(monkeypatch,available,hardware,expected):
     from types import SimpleNamespace
     from pixelmend_engine import capabilities

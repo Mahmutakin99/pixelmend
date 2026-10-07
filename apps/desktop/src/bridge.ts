@@ -6,7 +6,7 @@ export type GenerationInfo = {operation:'text_edit'|'text_to_image';model_id:str
 export type JobSnapshot = {job_id:string;status:string;seed?:number;result_ids:string[];result_details?:Array<{algorithm:string;model_revision:string|null;provider:string|null;fallback_reason?:string|null}&Partial<GenerationInfo>>;error?:{code:string;message:string};progress?:{completed:number;total:number;phase:string}};
 type GenerativeCommon = {prompt:string;promptLanguage:'tr'|'en';englishOverride?:string;profile:'low-resource'|'balanced';seed?:number};
 export type GenerativeRequest = GenerativeCommon & ({operation:'text_edit';assetId:string;selectionStrokes:Stroke[];paintStrokes:Stroke[]}|{operation:'text_to_image';aspect:'square'|'landscape'|'portrait'});
-export type GenerativePreflight = {ready:boolean;reason?:{code:string;message:string};seed:number;width:number;height:number;profile:string;available_memory_bytes?:number;required_available_memory_bytes?:number};
+export type GenerativePreflight = {ready:boolean;reason?:{code:string;message:string};seed:number;width:number;height:number;profile:string;available_memory_bytes?:number;required_available_memory_bytes?:number;execution_mode?:'fast'|'adaptive';memory_pressure?:'normal'|'warning'|'critical'|'unknown';waiting_for_memory?:boolean};
 export type Preferences = Pick<PixelMendPreferences, 'language' | 'theme'> & Partial<PixelMendPreferences>;
 export interface DesktopBridge {
   generativeMemory(request:GenerativeRequest):Promise<GenerativePreflight>;
