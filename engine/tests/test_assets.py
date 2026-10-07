@@ -77,3 +77,27 @@ def test_expiry_retains_pinned_source_and_close_releases_all():
     store.import_image(_png_bytes())
     store.close()
     assert store.used_bytes == 0
+
+
+def test_slow_decode_does_not_hold_store_lookup_lock(monkeypatch):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    import pixelmend_engine.assets as module
+    store = module.AssetStore()
+    first = store.import_image(_png_bytes())
+    entered, release = threading.Event(), threading.Event()
+    original = module.load_image
+    def decode(source):
+        entered.set()
+        assert release.wait(3)
+        return original(source)
+    monkeypatch.setattr(module, 'load_image', decode)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        pending = executor.submit(store.import_image, _png_bytes())
+        try:
+            assert entered.wait(2)
+            lookup = executor.submit(store.get_image, first.asset_id)
+            assert lookup.result(timeout=.3).width == 2
+        finally:
+            release.set()
+        pending.result(timeout=2)

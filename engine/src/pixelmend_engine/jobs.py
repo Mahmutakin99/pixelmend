@@ -175,6 +175,8 @@ class JobQueue:
             raise ValueError('job capacity unavailable')
         if not algorithms or len(algorithms) > 8 or len(set(algorithms)) != len(algorithms):
             raise ValueError('select unique algorithms')
+        if sum(a in AI_MODELS for a in algorithms) > 1:
+            raise ValueError('select at most one AI algorithm')
         inference_settings(resource_mode)
         if any(a not in ({'opencv_telea', 'opencv_ns', 'lanczos'} | set(INPAINT_MODELS) | set(UPSCALE_MODELS)) for a in algorithms):
             raise ValueError('algorithm unavailable')
@@ -342,76 +344,81 @@ class JobQueue:
             if job is None:
                 self.pending.task_done()
                 return
-            try:
-                if job.status != 'cancelling':
-                    job.status = 'running'
-                    job.emit('running', job_id=job.job_id)
-                    image = self.assets.get_image(job.asset_id) if job.asset_id is not None else None
-                    for algorithm in job.algorithms:
-                        started = monotonic()
-                        execution_evidence = {}
-                        generative_metadata = None
-                        if job.generative_request is not None:
-                            result, generative_metadata = await self._run_generative(job)
-                        elif self.processor is process:
-                            def update_progress(done, total):
-                                job.progress = {'completed': done, 'total': total, 'phase': 'tiles'}
-                            result = await self._run_native(job, image, algorithm, update_progress, execution_evidence)
-                        else:
-                            result = await asyncio.get_running_loop().run_in_executor(
-                                self.executor, lambda: self._compute(job, lambda:
-                                    self.processor(image, job.mask, algorithm, job.scale)))
-                        if job.status == 'cancelling':
-                            break
-                        size = result.rgb.nbytes + (result.alpha.nbytes if result.alpha is not None else 0)
-                        if sum(j.result_bytes for j in self.jobs.values()) + size > self.result_budget:
-                            raise MemoryError('result budget exceeded')
-                        result_id = uuid4().hex
-                        job.results[result_id] = result
-                        elapsed = monotonic() - started
-                        job.result_metadata[result_id] = generative_metadata or {'algorithm': algorithm, 'execution_evidence': execution_evidence,
-                            'fallback_reason': job.fallback_reason,
-                            'model_id': AI_MODELS.get(algorithm),
-                            'model_revision': job.model_revision if algorithm in AI_MODELS else None,
-                            'provider': job.provider if algorithm in AI_MODELS else 'CPU',
-                            'input_width': image.width, 'input_height': image.height,
-                            'seconds': elapsed}
-                        job.result_bytes += size
-                        job.emit('result', result_id=result_id, **job.result_metadata[result_id],
-                                 width=result.width, height=result.height)
-                job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
-            except (InferenceCancelled, asyncio.CancelledError, InterruptedError):
-                job.status = 'cancelled'
-            except Exception as error:
-                job.status = 'cancelled' if job.status == 'cancelling' else 'failed'
-                if job.status == 'failed':
-                    if isinstance(error, ModelFileMissingError):
-                        job.error = {'code': 'model_missing', 'message': 'LaMa modeli kurulu değil. Model kurulana kadar Sil veya Lanczos kullanabilirsiniz.'}
-                    elif isinstance(error, ModelStoreError):
-                        job.error = {'code': 'model_invalid', 'message': 'LaMa modelinin bütünlük doğrulaması başarısız. Model yeniden kurulmalı.'}
-                    elif isinstance(error, MemoryError):
-                        job.error = {'code': 'memory_limit', 'message': 'İşlem için yeterli bellek yok. Daha küçük bir görsel deneyin.'}
-                    elif isinstance(error, ResourceLimitError):
-                        job.error = {'code': error.code, 'message': str(error)}
-                    elif isinstance(error, ModelManagerError):
-                        job.error = {'code': error.code, 'message': str(error)}
+            await self._execute_job(job)
+            del job
+
+    async def _execute_job(self, job):
+        """End every per-job reference before the consumer waits for more work."""
+        try:
+            if job.status != 'cancelling':
+                job.status = 'running'
+                job.emit('running', job_id=job.job_id)
+                image = self.assets.get_image(job.asset_id) if job.asset_id is not None else None
+                for algorithm in job.algorithms:
+                    started = monotonic()
+                    execution_evidence = {}
+                    generative_metadata = None
+                    if job.generative_request is not None:
+                        result, generative_metadata = await self._run_generative(job)
+                    elif self.processor is process:
+                        def update_progress(done, total):
+                            job.progress = {'completed': done, 'total': total, 'phase': 'tiles'}
+                        result = await self._run_native(job, image, algorithm, update_progress, execution_evidence)
                     else:
-                        job.error = {'code': 'inference_failed', 'message': 'Görüntü işleme başarısız oldu. Seçili algoritmayı ve görseli kontrol edip tekrar deneyin.'}
-                    job.emit('error', **job.error)
-            finally:
-                job.mask = None
-                if job.compute_ticket is not None:
-                    job.compute_ticket.release()
-                    job.compute_ticket = None
-                if job.asset_id is not None:
-                    self.assets.release_from_job(job.asset_id)
-                for reservation in job.generative_reservations:
-                    self.generative_service.packages._change(reservation.id, loaded=False)
-                    reservation.release()
-                job.generative_reservations.clear()
-                job.generative_request = None
-                if job.model_lease is not None:
-                    job.model_lease.__exit__(None, None, None)
-                    job.model_lease = None
-                job.emit(job.status, job_id=job.job_id)
-                self.pending.task_done()
+                        result = await asyncio.get_running_loop().run_in_executor(
+                            self.executor, lambda: self._compute(job, lambda:
+                                self.processor(image, job.mask, algorithm, job.scale)))
+                    if job.status == 'cancelling':
+                        break
+                    size = result.rgb.nbytes + (result.alpha.nbytes if result.alpha is not None else 0)
+                    if sum(j.result_bytes for j in self.jobs.values()) + size > self.result_budget:
+                        raise MemoryError('result budget exceeded')
+                    result_id = uuid4().hex
+                    job.results[result_id] = result
+                    elapsed = monotonic() - started
+                    job.result_metadata[result_id] = generative_metadata or {'algorithm': algorithm, 'execution_evidence': execution_evidence,
+                        'fallback_reason': job.fallback_reason,
+                        'model_id': AI_MODELS.get(algorithm),
+                        'model_revision': job.model_revision if algorithm in AI_MODELS else None,
+                        'provider': job.provider if algorithm in AI_MODELS else 'CPU',
+                        'input_width': image.width, 'input_height': image.height,
+                        'seconds': elapsed}
+                    job.result_bytes += size
+                    job.emit('result', result_id=result_id, **job.result_metadata[result_id],
+                             width=result.width, height=result.height)
+            job.status = 'cancelled' if job.status == 'cancelling' else 'completed'
+        except (InferenceCancelled, asyncio.CancelledError, InterruptedError):
+            job.status = 'cancelled'
+        except Exception as error:
+            job.status = 'cancelled' if job.status == 'cancelling' else 'failed'
+            if job.status == 'failed':
+                if isinstance(error, ModelFileMissingError):
+                    job.error = {'code': 'model_missing', 'message': 'LaMa modeli kurulu değil. Model kurulana kadar Sil veya Lanczos kullanabilirsiniz.'}
+                elif isinstance(error, ModelStoreError):
+                    job.error = {'code': 'model_invalid', 'message': 'LaMa modelinin bütünlük doğrulaması başarısız. Model yeniden kurulmalı.'}
+                elif isinstance(error, MemoryError):
+                    job.error = {'code': 'memory_limit', 'message': 'İşlem için yeterli bellek yok. Daha küçük bir görsel deneyin.'}
+                elif isinstance(error, ResourceLimitError):
+                    job.error = {'code': error.code, 'message': str(error)}
+                elif isinstance(error, ModelManagerError):
+                    job.error = {'code': error.code, 'message': str(error)}
+                else:
+                    job.error = {'code': 'inference_failed', 'message': 'Görüntü işleme başarısız oldu. Seçili algoritmayı ve görseli kontrol edip tekrar deneyin.'}
+                job.emit('error', **job.error)
+        finally:
+            job.mask = None
+            if job.compute_ticket is not None:
+                job.compute_ticket.release()
+                job.compute_ticket = None
+            if job.asset_id is not None:
+                self.assets.release_from_job(job.asset_id)
+            for reservation in job.generative_reservations:
+                self.generative_service.packages._change(reservation.id, loaded=False)
+                reservation.release()
+            job.generative_reservations.clear()
+            job.generative_request = None
+            if job.model_lease is not None:
+                job.model_lease.__exit__(None, None, None)
+                job.model_lease = None
+            job.emit(job.status, job_id=job.job_id)
+            self.pending.task_done()

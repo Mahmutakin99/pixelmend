@@ -202,3 +202,31 @@ def test_lama_lease_pins_selected_path_until_cancelled_native_call_finishes(tmp_
         finally:
             release.set();await manager.close()
     asyncio.run(scenario())
+
+
+def test_idle_worker_drops_finished_job_and_pixels():
+    import gc, weakref
+    from pixelmend_engine.jobs import JobQueue
+    async def scenario():
+        store = AssetStore()
+        asset_id = source(store)
+        async with JobQueue(store) as queue:
+            job = queue.submit(asset_id, ['lanczos'], scale=2)
+            await queue.join()
+            refs = [weakref.ref(job), weakref.ref(store.get_image(asset_id).rgb), weakref.ref(next(iter(job.results.values())).rgb)]
+            queue.delete(job.job_id); store.delete(asset_id); del job
+            await asyncio.sleep(0); gc.collect()
+            assert all(ref() is None for ref in refs)
+    asyncio.run(scenario())
+
+
+def test_multiple_ai_algorithms_rejected_before_model_lease():
+    from pixelmend_engine.jobs import JobQueue
+    async def scenario():
+        store = AssetStore(); asset_id = source(store)
+        async with JobQueue(store) as queue:
+            with pytest.raises(ValueError, match='one AI'):
+                queue.submit(asset_id, ['lama', 'migan_512_places2'], np.full((9,9),255,np.uint8))
+            assert queue.jobs == {}
+            store.delete(asset_id)
+    asyncio.run(scenario())

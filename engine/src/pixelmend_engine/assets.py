@@ -59,6 +59,7 @@ class AssetStore:
                  ttl_seconds=3600) -> None:
         self._assets: dict[str, _StoredAsset] = {}
         self._lock = RLock()
+        self._allocation_lock = RLock()
         self.max_assets = max_assets
         self.byte_budget = byte_budget
         self.ttl_seconds = ttl_seconds
@@ -89,25 +90,30 @@ class AssetStore:
     def import_image(self, source: BytesIO) -> ImportedAsset:
         """Normalize a source once and identify it with a non-path opaque token."""
         # Serialize decode to bound temporary allocations from concurrent uploads.
-        with self._lock:
-            if len(self._assets) >= self.max_assets:
-                raise AssetCapacityError('asset count exceeded')
+        with self._allocation_lock:
+            with self._lock:
+                if len(self._assets) >= self.max_assets:
+                    raise AssetCapacityError('asset count exceeded')
             image = load_image(source)
             return self.adopt_image(image)
 
     def adopt_image(self, image: ImageAsset) -> ImportedAsset:
         """Share immutable job output pixels, avoiding a full PNG encode/decode round trip."""
-        with self._lock:
-            if len(self._assets) >= self.max_assets:
-                raise AssetCapacityError('asset count exceeded')
+        with self._allocation_lock:
             pixel_bytes = image.rgb.nbytes + (image.alpha.nbytes if image.alpha is not None else 0)
-            if self.used_bytes + pixel_bytes > self.byte_budget:
-                raise AssetCapacityError('asset memory budget exceeded')
+            with self._lock:
+                if len(self._assets) >= self.max_assets:
+                    raise AssetCapacityError('asset count exceeded')
+                if self.used_bytes + pixel_bytes > self.byte_budget:
+                    raise AssetCapacityError('asset memory budget exceeded')
             stored = _StoredAsset(image=image, preview=encode_thumbnail_png(image), touched=monotonic())
-            if self.used_bytes + stored.size_bytes > self.byte_budget:
-                raise AssetCapacityError('asset memory budget exceeded')
-            asset_id = uuid4().hex
-            self._assets[asset_id] = stored
+            with self._lock:
+                if len(self._assets) >= self.max_assets:
+                    raise AssetCapacityError('asset count exceeded')
+                if self.used_bytes + stored.size_bytes > self.byte_budget:
+                    raise AssetCapacityError('asset memory budget exceeded')
+                asset_id = uuid4().hex
+                self._assets[asset_id] = stored
         return ImportedAsset(
             asset_id=asset_id,
             width=image.width,

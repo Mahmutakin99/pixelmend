@@ -40,3 +40,15 @@ def test_adapter_cache_does_not_retain_failed_replacement():
     else:
         raise AssertionError('replacement factory must fail')
     assert len(cache._items) == 0
+
+
+def test_eviction_drops_adapter_without_close_before_factory():
+    import weakref
+    class Adapter:
+        pass
+    cache = AdapterCache(max_entries=1)
+    old = weakref.ref(cache.get('old', Adapter))
+    def replace():
+        assert old() is None
+        return Adapter()
+    cache.get('new', replace)

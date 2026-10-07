@@ -27,6 +27,7 @@ class AdapterCache:
                 close = getattr(stale, 'close', None)
                 if close:
                     close()
+                del close, stale
             value = factory()
             self._items[key] = value
             return value
