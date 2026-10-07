@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const args=process.argv.slice(2), platformIndex=args.indexOf('--platform');
 const platform=platformIndex >= 0 ? args[platformIndex + 1] : process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux';
-const outputArg=args.filter((_, index) => index !== platformIndex && index !== platformIndex + 1)[0];
+const outputArg=args.filter((_, index) => platformIndex < 0 || index !== platformIndex && index !== platformIndex + 1)[0];
 const output=path.resolve(outputArg || path.join(root,'apps/desktop/out.noindex/test-kit'));
 if (!['windows','linux','macos'].includes(platform)) throw new Error('Use --platform windows, linux, or macos.');
 fs.mkdirSync(output,{recursive:true});
