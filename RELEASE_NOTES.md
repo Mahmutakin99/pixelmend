@@ -12,6 +12,11 @@ Apple Silicon için deneysel Mac ön sürümü. [İndirme dosyaları](https://gi
 
 ## Kurulum
 
+Önerilen Developer ID imzalı ve notarize edilmiş paketler:
+
+- [DMG](https://github.com/Mahmutakin99/pixelmend/releases/download/v1.1.0-alpha.4/PixelMend-1.1.0-alpha.4-arm64-signed.dmg)
+- [ZIP](https://github.com/Mahmutakin99/pixelmend/releases/download/v1.1.0-alpha.4/PixelMend-1.1.0-alpha.4-arm64-signed.zip)
+
 DMG'yi açıp PixelMend'i Applications klasörüne sürükleyin veya ZIP'i açın.
 Alternatif olarak:
 
@@ -35,13 +40,18 @@ arşivlerine dahil değildir; ilk kurulum Ayarlar → AI modelleri üzerinden ya
 
 ## İmza
 
-Bu paket yerel ad-hoc imzalıdır; **Developer ID imzası ve Apple notarizasyonu
-yoktur**. İndirilen uygulama başka Mac'lerde Gatekeeper tarafından engellenebilir.
-Yalnız güvendiğiniz kaynaktan indirilen uygulamalar için
-[Apple'ın uygulama açma yönergelerini](https://support.apple.com/en-us/102445)
-izleyin. Homebrew SHA-256 doğrulaması Apple notarizasyonunun yerini tutmaz.
-Genel dağıtımda sorunsuz ilk açılış için Developer ID Application imzası,
-notarizasyon ve pakete eklenmiş notarizasyon bileti gerekir.
+Önerilen `-signed.zip` ve `-signed.dmg` paketleri **Developer ID Application
+imzalı ve Apple tarafından notarize edilmiştir**. Uygulama ve DMG'ye onay
+biletleri eklenmiştir; imza, bilet ve Gatekeeper kontrolleri geçmiştir.
+
+İlk yayımlanan yerel ad-hoc imzalı Alpha4 dosyaları tarihsel kayıt için korunur
+ve "Legacy local ad-hoc" olarak işaretlenir. Önerilen indirme bağlantıları ve
+Homebrew tanımı yeni imzalı paketleri kullanır. Önceden Homebrew ile yerel imzalı
+Alpha4 kurulmuşsa aynı sürüm numarasındaki imzalı pakete geçmek için:
+
+```sh
+brew reinstall --cask Mahmutakin99/pixelmend/pixelmend
+```
 
 ## Doğrulama ve sınırlar
 
@@ -59,7 +69,10 @@ bu denemeler 4.9–5.3 GiB civarında başladı. Bu sonuçlar her Mac'te veya ba
 4.2 GiB bellekle her işin tamamlanacağı garantisi değildir. Süre diğer uygulamalara,
 bellek baskısına ve takas belleğine bağlıdır.
 
+İmzalı ZIP'ten çıkarılan motorla bir ek gerçek üretim karşılaştırması piksel
+düzeyinde aynı çıktı verdi; iki bellek profili gerçek motor API kontrolünü geçti.
+
 Release ekleri ZIP, DMG, her arşivin SHA-256 dosyası, derleme bilgisi, imza durumu
-ve doğrulama raporudur. Derleme mevcut kaynak değişiklikleri commit edilmeden
-tamamlanmıştır; `release-provenance.json` yayımlanan kaynak commit'ini ve paketlerin
+ve doğrulama raporudur. İmzalı dağıtım Alpha4'ün aynı motor ve arayüz kodunu kullanır; kaynak etiketi
+değiştirilmemiştir. `release-provenance.json` kaynak commit'ini ve imzalı paketlerin
 sağlama toplamlarını ilişkilendirir.

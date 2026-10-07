@@ -21,10 +21,10 @@ brew install --cask Mahmutakin99/pixelmend/pixelmend
 
 Bu komut [PixelMend tap](https://github.com/Mahmutakin99/homebrew-pixelmend)
 deposundaki doğrulanmış ZIP paketini kullanır. Apple Silicon ve macOS 15+
-gerektirir. Alpha4 yerel ad-hoc imzalıdır; Developer ID imzası ve Apple
-notarizasyonu yoktur. Başka bir Mac'te ilk açılış için macOS onayı gerekebilir;
-[Apple'ın uygulama açma yönergelerini](https://support.apple.com/en-us/102445)
-izleyin. Homebrew kurulumu Apple notarizasyonunun yerini tutmaz.
+gerektirir. Önerilen Alpha4 paketleri Developer ID Application imzalı ve Apple
+notarizasyonundan geçmiştir; uygulama ve DMG onay biletlerini içerir. Homebrew
+imzalı ZIP paketini kullanır. Önceki yerel imzalı Alpha4'ten geçiş için sürüm
+notlarındaki yeniden kurulum adımını izleyin.
 
 Sürüm ayrıntıları: [1.1.0-alpha.4](RELEASE_NOTES.md).
 
