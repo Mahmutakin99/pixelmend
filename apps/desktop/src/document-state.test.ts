@@ -19,7 +19,7 @@ describe('document save state', () => {
   it('ignores changed undo/redo stacks after returning to the saved pixels and layers', () => {
     const opened=createDocument({id:'source',uri:'pixelmend://asset/source',width:10,height:10});
     const saved=documentFingerprint(opened);
-    const edited=addStroke(opened,'paint',{id:'stroke',mode:'draw',points:[{x:1,y:1}],color:'#000',opacity:1,size:2,hardness:1});
+    const edited=addStroke(opened,'paint',{id:'stroke',mode:'draw',points:[{x:1,y:1}],color:'#000000',opacity:1,size:2,hardness:1});
     expect(isDocumentDirty(undo(edited),saved)).toBe(false);
     expect(isDocumentDirty(redo(undo(edited)),saved)).toBe(true);
   });

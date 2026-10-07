@@ -3,6 +3,19 @@ import {createDocument,addStroke,undo,redo,applyResult,parseDocument,applyGenera
 const photo={id:'a'.repeat(64),uri:'pixelmend://blob/a',width:100,height:80};
 const stroke={id:'s',mode:'draw' as const,points:[{x:10,y:20}],color:'#ff0000',opacity:.4,size:8,hardness:.7};
 describe('immutable project history',()=>{
+ it('shares published strokes across history without retaining mutable input',()=>{
+  const input=structuredClone(stroke),a=addStroke(createDocument(photo),'paint',input),b=addStroke(a,'paint',{...stroke,id:'second'});
+  input.points[0].x=42;
+  expect(a.history.present.paint[0].points[0].x).toBe(10);
+  expect(b.history.past[1]).toBe(a.history.present);
+  expect(b.history.present.paint[0]).toBe(a.history.present.paint[0]);
+  expect(undo(b).history.present).toBe(a.history.present);
+  expect(redo(undo(b)).history.present).toBe(b.history.present);
+ });
+ it.each([{size:-2},{opacity:0},{opacity:1.5},{hardness:2},{color:'red'},{points:[{x:100,y:20}]}])('rejects invalid project brush %j',invalid=>{
+  const doc=createDocument(photo);doc.history.present.paint=[{...stroke,...invalid}];
+  expect(()=>parseDocument(doc)).toThrow('project_invalid');
+ });
  it('keeps paint and selection separate and restores both across removal',()=>{
   const initial=createDocument(photo); const painted=addStroke(initial,'paint',stroke);
   const selected=addStroke(painted,'selection',stroke);

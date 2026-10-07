@@ -4,9 +4,7 @@ export type Stroke = { id: string; mode: 'draw' | 'erase'; points: Point[]; colo
 export type Snapshot = { photo: BlobRef; paint: Stroke[]; selection: Stroke[]; label: string; generation?:GenerationInfo };
 export type EditorDocument = { version: 1; original: BlobRef; history: { past: Snapshot[]; present: Snapshot; future: Snapshot[] } };
 
-const cloneSnapshot = (snapshot: Snapshot): Snapshot => structuredClone(snapshot);
-const validBlob = (value: any): value is BlobRef => !!value && typeof value.id === 'string' && value.id.length > 0 && typeof value.uri === 'string' && value.uri.startsWith('pixelmend://') && Number.isInteger(value.width) && value.width > 0 && Number.isInteger(value.height) && value.height > 0;
-const validStroke = (value: any): value is Stroke => !!value && typeof value.id === 'string' && (value.mode === 'draw' || value.mode === 'erase') && Array.isArray(value.points) && value.points.length > 0 && value.points.every((p: any) => Number.isFinite(p?.x) && Number.isFinite(p?.y)) && typeof value.color === 'string' && Number.isFinite(value.opacity) && Number.isFinite(value.size) && Number.isFinite(value.hardness);
+import {validBlob,validStroke,validDocument,validGeneration} from '../electron/project-schema.mjs';
 
 export function createDocument(photo: BlobRef): EditorDocument {
   if (!validBlob(photo)) throw new Error('project_invalid');
@@ -14,14 +12,7 @@ export function createDocument(photo: BlobRef): EditorDocument {
   return { version: 1, original: photo, history: { past: [], present: snapshot, future: [] } };
 }
 function commit(document: EditorDocument, snapshot: Snapshot): EditorDocument {
-  return { ...document, history: { past: [...document.history.past, cloneSnapshot(document.history.present)], present: snapshot, future: [] } };
-}
-function validGeneration(value:GenerationInfo):boolean {
-  return !!value && ['text_edit','text_to_image'].includes(value.operation)
-    && typeof value.model_id==='string' && /^[a-f0-9]{40}$/.test(value.model_revision)
-    && Number.isInteger(value.seed) && value.seed>=0 && value.seed<2**32
-    && ['low-resource','balanced'].includes(value.profile)
-    && [value.original_prompt,value.used_prompt,value.translated_prompt].every(p=>typeof p==='string'&&p.trim().length>0&&[...p].length<=16384);
+  return { ...document, history: { past: [...document.history.past, document.history.present], present: snapshot, future: [] } };
 }
 export function applyGenerativeResult(document:EditorDocument,photo:BlobRef,generation:GenerationInfo):EditorDocument {
   if(!validBlob(photo)||!validGeneration(generation)||generation.operation!=='text_edit')throw new Error('project_invalid');
@@ -29,12 +20,11 @@ export function applyGenerativeResult(document:EditorDocument,photo:BlobRef,gene
 }
 export function createGeneratedDocument(photo:BlobRef,generation:GenerationInfo):EditorDocument {
   if(!validGeneration(generation)||generation.operation!=='text_to_image')throw new Error('project_invalid');
-  const document=createDocument(photo);document.history.present.generation=structuredClone(generation);document.history.present.label='text_to_image';return document;
+  const document=createDocument(photo);return {...document,history:{...document.history,present:{...document.history.present,generation:structuredClone(generation),label:'text_to_image'}}};
 }
 export function addStroke(document: EditorDocument, target: 'paint' | 'selection', stroke: Stroke): EditorDocument {
-  if (!validStroke(stroke)) throw new Error('project_invalid');
-  const present = cloneSnapshot(document.history.present);
-  present[target].push(structuredClone(stroke)); present.label = target === 'paint' ? 'paint' : 'selection';
+  if (!validStroke(stroke,document.history.present.photo.width,document.history.present.photo.height)) throw new Error('project_invalid');
+  const present = {...document.history.present,[target]:[...document.history.present[target],structuredClone(stroke)],label:target === 'paint' ? 'paint' : 'selection'};
   return commit(document, present);
 }
 export function applyResult(document: EditorDocument, photo: BlobRef, operation: 'remove' | 'upscale'): EditorDocument {
@@ -44,24 +34,26 @@ export function applyResult(document: EditorDocument, photo: BlobRef, operation:
   const ratioY = operation === 'upscale' ? photo.height / before.photo.height : 1;
   if (operation === 'upscale' && (!Number.isFinite(ratioX) || !Number.isFinite(ratioY) || ratioX <= 0 || ratioY <= 0)) throw new Error('project_invalid');
   const brushRatio = Math.sqrt(ratioX * ratioY);
-  const scale = (strokes: Stroke[]) => strokes.map(s => ({ ...structuredClone(s), size: s.size * brushRatio, points: s.points.map(p => ({ x: p.x * ratioX, y: p.y * ratioY })) }));
-  return commit(document, { photo, paint: scale(before.paint), selection: operation === 'remove' ? [] : scale(before.selection), label: operation });
+  const scale = (strokes: Stroke[]) => strokes.map(s => ({ ...s, size: s.size * brushRatio, points: s.points.map(p => ({ x: p.x * ratioX, y: p.y * ratioY })) }));
+  return commit(document, { photo, paint: operation === 'remove' ? before.paint : scale(before.paint), selection: operation === 'remove' ? [] : scale(before.selection), label: operation });
 }
 export function undo(document: EditorDocument): EditorDocument {
   if (!document.history.past.length) return document;
   const past = document.history.past.slice(0, -1); const present = document.history.past[document.history.past.length - 1];
-  return { ...document, history: { past, present: cloneSnapshot(present), future: [cloneSnapshot(document.history.present), ...document.history.future] } };
+  return { ...document, history: { past, present: present, future: [document.history.present, ...document.history.future] } };
 }
 export function redo(document: EditorDocument): EditorDocument {
   if (!document.history.future.length) return document;
   const [next, ...future] = document.history.future;
-  return { ...document, history: { past: [...document.history.past, cloneSnapshot(document.history.present)], present: cloneSnapshot(next), future } };
+  return { ...document, history: { past: [...document.history.past, document.history.present], present: next, future } };
 }
 export function parseDocument(value: unknown): EditorDocument {
-  const doc = value as EditorDocument;
-  if (!doc || doc.version !== 1 || !validBlob(doc.original) || !doc.history || !Array.isArray(doc.history.past) || !Array.isArray(doc.history.future)) throw new Error('project_invalid');
-  const validSnapshot = (s: any) => !!s && validBlob(s.photo) && Array.isArray(s.paint) && Array.isArray(s.selection) && s.paint.every(validStroke) && s.selection.every(validStroke) && typeof s.label === 'string' && (s.generation===undefined||validGeneration(s.generation));
-  if (![...doc.history.past, doc.history.present, ...doc.history.future].every(validSnapshot)) throw new Error('project_invalid');
-  return structuredClone(doc);
+  if (!validDocument(value)) throw new Error('project_invalid');
+  const doc=structuredClone(value) as EditorDocument;
+  const strokes=new Map<string,Stroke>(),keys=new WeakMap<Stroke,string>();
+  for(const snapshot of [...doc.history.past,doc.history.present,...doc.history.future])for(const layer of ['paint','selection'] as const){
+    snapshot[layer]=snapshot[layer].map(stroke=>{let key=keys.get(stroke);if(!key){key=JSON.stringify(stroke);keys.set(stroke,key);}const old=strokes.get(key);if(old)return old;strokes.set(key,stroke);return stroke;});
+  }
+  return doc;
 }
 import type {GenerationInfo} from './bridge';
