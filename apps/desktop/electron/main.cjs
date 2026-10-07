@@ -7,6 +7,8 @@ const {jobForm, registerModelIpc} = require('./model-ipc.cjs');
 const {engineCommand} = require('./engine-path.cjs');
 const {registerGenerativeIpc,opaqueId} = require('./generative-ipc.cjs');
 const {writeStreamAtomic} = require('./atomic-file.cjs');
+const {writeProject,readProject}=require('./project-codec.cjs');
+const {validDocument,photosOf}=require('./project-schema.mjs');
 const selfTest = process.argv.includes('--self-test');
 const ownsApplication = process.env.PIXELMEND_CI_SMOKE === '1' || app.requestSingleInstanceLock({selfTest});
 let diagnosticHost, diagnosticTemp;
@@ -121,9 +123,27 @@ app.whenReady().then(async () => { if(!ownsApplication){await dialog.showMessage
  ipcMain.handle('pixelmend:render-asset', async (event, payload) => { authorized(event);if(!payload||!Array.isArray(payload.paintStrokes))throw new Error('project_invalid');const release=ownership.pin([payload.assetId]);try{return await adoptAsset(await (await api(`/assets/${payload.assetId}/rendered`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paint_strokes:payload.paintStrokes})})).json());}finally{await release();} });
  ipcMain.handle('pixelmend:confirm-close',event=>{if(event.sender!==mainWindow.webContents)throw new Error('Geçersiz pencere');allowClose=true;app.quit();});
  ipcMain.handle('pixelmend:settings', () => readSettings()); ipcMain.handle('pixelmend:set-settings', (_e, value) => writeAtomic(settingsPath(), JSON.stringify({...defaults,...value})));
- ipcMain.handle('pixelmend:export-source', async (_e, id) => { if(typeof id!=='string'||!/^[a-f0-9]{32}$/.test(id)) throw new Error('Geçersiz görsel'); const bytes=await (await api(`/assets/${id}/export?format=PNG`)).arrayBuffer();return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`; });
- ipcMain.handle('pixelmend:save-project', async (_e, document, saveAs) => { if(!document || document.version !== 1 || !opaqueId(document.original?.id)) throw new Error('project_invalid'); let destination=!saveAs&&document.original.id===projectAssetId?projectFile:undefined; if(!destination) { const chosen=await dialog.showSaveDialog(window,{defaultPath:'PixelMend.pixelmend',filters:[{name:'PixelMend proje',extensions:['pixelmend']}]}); if(chosen.canceled) return false; destination=chosen.filePath; } const ids=[...new Set(JSON.stringify(document).match(/pixelmend:\/\/(?:asset|result)\/[^"\\]+/g)||[])]; const blobs={}; for(const uri of ids){const key=uri.replace('pixelmend://','');if(key.startsWith('asset/')){const id=key.slice(6);if(!/^[a-f0-9]{32}$/.test(id))throw new Error('project_invalid');blobs[uri]=Buffer.from(await (await api(`/assets/${id}/export?format=PNG`)).arrayBuffer()).toString('base64');}else if(sources.has(key)) blobs[uri]=Buffer.from(sources.get(key)).toString('base64');} writeAtomic(destination,JSON.stringify({format:'pixelmend',version:1,document,blobs})); projectFile=destination;projectAssetId=document.original.id;return true; });
- ipcMain.handle('pixelmend:open-project', async () => { const chosen=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'PixelMend proje',extensions:['pixelmend']}]});if(chosen.canceled)return null;let saved;try{saved=JSON.parse(fs.readFileSync(chosen.filePaths[0],'utf8'))}catch{throw new Error('project_invalid')}if(saved?.format!=='pixelmend'||saved.version!==1||!saved.document||typeof saved.blobs!=='object')throw new Error('project_invalid');const document=structuredClone(saved.document), replacements=new Map();const capabilities=await (await api('/capabilities')).json();const projectBlobLimit=Math.ceil(Math.max(256*1024*1024,(capabilities.policy?.max_output_pixels??200000000)*4+16*1024*1024)/3)*4;const revive=async photo=>{if(!photo?.uri||replacements.has(photo.uri))return replacements.get(photo?.uri);const b64=saved.blobs[photo.uri];if(typeof b64!=='string'||b64.length>projectBlobLimit)throw new Error('project_invalid');const revived=await (async()=>{const form=new FormData();form.append('image',new Blob([Buffer.from(b64,'base64')]),'project.png');const asset=await (await api('/assets',{method:'POST',body:form})).json();await adoptAsset(asset);return {id:asset.asset_id,uri:`pixelmend://asset/${asset.asset_id}`,width:asset.width,height:asset.height}})();replacements.set(photo.uri,revived);return revived};for(const snapshot of [...document.history.past,document.history.present,...document.history.future])snapshot.photo=await revive(snapshot.photo);document.original=await revive(document.original);projectFile=chosen.filePaths[0];projectAssetId=document.original.id;return document; });
+ ipcMain.handle('pixelmend:export-source', async (event, id) => {authorized(event);const release=ownership.pin([id]);try{const bytes=await (await api(`/assets/${id}/export?format=PNG`)).arrayBuffer();return `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;}finally{await release();} });
+ ipcMain.handle('pixelmend:save-project', async (event, document, saveAs) => {
+  authorized(event);if(!validDocument(document))throw new Error('project_invalid');
+  const release=ownership.pin(photosOf(document).map(p=>p.id));
+  try{
+   let destination=!saveAs&&document.original.id===projectAssetId?projectFile:undefined;
+   if(!destination){const chosen=await dialog.showSaveDialog(window,{defaultPath:'PixelMend.pixelmend',filters:[{name:'PixelMend proje',extensions:['pixelmend']}]});if(chosen.canceled)return false;destination=chosen.filePath;}
+   await writeProject(destination,document,async photo=>require('node:stream').Readable.fromWeb((await api(`/assets/${photo.id}/export?format=PNG`)).body));
+   projectFile=destination;projectAssetId=document.original.id;return true;
+  }finally{await release();}
+ });
+ ipcMain.handle('pixelmend:open-project', async event => {
+  authorized(event);const chosen=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'PixelMend proje',extensions:['pixelmend']}]});if(chosen.canceled)return null;
+  const capabilities=await (await api('/capabilities')).json();
+  const document=await readProject(chosen.filePaths[0],async file=>{
+   const form=new FormData();form.append('image',await fs.openAsBlob(file),'project.png');
+   const asset=await adoptAsset(await (await api('/assets',{method:'POST',body:form})).json());
+   return {id:asset.asset_id,uri:asset.preview,width:asset.width,height:asset.height};
+  },id=>ownership.disposeAsset(id),{maxPhotoBytes:Math.max(256*1024**2,(capabilities.policy?.max_output_pixels??200000000)*4+16*1024**2)});
+  projectFile=chosen.filePaths[0];projectAssetId=document.original.id;return document;
+ });
  Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'PixelMend',submenu:[{label:'Ayarlar',accelerator:'Cmd+,',click:()=>mainWindow.webContents.send('pixelmend:action','settings')},{role:'quit'}]},{label:'Düzen',submenu:[{label:'Geri al',accelerator:'Cmd+Z',click:()=>mainWindow.webContents.send('pixelmend:action','undo')},{label:'Yinele',accelerator:'Shift+Cmd+Z',click:()=>mainWindow.webContents.send('pixelmend:action','redo')}]}]));
  await engineReady;
  if(shuttingDown || shutdownComplete || window.isDestroyed()) return;
