@@ -11,7 +11,7 @@ Yeni Mac dağıtımı Intel Mac, Windows veya Linux paketi içermez. RC sürüml
 ön sürümdür; AI çıktısını kaydetmeden önce inceleyin. Eski paketler farklı
 özelliklere ve imza durumuna sahip olabilir.
 
-Homebrew ile Alpha4 kurulumu (Apple Silicon, macOS 15+):
+Homebrew ile Alpha5 kurulumu (Apple Silicon, macOS 15+):
 
 ```sh
 brew install --cask Mahmutakin99/pixelmend/pixelmend
@@ -19,9 +19,18 @@ brew install --cask Mahmutakin99/pixelmend/pixelmend
 
 Paket [PixelMend Homebrew tap](https://github.com/Mahmutakin99/homebrew-pixelmend)
 üzerinden indirilir ve SHA-256 doğrulanır. Homebrew, Developer ID Application
-imzalı ve Apple tarafından notarize edilmiş Alpha4 ZIP'ini kullanır. Önerilen
+imzalı ve Apple tarafından notarize edilmiş Alpha5 ZIP'ini kullanır. Önerilen
 imzalı DMG/ZIP bağlantıları ve mevcut elle kurulumdan Homebrew'a geçiş adımları
-[Alpha4 sürüm notlarındadır](https://github.com/Mahmutakin99/pixelmend/releases/tag/v1.1.0-alpha.4).
+[Alpha5 sürüm notlarındadır](https://github.com/Mahmutakin99/pixelmend/releases/tag/v1.1.0-alpha.5).
+
+Homebrew ile kurulu uygulamayı güncellemek için:
+
+```sh
+brew upgrade --cask Mahmutakin99/pixelmend/pixelmend
+```
+
+Alpha5 eski `.pixelmend` projelerini açar. Yeni kayıtlar v2 biçimindedir ve
+Alpha4 ile açılamaz; eski uygulamada gerekli dosyaların kopyalarını saklayın.
 
 ## İlk kullanım
 
