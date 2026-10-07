@@ -12,6 +12,8 @@ export interface DesktopBridge {
   generativeMemory(request:GenerativeRequest):Promise<GenerativePreflight>;
   generativePreflight(request:GenerativeRequest):Promise<GenerativePreflight>;
   startGenerativeJob(request:GenerativeRequest):Promise<JobSnapshot>;
+  setDocumentAssets(value:{revision:number;assetIds:string[]}):Promise<void>;
+  disposeJob(id:string):Promise<void>;
   disposeAsset(id:string):Promise<void>;
   disposeGenerativeJob(id:string):Promise<void>;
   confirmClose():Promise<void>;

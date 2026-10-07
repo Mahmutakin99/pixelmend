@@ -59,7 +59,7 @@ function App() {
   const gen=useGenerative();
   const [generateOpen,setGenerateOpen]=useState(false),[compareOriginal,setCompareOriginal]=useState(false);
   const pendingGenerated=useRef(false);
-  const appliedGenerativeAssets=useRef(new Set<string>());
+  const documentRevision=useRef(0);
   const hasPreview=!!gen.candidate&&!generateOpen;
   const [doc, setDoc] = useState<EditorDocument>();
   const [tool, setTool] = useState<Tool>("paint"),
@@ -99,8 +99,8 @@ function App() {
   const closeRequest = useRef<() => void>(() => {});
   const p = doc?.history.present;
   useEffect(()=>{
-    const retained=new Set(doc?[doc.original.id,...[...doc.history.past,doc.history.present,...doc.history.future].map(s=>s.photo.id)]:[]);
-    for(const id of appliedGenerativeAssets.current){if(!retained.has(id)){appliedGenerativeAssets.current.delete(id);void window.pixelmend.disposeAsset(id).catch(()=>{});}}
+    const assetIds=[...new Set(doc?[doc.original.id,...[...doc.history.past,doc.history.present,...doc.history.future].map(s=>s.photo.id)]:[])];
+    void window.pixelmend.setDocumentAssets({revision:++documentRevision.current,assetIds}).catch(error=>console.error(error));
   },[doc]);
   useEffect(() => { documentRef.current = doc; }, [doc]);
   const { models, capabilities, error: modelError, refresh } = useModels();
@@ -336,12 +336,13 @@ function App() {
             job.job_id,
             s.result_ids[0],
           );
-          if (!live) return;
+          if (!live) {await window.pixelmend.disposeAsset(next.asset_id);return;}
           setPreview({ uri: next.preview, asset: next, op: job.op });
           setJob(null);
           locked.current = false;
           setNotice(resultNotice(s.result_details?.[0], next.width, next.height));
         } else if (["failed", "cancelled"].includes(s.status)) {
+          await window.pixelmend.disposeJob(job.job_id);
           setJob(null);
           locked.current = false;
           if (s.status === 'cancelled') setNotice('İşlem iptal edildi.');
@@ -361,6 +362,7 @@ function App() {
       } catch (error) {
         if (live) {
           reportError(job.op, error);
+          void window.pixelmend.disposeJob(job.job_id).catch(()=>{});
           setJob(null);
           locked.current = false;
         }
@@ -447,6 +449,7 @@ function App() {
     );
   };
   const saveImage = async () => {
+    let temporaryAsset:string|undefined;
     try {
       const snapshot = documentRef.current;
       if (!snapshot) return false;
@@ -454,7 +457,7 @@ function App() {
       let assetId = snapshot.history.present.photo.id;
       if (snapshot.history.present.paint.length) {
         const rendered = await window.pixelmend.renderAsset({assetId, paintStrokes: snapshot.history.present.paint});
-        assetId = rendered.asset_id;
+        assetId = rendered.asset_id;temporaryAsset=assetId;
       }
       {
         const ok = await window.pixelmend.saveImage({ assetId });
@@ -465,7 +468,7 @@ function App() {
     } catch (error) {
       reportError('save', error);
       return false;
-    }
+    }finally{if(temporaryAsset)await window.pixelmend.disposeAsset(temporaryAsset).catch(()=>{});}
   };
   const leaveHome = () => {
     if(pendingGenerated.current){pendingGenerated.current=false;openGenerated();setShowExit(false);setShowExitSave(false);return;}
@@ -523,8 +526,8 @@ function App() {
   };
   const startGenerative=(request:GenerativeRequest)=>{if(job||starting||preview||active.current)return;void gen.session.start(request);};
   const discardGenerative=()=>{void gen.session.discard().catch(e=>setNotice(String(e)));setCompareOriginal(false);};
-  const acceptEdit=()=>{const candidate=gen.session.take();if(!candidate)return;const a=candidate.asset;appliedGenerativeAssets.current.add(a.asset_id);setDoc(d=>d&&applyGenerativeResult(d,{id:a.asset_id,uri:a.preview,width:a.width,height:a.height},candidate.info));setCompareOriginal(false);setNotice('Yazıyla düzenleme uygulandı.');};
-  const openGenerated=()=>{const candidate=gen.session.take();if(!candidate)return;const a=candidate.asset;appliedGenerativeAssets.current.add(a.asset_id);setDoc(createGeneratedDocument({id:a.asset_id,uri:a.preview,width:a.width,height:a.height},candidate.info));savedFingerprint.current=null;setGenerateOpen(false);setNotice('Üretilen görsel yeni belgede açıldı.');};
+  const acceptEdit=()=>{const candidate=gen.session.take();if(!candidate)return;const a=candidate.asset;setDoc(d=>d&&applyGenerativeResult(d,{id:a.asset_id,uri:a.preview,width:a.width,height:a.height},candidate.info));setCompareOriginal(false);setNotice('Yazıyla düzenleme uygulandı.');};
+  const openGenerated=()=>{const candidate=gen.session.take();if(!candidate)return;const a=candidate.asset;setDoc(createGeneratedDocument({id:a.asset_id,uri:a.preview,width:a.width,height:a.height},candidate.info));savedFingerprint.current=null;setGenerateOpen(false);setNotice('Üretilen görsel yeni belgede açıldı.');};
   const requestGenerated=()=>{if(isDocumentDirty(doc,savedFingerprint.current)){pendingGenerated.current=true;setShowExit(true);}else openGenerated();};
   const generateDialog=generateOpen&&<div className="modal generation-dialog" role="dialog" aria-modal="true" aria-label="Yazıyla Oluştur">
     <button disabled={gen.busy} aria-label="Üretim ekranını kapat" onClick={()=>{discardGenerative();setGenerateOpen(false);}}>Kapat</button>
@@ -833,7 +836,7 @@ function App() {
             <section className="tool-group preview-actions" aria-label="İşlem önizlemesi">
               <strong>İşlem önizlemesi hazır</strong>
               <button onClick={apply}>Uygula</button>
-              <button onClick={() => { setPreview(null); setNotice("Önizleme vazgeçildi. Seçim korunuyor."); }}>Vazgeç</button>
+              <button onClick={() => { void window.pixelmend.disposeAsset(preview.asset.asset_id).catch(()=>{});setPreview(null); setNotice("Önizleme vazgeçildi. Seçim korunuyor."); }}>Vazgeç</button>
             </section>
           )}
         </aside>
