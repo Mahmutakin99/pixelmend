@@ -6,6 +6,7 @@ const {setTimeout:delay} = require('node:timers/promises');
 const {createReport, sanitize} = require('./diagnostic-report.cjs');
 const {runDiagnostics, classifyError} = require('./diagnostic-runner.cjs');
 const {waitForModelPreparation} = require('./model-preparation.cjs');
+const {needsInstallation,installModel}=require('./model-installation.cjs');
 
 async function createDiagnosticHost() {
   let parent = process.env.PIXELMEND_DIAGNOSTIC_OUTPUT || app.getPath('desktop');
@@ -32,7 +33,6 @@ async function createDiagnosticHost() {
   handler('state',()=>sanitize(state));
   handler('cancel',async()=>{
     controller?.abort();state.message='İptal ediliyor; tamamlanan sonuçlar korunuyor…';send();
-    if(activeDownload)await api(`/models/${activeDownload}/cancel`,{method:'POST'});
   });
   async function finish(notes='') {
     if(state.phase!=='done')throw new Error('Test henüz sona ermedi.');
@@ -48,24 +48,9 @@ async function createDiagnosticHost() {
     running=(async()=>{
       try {
         if(options.installMissing) {
-          for(const model of state.models.filter(m=>m.published && m.state!=='ready')) {
+          for(const model of state.models.filter(needsInstallation)){
             if(controller.signal.aborted)break;
-            activeDownload=model.id;const began=Date.now();
-            report.record({id:`install-${model.id}`,name:`${model.name} kurulumu`,status:'running'});
-            try {
-              await api(`/models/${model.id}/install`,{method:'POST'});
-              while(true){
-                if(controller.signal.aborted)await api(`/models/${model.id}/cancel`,{method:'POST'});
-                const current=(await (await api('/models')).json()).models.find(m=>m.id===model.id);
-                onProgress(`${model.name}: ${current.state} · ${Math.round((current.downloaded_bytes||0)/1024**2)} MiB`);
-                if(['ready','error','cancelled'].includes(current.state)){
-                  report.record({id:`install-${model.id}`,name:`${model.name} kurulumu`,status:current.state==='ready'?'passed':current.state==='cancelled'?'cancelled':'failed',detail:current.error?.message});break;
-                }
-                if(Date.now()-began>60*60*1000){await api(`/models/${model.id}/cancel`,{method:'POST'});throw Object.assign(new Error('Kurulum bir saat içinde tamamlanamadı.'),{name:'TimeoutError'});}
-                await delay(500);
-              }
-            }catch(error){report.record({id:`install-${model.id}`,name:`${model.name} kurulumu`,status:classifyError(error),detail:error.message});}
-            finally{activeDownload=undefined;}
+            await installModel({model,api,signal:controller.signal,record:r=>report.record(r),onProgress,setActive:id=>{activeDownload=id;}});
           }
         }
         state.models=(await (await api('/models')).json()).models;
@@ -113,7 +98,7 @@ async function createDiagnosticHost() {
         report.metadata({models:state.models});send();
       }})).models;
       state.device=`${capabilities.accelerator?.identity || os.type()} · ${(capabilities.host_ram_total_bytes/1024**3).toFixed(0)} GB bellek · ${process.arch}`;
-      state.downloadBytes=state.models.filter(m=>m.published && m.state!=='ready').reduce((total,m)=>total+(m.size_bytes||0),0);
+      state.downloadBytes=state.models.filter(needsInstallation).reduce((total,m)=>total+(m.size_bytes||0),0);
       state.phase='ready';state.message='Testi başlatabilirsiniz. Süre, modellerinize ve bilgisayarınıza bağlıdır.';send();
       await delay(200);
       report.artifact('gorseller/test-window.png',(await window.webContents.capturePage()).toPNG());
