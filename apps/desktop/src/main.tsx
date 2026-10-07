@@ -12,7 +12,7 @@ import {
   type EditorDocument,
   type Stroke,
 } from "./document";
-import { drawStroke, drawStrokeSegment, drawStrokeStart } from "./brush";
+import { drawStroke, drawStrokeSegment, drawStrokeStart, previewBrush } from "./brush";
 import { imagePoint } from "./strokes";
 import { boundedPan, wheelZoom } from "./zoom";
 import { fitDimension, preserveDimensions, targetIsValid, type Dimensions } from "./upscale";
@@ -299,14 +299,15 @@ function App() {
       const a = active.current,
         z = a.stroke.points,
         from = z[z.length - 1],
-        to = { x: q[0], y: q[1] };
+        to = { x: q[0], y: q[1] },
+        scale = previewSize(p.photo.width, p.photo.height).scale;
       z.push(to);
       drawStrokeSegment(
         (a.target === "paint" ? paint : mask).current!.getContext("2d")!,
-        previewStroke(a.stroke, previewSize(p.photo.width, p.photo.height).scale),
+        previewBrush(a.stroke, scale),
         a.target,
-        {x: from.x * previewSize(p.photo.width, p.photo.height).scale, y: from.y * previewSize(p.photo.width, p.photo.height).scale},
-        {x: to.x * previewSize(p.photo.width, p.photo.height).scale, y: to.y * previewSize(p.photo.width, p.photo.height).scale},
+        {x: from.x * scale, y: from.y * scale},
+        {x: to.x * scale, y: to.y * scale},
       );
       setCursorPreview(cursorAt(e));
     } else if (e.type === 'pointermove') {

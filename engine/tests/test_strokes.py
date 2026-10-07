@@ -38,3 +38,22 @@ def test_strokes_at_the_final_addressable_pixel_are_accepted():
 def test_strokes_reject_untrusted_coordinates_and_style(bad):
     with pytest.raises(StrokeValidationError):
         rasterize_selection([bad], 16, 16)
+
+
+def test_translucent_strokes_use_canvas_source_over():
+    image=np.full((16,16,3),255,np.uint8)
+    painted=render_paint(image,[stroke(color='#ff0000',opacity=.5),stroke(color='#0000ff',opacity=.5)])
+    assert np.max(np.abs(painted[8,8].astype(int)-[128,64,191])) <= 1
+
+
+def test_each_segment_accumulates_opacity_like_canvas_live_and_replay():
+    image=np.full((16,16,3),255,np.uint8)
+    painted=render_paint(image,[stroke(opacity=.5,points=[{'x':4,'y':8},{'x':12,'y':8},{'x':4,'y':8}])])
+    assert np.max(np.abs(painted[8,8].astype(int)-[255,64,64])) <= 1
+
+
+def test_zero_length_segment_does_not_add_opacity():
+    image=np.full((16,16,3),255,np.uint8)
+    a=render_paint(image,[stroke(opacity=.5)])
+    b=render_paint(image,[stroke(opacity=.5,points=[{'x':8,'y':8},{'x':8,'y':8}])])
+    np.testing.assert_array_equal(a,b)

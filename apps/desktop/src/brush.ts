@@ -2,6 +2,10 @@ import type { Point, Stroke } from './document';
 
 type Layer = 'paint' | 'selection';
 
+export function previewBrush(stroke:Stroke,scale:number):Stroke {
+  return {...stroke,size:stroke.size*scale};
+}
+
 function configure(context: CanvasRenderingContext2D, stroke: Stroke, layer: Layer) {
   context.globalCompositeOperation = stroke.mode === 'erase' ? 'destination-out' : 'source-over';
   context.globalAlpha = stroke.mode === 'erase' || layer === 'selection' ? 1 : stroke.opacity;

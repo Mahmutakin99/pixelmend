@@ -53,28 +53,35 @@ def validate_strokes(strokes, width: int, height: int) -> list[dict]:
 
 
 def _draw(layer: Image.Image, strokes: list[dict]) -> None:
-    """Apply round-capped strokes on an overlay so erasing never changes source pixels."""
+    """Canvas semantics: one initial dab, then source-over round-capped segments."""
     for stroke in strokes:
         points, radius = stroke['points'], stroke['size'] / 2
-        if stroke['mode'] == 'erase':
-            # Pillow does not implement destination-out for ImageDraw. Draw a
-            # native-size mask then clear only the editable overlay's alpha.
-            erase = Image.new('L', layer.size, 0)
-            draw = ImageDraw.Draw(erase)
-            fill = 255
-        else:
-            draw = ImageDraw.Draw(layer)
-            rgb = tuple(bytes.fromhex(stroke['color'][1:]))
-            fill = (*rgb, round(255 * stroke['opacity']))
-        # ImageDraw's RGBA mode overwrites pixels, matching an editable paint layer.
-        if len(points) > 1:
-            draw.line(points, fill=fill, width=max(1, round(stroke['size'])), joint='curve')
-        for x, y in (points[0], points[-1]):
-            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
-        if stroke['mode'] == 'erase':
-            alpha = np.asarray(layer.getchannel('A')).copy()
-            alpha[np.asarray(erase) > 0] = 0
-            layer.putalpha(Image.fromarray(alpha))
+        rgb = tuple(bytes.fromhex(stroke['color'][1:]))
+        primitives = [(points[0], points[0])]
+        primitives.extend((a,b) for a,b in zip(points,points[1:]) if a != b)
+        for a,b in primitives:
+            x0=max(0,math.floor(min(a[0],b[0])-radius-1)); y0=max(0,math.floor(min(a[1],b[1])-radius-1))
+            x1=min(layer.width,math.ceil(max(a[0],b[0])+radius+1)); y1=min(layer.height,math.ceil(max(a[1],b[1])+radius+1))
+            if x1<=x0 or y1<=y0:continue
+            box=(x0,y0,x1,y1); factor=4
+            coverage=Image.new('L',((x1-x0)*factor,(y1-y0)*factor),0)
+            draw=ImageDraw.Draw(coverage)
+            ends=[((x-x0)*factor,(y-y0)*factor) for x,y in (a,b)]
+            r=radius*factor
+            if a!=b:draw.line(ends,fill=255,width=max(1,round(stroke['size']*factor)))
+            for x,y in ends[:1] if a==b else ends:
+                draw.ellipse((x-r,y-r,x+r,y+r),fill=255)
+            coverage=coverage.resize((x1-x0,y1-y0),Image.Resampling.BOX)
+            patch=layer.crop(box)
+            if stroke['mode']=='erase':
+                alpha=np.asarray(patch.getchannel('A')).astype(np.uint16)
+                remain=255-np.asarray(coverage).astype(np.uint16)
+                patch.putalpha(Image.fromarray(((alpha*remain+127)//255).astype(np.uint8)))
+            else:
+                alpha=np.rint(np.asarray(coverage)*stroke['opacity']).astype(np.uint8)
+                overlay=Image.new('RGBA',patch.size,(*rgb,0));overlay.putalpha(Image.fromarray(alpha))
+                patch=Image.alpha_composite(patch,overlay)
+            layer.paste(patch,box)
 
 
 def rasterize_selection(strokes, width: int, height: int) -> np.ndarray:
@@ -96,5 +103,9 @@ def render_paint(rgb: np.ndarray, strokes) -> np.ndarray:
     height, width = rgb.shape[:2]
     layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     _draw(layer, validate_strokes(strokes, width, height))
-    base = Image.fromarray(rgb, 'RGB').convert('RGBA')
-    return np.asarray(Image.alpha_composite(base, layer).convert('RGB')).copy()
+    output = rgb.copy()
+    for top in range(0,height,256):
+        bottom=min(height,top+256)
+        base=Image.fromarray(rgb[top:bottom]).convert('RGBA')
+        output[top:bottom]=np.asarray(Image.alpha_composite(base,layer.crop((0,top,width,bottom))).convert('RGB'))
+    return output
