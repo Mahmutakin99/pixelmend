@@ -18,11 +18,10 @@ brew install --cask Mahmutakin99/pixelmend/pixelmend
 ```
 
 Paket [PixelMend Homebrew tap](https://github.com/Mahmutakin99/homebrew-pixelmend)
-üzerinden indirilir ve SHA-256 doğrulanır. Mevcut Alpha4 yerel ad-hoc imzalıdır;
-Developer ID imzası ve Apple notarizasyonu henüz yoktur. Güncel imza durumunu
-ve mevcut elle kurulumdan Homebrew'a geçiş adımlarını
-[Alpha4 sürüm notlarında](https://github.com/Mahmutakin99/pixelmend/releases/tag/v1.1.0-alpha.4)
-inceleyin.
+üzerinden indirilir ve SHA-256 doğrulanır. Homebrew, Developer ID Application
+imzalı ve Apple tarafından notarize edilmiş Alpha4 ZIP'ini kullanır. Önerilen
+imzalı DMG/ZIP bağlantıları ve mevcut elle kurulumdan Homebrew'a geçiş adımları
+[Alpha4 sürüm notlarındadır](https://github.com/Mahmutakin99/pixelmend/releases/tag/v1.1.0-alpha.4).
 
 ## İlk kullanım
 
