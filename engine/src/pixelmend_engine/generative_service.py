@@ -15,7 +15,7 @@ from PIL import Image
 import psutil
 
 from .capabilities import generative_capabilities, _mac_sysctl
-from .generative_edit import prepare_edit,composite_edit
+from .generative_edit import validate_edit, prepare_edit,composite_edit
 from .generative_image_pipeline import run_image_pipeline
 from .generative_process import RuntimeErrorCode,validate_output
 from .generative_memory import MemoryGate,memory_pressure,should_wait
@@ -157,7 +157,7 @@ class GenerativeService:
             try:
                 validate_strokes(request.selection_strokes,source.width,source.height)
                 validate_strokes(request.paint_strokes,source.width,source.height)
-                prepare_edit(source,request.selection_strokes,request.paint_strokes,request.profile)
+                validate_edit(source,request.selection_strokes,request.paint_strokes,request.profile)
             except StrokeValidationError:return reject('selection_invalid')
             except RuntimeErrorCode as error:return reject(error.code)
         report['ready']=True

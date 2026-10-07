@@ -39,10 +39,13 @@ class MemoryGate:
         self.clock = clock
         self.sleep = wait
 
-    def wait(self, cancel, on_event, *, minimum_available=MIN_AVAILABLE, force_recovery=False):
+    def wait(self, cancel, on_event, *, minimum_available=MIN_AVAILABLE, force_recovery=False, deadline=None):
         recovering = False
         stable_since = None
         while True:
+            if deadline is not None and self.clock() >= deadline:
+                from .generative_process import RuntimeErrorCode
+                raise RuntimeErrorCode('timeout')
             if cancel.is_set():
                 raise InterruptedError()
             blocked = should_wait(self.resources(), minimum_available)
@@ -57,5 +60,6 @@ class MemoryGate:
                 stable_since = self.clock()
             elif self.clock() - stable_since >= 10:
                 return
-            if (self.sleep or cancel.wait)(2):
+            interval=2 if deadline is None else min(2,max(0,deadline-self.clock()))
+            if (self.sleep or cancel.wait)(interval):
                 raise InterruptedError()

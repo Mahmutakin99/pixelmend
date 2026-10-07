@@ -35,7 +35,7 @@ class EditPlan:
                 'surrounding scene, other objects, camera perspective and lighting.')
 
 
-def prepare_edit(source,selection_strokes,paint_strokes,profile):
+def _edit_geometry(source,selection_strokes,paint_strokes,profile):
     if profile not in {'low-resource','balanced'}:raise RuntimeErrorCode('output_invalid')
     try:
         validate_strokes(paint_strokes,source.width,source.height)
@@ -56,12 +56,24 @@ def prepare_edit(source,selection_strokes,paint_strokes,profile):
     width,height=max(1,round(crop_width*factor)),max(1,round(crop_height*factor))
     if (x1-x0)*width/crop_width<32 or (y1-y0)*height/crop_height<32:
         raise RuntimeErrorCode('selection_too_small')
-    rgb=render_paint(source.rgb,paint_strokes) if paint_strokes else source.rgb
     left,top=(side-width)//2,(side-height)//2
+    return mask,(x0,y0,x1,y1),(cx0,cy0,cx1,cy1),(left,top,width,height),side
+
+
+def validate_edit(source,selection_strokes,paint_strokes,profile):
+    """Validate exact mask geometry without rendering, resizing or copying source RGB."""
+    _edit_geometry(source,selection_strokes,paint_strokes,profile)
+
+
+def prepare_edit(source,selection_strokes,paint_strokes,profile):
+    mask,selection_box,crop_box,scaled_box,side=_edit_geometry(source,selection_strokes,paint_strokes,profile)
+    cx0,cy0,cx1,cy1=crop_box
+    left,top,width,height=scaled_box
+    rgb=render_paint(source.rgb,paint_strokes) if paint_strokes else source.rgb
     crop=np.asarray(Image.fromarray(rgb[cy0:cy1,cx0:cx1]).resize((width,height),Image.Resampling.LANCZOS))
     padded=np.pad(crop,((top,side-height-top),(left,side-width-left),(0,0)),mode='reflect')
     working=replace(source,rgb=rgb)
-    return EditPlan(working,mask,(x0,y0,x1,y1),(cx0,cy0,cx1,cy1),(left,top,width,height),padded)
+    return EditPlan(working,mask,selection_box,crop_box,scaled_box,padded)
 
 
 def composite_edit(plan,generated_rgb):

@@ -314,3 +314,23 @@ def test_shipped_balanced_profile_is_enabled_by_owner_with_live_memory_guard(tmp
     host['hardware_class']='unknown'
     assert service.preflight(request)['reason']['code']=='profile_not_accepted'
     assert owner.requests==[]
+
+
+def test_edit_preflights_never_render_paint_before_memory_gate(tmp_path,monkeypatch):
+    import pixelmend_engine.generative_edit as edit
+    service,manager,owner,assets,host,coordinator=fixtures(tmp_path)
+    raw=BytesIO();Image.new('RGB',(400,400),'white').save(raw,format='PNG');id=assets.import_image(raw).asset_id
+    stroke={'mode':'draw','points':[{'x':200,'y':200}],'size':160,'opacity':.5,'color':'#ff0000','hardness':1}
+    request=GenerativeRequest.parse({'operation':'text_edit','asset_id':id,'prompt':'Add a cat.','prompt_language':'en','profile':'low-resource','seed':7,'selection_strokes':[stroke],'paint_strokes':[stroke]})
+    calls=[];original=edit.render_paint
+    monkeypatch.setattr(edit,'render_paint',lambda *args:calls.append('paint') or original(*args))
+    host['memory_pressure']='critical'
+    assert service.preflight(request)['ready']
+    service.ensure_ready(request)
+    assert calls==[]
+    host['memory_pressure']='normal'
+    cancel=threading.Event();reservations=service.reserve(request)
+    try:service.execute(request,reservations,cancel,lambda _:None)
+    finally:
+        for r in reservations:r.release()
+    assert calls==['paint']

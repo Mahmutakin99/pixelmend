@@ -163,3 +163,38 @@ def test_native_null_metadata_is_accepted_but_content_metadata_is_rejected(tmp_p
     if metadata is None:assert validate_latents(tmp_path,(512,512))==hashlib.sha256(file.read_bytes()).hexdigest()
     else:
         with pytest.raises(RuntimeErrorCode):validate_latents(tmp_path,(512,512))
+
+
+def test_repeated_oom_waits_for_actual_improvement_instead_of_relaunching(tmp_path):
+    from pixelmend_engine.generative_memory import MemoryGate
+    tmp_path.chmod(0o700);cancel=threading.Event();calls=[];now=[0.]
+    def sleep(seconds):
+        now[0]+=seconds
+        if now[0]>=60:cancel.set()
+        return cancel.is_set()
+    gate=MemoryGate(lambda:{'available_memory_bytes':4*1024**3,'memory_pressure':'normal'},clock=lambda:now[0],wait=sleep)
+    class Owner:
+        active_pid=None
+        def run(self,r,c,event,timeout):
+            calls.append(r['image_phase']);raise RuntimeErrorCode('memory_exhausted')
+    with pytest.raises(InterruptedError):run_image_pipeline(Owner(),request(tmp_path),cancel,lambda _:None,timeout=None,memory_gate=gate)
+    assert calls==['denoise','denoise']
+
+
+def test_oom_can_resume_after_memory_improves(tmp_path):
+    from pixelmend_engine.generative_memory import MemoryGate
+    tmp_path.chmod(0o700);cancel=threading.Event();calls=[];now=[0.]
+    def sleep(seconds):
+        now[0]+=seconds
+        if now[0]>120:raise AssertionError('did not resume')
+        return False
+    gate=MemoryGate(lambda:{'available_memory_bytes':(4*1024**3 if now[0]<30 else 5*1024**3),'memory_pressure':'normal'},clock=lambda:now[0],wait=sleep)
+    class Owner:
+        active_pid=None
+        def run(self,r,c,event,timeout):
+            calls.append(r['image_phase'])
+            if len(calls)<=2:raise RuntimeErrorCode('memory_exhausted')
+            if r['image_phase']=='denoise':write_latents(tmp_path)
+            return {'image_phase':r['image_phase'],'seed':7,'width':512,'height':512,'versions':{},'child_wall_seconds':1,'stage_seconds':{}}
+    run_image_pipeline(Owner(),request(tmp_path),cancel,lambda _:None,timeout=None,memory_gate=gate)
+    assert calls==['denoise','denoise','denoise','decode'] and now[0]>=40
