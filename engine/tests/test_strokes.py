@@ -57,3 +57,26 @@ def test_zero_length_segment_does_not_add_opacity():
     a=render_paint(image,[stroke(opacity=.5)])
     b=render_paint(image,[stroke(opacity=.5,points=[{'x':8,'y':8},{'x':8,'y':8}])])
     np.testing.assert_array_equal(a,b)
+
+
+def test_long_diagonal_uses_bounded_supersampling_tiles(monkeypatch):
+    from PIL import Image
+    import pixelmend_engine.strokes as module
+    original=Image.new
+    def guarded(mode,size,*args,**kwargs):
+        if mode=='L':assert max(size)<=1024, 'unbounded supersampled coverage'
+        return original(mode,size,*args,**kwargs)
+    monkeypatch.setattr(Image,'new',guarded)
+    layer=original('RGBA',(900,900),(0,0,0,0))
+    commands=module.validate_strokes([stroke(points=[{'x':0,'y':0},{'x':899,'y':899}])],900,900)
+    module._draw(layer,commands)
+    assert layer.getpixel((450,450))[3]==255
+
+
+def test_continuation_chunk_does_not_add_an_extra_dab():
+    image=np.full((16,16,3),255,np.uint8)
+    points=[{'x':4,'y':8},{'x':8,'y':8},{'x':12,'y':8}]
+    whole=render_paint(image,[stroke(points=points,opacity=.5)])
+    tail=stroke(points=points[1:],opacity=.5);tail['continuation']=True
+    chunks=render_paint(image,[stroke(points=points[:2],opacity=.5),tail])
+    np.testing.assert_array_equal(whole,chunks)

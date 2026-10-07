@@ -39,6 +39,6 @@ export function drawStrokeSegment(context: CanvasRenderingContext2D, stroke: Str
 }
 
 export function drawStroke(context: CanvasRenderingContext2D, stroke: Stroke, layer: Layer) {
-  drawStrokeStart(context, stroke, layer);
+  if(!stroke.continuation)drawStrokeStart(context, stroke, layer);
   for (let index = 1; index < stroke.points.length; index++) drawStrokeSegment(context, stroke, layer, stroke.points[index - 1], stroke.points[index]);
 }

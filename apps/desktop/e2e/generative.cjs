@@ -2,6 +2,8 @@
 // profile. Never downloads models or rewrites the production profile catalog.
 const {_electron:electron,expect}=require('@playwright/test');
 const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
+const {readProject}=require('../electron/project-codec.cjs');
+async function readSaved(file){const bytes=await fs.readFile(file);assert.equal(bytes.readUInt32LE(),0x04034b50);let index=0;return {version:2,document:await readProject(file,async(_file,p)=>({id:(++index).toString(16).padStart(32,'0'),uri:`pixelmend://asset/${index.toString(16).padStart(32,'0')}`,width:p.width,height:p.height}),async()=>{})};}
 (async()=>{
  const output=path.resolve(process.env.PIXELMEND_E2E_OUTPUT||'test-results/generative');await fs.mkdir(output,{recursive:true});
  const temp=await fs.mkdtemp(path.join(os.tmpdir(),'pixelmend-generative-ui-'));
@@ -34,7 +36,7 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   await page.getByRole('button',{name:'Geri al',exact:true}).click();expect(await page.locator('.canvas img').getAttribute('src')).toBe(original);
   await page.getByRole('button',{name:'Yinele',exact:true}).click();expect(await page.locator('.canvas img').getAttribute('src')).toBe(applied);
   await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Projeyi kaydet (.pixelmend)',exact:true}).click();
-  await expect.poll(()=>fs.stat(project).then(s=>s.size).catch(()=>0)).toBeGreaterThan(100);const saved=JSON.parse(await fs.readFile(project,'utf8'));assert.equal(saved.version,1);assert.equal(saved.document.history.present.generation.operation,'text_edit');const originalProjectBytes=await fs.readFile(project);
+  await expect.poll(()=>fs.stat(project).then(s=>s.size).catch(()=>0)).toBeGreaterThan(100);const saved=await readSaved(project);assert.equal(saved.version,2);assert.equal(saved.document.history.present.generation.operation,'text_edit');const originalProjectBytes=await fs.readFile(project);
   await page.getByRole('button',{name:'Çizim',exact:true}).click();await page.mouse.click(rect.x+rect.width*.2,rect.y+rect.height*.2);
   await page.getByRole('button',{name:'Yazıyla Oluştur',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Yazıyla Oluştur',exact:true});
   await dialog.getByLabel('Komut',{exact:true}).fill('Yağmurlu bir sokakta yürüyen beyaz bir kedi.');
@@ -49,7 +51,7 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Projeyi kaydet (.pixelmend)',exact:true}).click();
   await expect.poll(()=>fs.stat(generatedProject).then(s=>s.size).catch(()=>0)).toBeGreaterThan(100);
   assert((await fs.readFile(project)).equals(originalProjectBytes),'generated document must preserve the prior project bytes');
-  assert.equal(JSON.parse(await fs.readFile(generatedProject,'utf8')).document.history.present.generation.operation,'text_to_image');
+  assert.equal((await readSaved(generatedProject)).document.history.present.generation.operation,'text_to_image');
   await page.getByRole('button',{name:'Kaydet',exact:true}).click();await page.getByRole('button',{name:'Görsel olarak kaydet (PNG)',exact:true}).click();await expect.poll(()=>fs.stat(png).then(s=>s.size).catch(()=>0)).toBeGreaterThan(1000);
   await page.getByRole('button',{name:'Başlangıç',exact:true}).click();await app.evaluate(({dialog},project)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[project]});},project);await page.getByRole('button',{name:'Proje Aç',exact:true}).click();await expect(page.locator('.canvas img')).toBeVisible();await expect.poll(()=>page.locator('.canvas img').evaluate(img=>[img.naturalWidth,img.naturalHeight])).toEqual([600,400]);
   assert.deepEqual(errors,[]);await fs.writeFile(path.join(output,'result.json'),JSON.stringify({passed:true,cancelUiMilliseconds,interactiveMilliseconds,profileAcceptanceBypass:process.env.PIXELMEND_NATIVE_MEASUREMENT==='1'}));

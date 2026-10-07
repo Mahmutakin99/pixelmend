@@ -72,3 +72,11 @@ describe('generative document history',()=>{
   expect(()=>parseDocument({...fresh,history:{...fresh.history,present:{...fresh.history.present,generation:{...info,seed:-1}}}})).toThrow();
  });
 });
+
+it('commits an 8193-point gesture in one undo step without repeating the initial dab',()=>{
+ const input={...stroke,points:Array.from({length:8193},(_,i)=>({x:i%90,y:20}))};
+ const doc=addStroke(createDocument(photo),'paint',input),chunks=doc.history.present.paint;
+ expect(chunks.length).toBe(2);expect(chunks.every(s=>s.points.length<=8192)).toBe(true);
+ expect(chunks[1].continuation).toBe(true);expect(chunks[1].points[0]).toEqual(chunks[0].points.at(-1));
+ expect(doc.history.past).toHaveLength(1);expect(parseDocument(doc)).toEqual(doc);expect(undo(doc).history.present.paint).toEqual([]);
+});

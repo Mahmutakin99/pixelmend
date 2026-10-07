@@ -1,6 +1,6 @@
 export type BlobRef = { id: string; uri: string; width: number; height: number };
 export type Point = { x: number; y: number };
-export type Stroke = { id: string; mode: 'draw' | 'erase'; points: Point[]; color: string; opacity: number; size: number; hardness: number };
+export type Stroke = { id: string; mode: 'draw' | 'erase'; points: Point[]; color: string; opacity: number; size: number; hardness: number; continuation?:boolean };
 export type Snapshot = { photo: BlobRef; paint: Stroke[]; selection: Stroke[]; label: string; generation?:GenerationInfo };
 export type EditorDocument = { version: 1; original: BlobRef; history: { past: Snapshot[]; present: Snapshot; future: Snapshot[] } };
 
@@ -23,8 +23,18 @@ export function createGeneratedDocument(photo:BlobRef,generation:GenerationInfo)
   const document=createDocument(photo);return {...document,history:{...document.history,present:{...document.history.present,generation:structuredClone(generation),label:'text_to_image'}}};
 }
 export function addStroke(document: EditorDocument, target: 'paint' | 'selection', stroke: Stroke): EditorDocument {
-  if (!validStroke(stroke,document.history.present.photo.width,document.history.present.photo.height)) throw new Error('project_invalid');
-  const present = {...document.history.present,[target]:[...document.history.present[target],structuredClone(stroke)],label:target === 'paint' ? 'paint' : 'selection'};
+  const chunks:Stroke[]=[];
+  if(!Array.isArray(stroke?.points)||!stroke.points.length)throw new Error('project_invalid');
+  for(let offset=0;offset<stroke.points.length;){
+    const end=Math.min(offset+8192,stroke.points.length);
+    const chunk={...stroke,id:offset?`${stroke.id}:${offset}`:stroke.id,points:stroke.points.slice(offset,end),...(offset?{continuation:true}:{})};
+    if(!validStroke(chunk,document.history.present.photo.width,document.history.present.photo.height))throw new Error('project_invalid');
+    chunks.push(structuredClone(chunk));if(end===stroke.points.length)break;offset=end-1;
+  }
+  const layer=[...document.history.present[target],...chunks];
+  if(layer.length>2048||layer.reduce((n,s)=>n+s.points.length,0)>250000)throw new Error('project_invalid');
+  const present={...document.history.present,[target]:layer,label:target==='paint'?'paint':'selection'};
+
   return commit(document, present);
 }
 export function applyResult(document: EditorDocument, photo: BlobRef, operation: 'remove' | 'upscale'): EditorDocument {

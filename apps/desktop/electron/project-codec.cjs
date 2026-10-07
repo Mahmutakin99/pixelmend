@@ -16,23 +16,24 @@ function packDocument(doc){
  return {manifest:{format:'pixelmend',version:2,photos,strokes,document},originals};
 }
 async function writeProject(file,doc,exportPhoto){
- const {manifest,originals}=packDocument(doc),zip=new yazl.ZipFile(),active=new Set();
+ const {manifest,originals}=packDocument(doc),zip=new yazl.ZipFile(),active=new Set(),controller=new AbortController();let closed=false;
  zip.on('error',error=>zip.outputStream.destroy(error));
  for(const [key,p]of originals){
   zip.addReadStreamLazy(manifest.photos[key].entry,{compress:false},callback=>{
-   Promise.resolve().then(()=>exportPhoto(p)).then(source=>{
+   Promise.resolve().then(()=>exportPhoto(p,{signal:controller.signal})).then(source=>{
+    if(closed){source.destroy();return;}
     let bytes=0;const digest=crypto.createHash('sha256');
     const hash=new Transform({transform(chunk,_encoding,next){bytes+=chunk.length;digest.update(chunk);next(null,chunk);},flush(next){manifest.photos[key].size_bytes=bytes;manifest.photos[key].sha256=digest.digest('hex');next();}});
     active.add(source);active.add(hash);hash.on('error',error=>zip.emit('error',error));source.on('error',error=>hash.destroy(error));hash.once('end',()=>{active.delete(source);active.delete(hash);});
     source.pipe(hash);callback(null,hash);
-   },callback);
+   },error=>{if(!closed)callback(error);});
   });
  }
  zip.addReadStreamLazy('manifest.json',{},callback=>{
   try{const data=Buffer.from(JSON.stringify(manifest));if(data.length>MAX_MANIFEST)throw invalid();callback(null,Readable.from([data]));}catch(error){callback(error);}
  });
  zip.end({forceZip64Format:true});
- try{await writeStreamAtomic(file,zip.outputStream);}finally{for(const stream of active)stream.destroy();zip.outputStream.destroy();}
+ try{await writeStreamAtomic(file,zip.outputStream);}finally{closed=true;controller.abort();for(const stream of active)stream.destroy();zip.outputStream.destroy();}
 }
 const openZip=file=>new Promise((resolve,reject)=>yauzl.open(file,{lazyEntries:true,autoClose:false,validateEntrySizes:true,strictFileNames:true},(error,zip)=>error?reject(error):resolve(zip)));
 const entryStream=(zip,entry)=>new Promise((resolve,reject)=>zip.openReadStream(entry,(error,stream)=>error?reject(error):resolve(stream)));

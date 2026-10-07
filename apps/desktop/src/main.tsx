@@ -319,9 +319,10 @@ function App() {
       const a = active.current;
       active.current = null;
       setCursorPreview(cursorAt(e));
-      if (e.type === "pointerup")
-        setDoc((d) => d && addStroke(d, a.target, a.stroke));
-      else redraw();
+      if(e.type === "pointerup"){
+        try{const current=documentRef.current;if(current)setDoc(addStroke(current,a.target,a.stroke));}
+        catch(error){redraw();reportError('render',error);}
+      }else redraw();
     }
   };
   useEffect(() => {

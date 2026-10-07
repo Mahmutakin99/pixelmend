@@ -34,6 +34,8 @@ def validate_strokes(strokes, width: int, height: int) -> list[dict]:
                 or opacity <= 0 or opacity > 1 or not isinstance(size, (int, float))
                 or not math.isfinite(size) or size <= 0):
             raise StrokeValidationError('invalid stroke style')
+        continuation=stroke.get('continuation',False)
+        if not isinstance(continuation,bool):raise StrokeValidationError('invalid stroke continuation')
         normalized = []
         for point in points:
             if not isinstance(point, dict):
@@ -48,40 +50,59 @@ def validate_strokes(strokes, width: int, height: int) -> list[dict]:
         if total > MAX_POINTS:
             raise StrokeValidationError('too many stroke points')
         copied.append({'mode': stroke['mode'], 'points': normalized, 'color': color,
-                       'opacity': float(opacity), 'size': float(size)})
+                       'opacity': float(opacity), 'size': float(size), 'continuation':continuation})
     return copied
 
 
+def _intersects_tile(a,b,box,radius):
+    """Conservative segment/expanded-rectangle test; avoids empty diagonal tiles."""
+    low,high=0.,1.
+    for start,end,left,right in ((a[0],b[0],box[0]-radius-1,box[2]+radius+1),
+                                (a[1],b[1],box[1]-radius-1,box[3]+radius+1)):
+        delta=end-start
+        if delta==0:
+            if not left<=start<=right:return False
+        else:
+            near,far=sorted(((left-start)/delta,(right-start)/delta))
+            low=max(low,near);high=min(high,far)
+            if low>high:return False
+    return True
+
+
 def _draw(layer: Image.Image, strokes: list[dict]) -> None:
-    """Canvas semantics: one initial dab, then source-over round-capped segments."""
+    """Canvas dab/segment order, with bounded antialiased coverage tiles."""
     for stroke in strokes:
         points, radius = stroke['points'], stroke['size'] / 2
         rgb = tuple(bytes.fromhex(stroke['color'][1:]))
-        primitives = [(points[0], points[0])]
+        primitives=[] if stroke.get('continuation') else [(points[0],points[0])]
         primitives.extend((a,b) for a,b in zip(points,points[1:]) if a != b)
         for a,b in primitives:
-            x0=max(0,math.floor(min(a[0],b[0])-radius-1)); y0=max(0,math.floor(min(a[1],b[1])-radius-1))
-            x1=min(layer.width,math.ceil(max(a[0],b[0])+radius+1)); y1=min(layer.height,math.ceil(max(a[1],b[1])+radius+1))
-            if x1<=x0 or y1<=y0:continue
-            box=(x0,y0,x1,y1); factor=4
-            coverage=Image.new('L',((x1-x0)*factor,(y1-y0)*factor),0)
-            draw=ImageDraw.Draw(coverage)
-            ends=[((x-x0)*factor,(y-y0)*factor) for x,y in (a,b)]
-            r=radius*factor
-            if a!=b:draw.line(ends,fill=255,width=max(1,round(stroke['size']*factor)))
-            for x,y in ends[:1] if a==b else ends:
-                draw.ellipse((x-r,y-r,x+r,y+r),fill=255)
-            coverage=coverage.resize((x1-x0,y1-y0),Image.Resampling.BOX)
-            patch=layer.crop(box)
-            if stroke['mode']=='erase':
-                alpha=np.asarray(patch.getchannel('A')).astype(np.uint16)
-                remain=255-np.asarray(coverage).astype(np.uint16)
-                patch.putalpha(Image.fromarray(((alpha*remain+127)//255).astype(np.uint8)))
-            else:
-                alpha=np.rint(np.asarray(coverage)*stroke['opacity']).astype(np.uint8)
-                overlay=Image.new('RGBA',patch.size,(*rgb,0));overlay.putalpha(Image.fromarray(alpha))
-                patch=Image.alpha_composite(patch,overlay)
-            layer.paste(patch,box)
+            left=max(0,math.floor(min(a[0],b[0])-radius-1)); top=max(0,math.floor(min(a[1],b[1])-radius-1))
+            right=min(layer.width,math.ceil(max(a[0],b[0])+radius+1)); bottom=min(layer.height,math.ceil(max(a[1],b[1])+radius+1))
+            for y0 in range(top,bottom,256):
+                for x0 in range(left,right,256):
+                    x1=min(right,x0+256);y1=min(bottom,y0+256);box=(x0,y0,x1,y1)
+                    if not _intersects_tile(a,b,box,radius):continue
+                    factor=4;size=(x1-x0,y1-y0)
+                    full=any(all(math.hypot(x-point[0],y-point[1])<=radius for x,y in ((x0,y0),(x1,y0),(x0,y1),(x1,y1))) for point in (a,b))
+                    if full:coverage=Image.new('L',size,255)
+                    else:
+                        coverage=Image.new('L',(size[0]*factor,size[1]*factor),0)
+                        draw=ImageDraw.Draw(coverage)
+                        ends=[((x-x0)*factor,(y-y0)*factor) for x,y in (a,b)];r=radius*factor
+                        if a!=b:draw.line(ends,fill=255,width=max(1,round(stroke['size']*factor)))
+                        for x,y in ends[:1] if a==b else ends:draw.ellipse((x-r,y-r,x+r,y+r),fill=255)
+                        coverage=coverage.resize(size,Image.Resampling.BOX)
+                    patch=layer.crop(box)
+                    if stroke['mode']=='erase':
+                        alpha=np.asarray(patch.getchannel('A')).astype(np.uint16)
+                        remain=255-np.asarray(coverage).astype(np.uint16)
+                        patch.putalpha(Image.fromarray(((alpha*remain+127)//255).astype(np.uint8)))
+                    else:
+                        alpha=np.rint(np.asarray(coverage)*stroke['opacity']).astype(np.uint8)
+                        overlay=Image.new('RGBA',size,(*rgb,0));overlay.putalpha(Image.fromarray(alpha))
+                        patch=Image.alpha_composite(patch,overlay)
+                    layer.paste(patch,box)
 
 
 def rasterize_selection(strokes, width: int, height: int) -> np.ndarray:

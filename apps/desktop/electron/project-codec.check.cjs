@@ -30,3 +30,13 @@ test('failed project export preserves previous file and failed import releases p
   await assert.rejects(readProject(file,async()=>{if(++imports===2)throw new Error('import failed');return b;},async id=>released.push(id)),/import failed/);assert.deepEqual(released,[b.id]);
  }finally{await fs.rm(folder,{recursive:true,force:true});}
 });
+
+test('a failed write aborts pending exports and destroys a late source',async()=>{
+ const {writeProject}=require('./project-codec.cjs');const folder=await fs.mkdtemp(path.join(os.tmpdir(),'pixelmend-late-stream-'));let resolve,signal;
+ const pending=new Promise(r=>resolve=r);
+ try{
+  await assert.rejects(writeProject(path.join(folder,'missing','project.pixelmend'),document,(_photo,options)=>{signal=options?.signal;return pending;}));
+  const source=new Readable({read(){this.push(Buffer.alloc(65536));}});resolve(source);await new Promise(r=>setImmediate(r));
+  assert.equal(source.destroyed,true);assert.equal(signal?.aborted,true);
+ }finally{await fs.rm(folder,{recursive:true,force:true});}
+});
