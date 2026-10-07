@@ -155,3 +155,16 @@ def test_sdxl_rejects_nonfinite_mps_latents_instead_of_publishing_black_output(t
 
     with pytest.raises(sdxl_worker.SDXLRuntimeUnavailable, match='sayısal'):
         sdxl_worker.run_sdxl_inpaint(tmp_path, source, mask)
+
+
+@pytest.mark.parametrize('shape,selection',[
+    ((100,2000),(slice(40,60),slice(500,1400))),
+    ((2000,100),(slice(500,1400),slice(40,60))),
+    ((1600,1600),(slice(900,1500),slice(900,1500))),
+])
+def test_bounded_crop_keeps_entire_selection(shape,selection):
+    mask=np.zeros(shape,np.uint8);mask[selection]=255
+    x0,y0,x1,y1=context_box(mask,maximum=1024)
+    kept=np.zeros_like(mask);kept[y0:y1,x0:x1]=mask[y0:y1,x0:x1]
+    np.testing.assert_array_equal(kept,mask)
+    assert x1-x0<=1024 and y1-y0<=1024

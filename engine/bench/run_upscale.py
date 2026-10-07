@@ -55,6 +55,21 @@ def measure(adapter, pixels, target):
         worker.join()
 
 
+def benchmark_runs(adapter,pixels,target,runs):
+    """Retain metrics and the last export image, never prior pixel outputs."""
+    if runs<1:raise ValueError('runs must be positive')
+    result,cold_seconds,cold_peak=measure(adapter,pixels,target)
+    del result
+    seconds=[];peaks=[]
+    for index in range(runs):
+        result,elapsed,peak=measure(adapter,pixels,target)
+        seconds.append(elapsed);peaks.append(peak)
+        if index<runs-1:del result
+    return result,{'cold_seconds':cold_seconds,'warm_seconds':seconds,
+                   'warm_median_seconds':statistics.median(seconds),
+                   'host_peak_rss_bytes':max(cold_peak,*peaks)}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model', type=Path, required=True)
@@ -89,8 +104,6 @@ def main():
     provider_cache = args.coreml_cache or args.out.parent / 'cpu-no-cache'
     providers = runtime_providers(args.provider, provider_cache)
     adapter_class = RealESRGANUpscale if args.architecture == 'realesrgan' else Swin2SRUpscale
-    adapter = adapter_class(args.model, providers=providers, tile_size=args.tile_size,
-                            overlap=args.overlap)
     rows = []
     for fixture in fixtures:
         required = {'id', 'path', 'source_url', 'license', 'downloaded_at', 'sha256',
@@ -112,22 +125,21 @@ def main():
             adapter = adapter_class(args.model, providers=providers,
                 tile_size=args.tile_size, overlap=args.overlap)
             load_seconds = time.monotonic() - loaded
-            cold = measure(adapter, pixels, target)
-            samples = [measure(adapter, pixels, target) for _ in range(args.runs)]
-            result, _, peak = samples[-1]
+            result, metrics = benchmark_runs(adapter, pixels, target, args.runs)
             Image.fromarray(result).save(images / f"{fixture['id']}-{name}-ai.png")
             Image.fromarray(pixels).resize(target, Image.Resampling.LANCZOS).save(images / f"{fixture['id']}-{name}-lanczos.png")
-            print(f"{fixture['id']} {name}: {cold[1]:.2f}s cold", flush=True)
+            print(f"{fixture['id']} {name}: {metrics['cold_seconds']:.2f}s cold", flush=True)
             rows.append({'session_load_seconds': load_seconds, 'fixture': fixture['id'], 'source_url': fixture['source_url'],
                          'license': fixture['license'], 'fixture_sha256': fixture['sha256'],
                          'target': name, 'width': target[0], 'height': target[1],
                          'raw_rgb_sha256': hashlib.sha256(result.tobytes()).hexdigest(),
-                         'cold_seconds': round(cold[1], 6),
-                         'warm_seconds': [round(sample[1], 6) for sample in samples],
-                         'warm_median_seconds': statistics.median(sample[1] for sample in samples),
-                         'host_peak_rss_bytes': max(cold[2], *(sample[2] for sample in samples)), 'device_peak_bytes': None,
+                         'cold_seconds': round(metrics['cold_seconds'], 6),
+                         'warm_seconds': [round(value, 6) for value in metrics['warm_seconds']],
+                         'warm_median_seconds': metrics['warm_median_seconds'],
+                         'host_peak_rss_bytes': metrics['host_peak_rss_bytes'], 'device_peak_bytes': None,
                          'tile_seam_check': 'manual_review_required',
                          'lanczos_comparison': 'manual_review_required'})
+            del result, adapter
     report = {'created_at': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),
               'onnxruntime': ort.__version__, 'provider': args.provider,
               'model': {'provider_identity': args.provider, 'architecture': args.architecture,

@@ -25,14 +25,12 @@ def context_box(mask: np.ndarray, *, maximum: int = 1024) -> tuple[int, int, int
     if right - left > maximum or bottom - top > maximum:
         raise ValueError('selection exceeds the advanced model context limit')
     padding = max(32, max(right - left, bottom - top) // 2)
-    left, top = max(0, left - padding), max(0, top - padding)
-    right, bottom = min(width, right + padding), min(height, bottom + padding)
-    if right - left > maximum:
-        right = min(width, left + maximum)
-        left = max(0, right - maximum)
-    if bottom - top > maximum:
-        bottom = min(height, top + maximum)
-        top = max(0, bottom - maximum)
+    def axis(start,end,dimension):
+        length=min(maximum,dimension,end-start+2*padding)
+        origin=max(0,min((start+end-length)//2,dimension-length))
+        return origin,origin+length
+    left,right=axis(left,right,width)
+    top,bottom=axis(top,bottom,height)
     return left, top, right, bottom
 
 
